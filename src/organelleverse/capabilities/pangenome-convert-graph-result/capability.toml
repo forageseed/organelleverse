@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.convert_graph_result"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Convert Pangenome Graph"
+description = "Convert a verified graph Result between GFA and OG or from GFA to VG, preserving source lineage and validating graph roundtrips."
+keywords = ["graph", "pangenome", "paths", "result"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.graph_operations:convert_graph_result"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

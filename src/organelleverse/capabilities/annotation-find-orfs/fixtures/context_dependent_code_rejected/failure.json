@@ -1,0 +1,4 @@
+{
+  "failure_code": "parameters.invalid_orf_options",
+  "message": "context-dependent dual-coding stop tables are not supported"
+}

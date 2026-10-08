@@ -1,0 +1,34 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.write_nuclear_transfer_ideogram"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Write Nuclear Transfer Ideogram"
+description = "Render a prepared nuclear-transfer ideogram to an image file."
+keywords = ["analyze", "ideogram", "nuclear", "restored", "result", "transfer", "visualization", "write"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.suite_plots:write_nuclear_transfer_ideogram"
+side_effects = ["write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"
+
+[[contract.binding.parameters]]
+name = "result"
+codec = "legacy_result"
+
+[[contract.binding.parameters]]
+name = "output"
+codec = "path"
+path_role = "output"

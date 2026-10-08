@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "population.cytonuclear_gwas"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Cytonuclear Gwas"
+description = "Plan or run cytonuclear association in a managed run directory."
+keywords = ["analyze", "cytonuclear", "gwas", "population", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.population.service:cytonuclear_gwas"
+side_effects = ["write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "vcf_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "phenotype"
+codec = "path"

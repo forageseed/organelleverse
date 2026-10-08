@@ -1,0 +1,18 @@
+{
+  "database_id": "oatkdb",
+  "version": "v20230921",
+  "source_commit": "75e8db0ac4a7d508a9a518d900876003ceb70737",
+  "license": "MIT",
+  "files": [
+    {"name": "embryophyta_mito.fam", "sha256": "3b63cc59e110e50b18e4d4f0a6e4fff53aa9b23c9582266a9c9dfdeb41e8b35e", "size_bytes": 10162455},
+    {"name": "embryophyta_mito.fam.h3f", "sha256": "b5551f4304c1506d8adfc5ff17e398d9c806099d9bff09b9918aa8480e861c1d", "size_bytes": 2490682},
+    {"name": "embryophyta_mito.fam.h3i", "sha256": "a691be72f9f7efabb4d06c58edeb511df8315225e36c7c0df611d8a1cd9f168c", "size_bytes": 3047},
+    {"name": "embryophyta_mito.fam.h3m", "sha256": "80c21bc69c218dc03f981ea2327be8b4c19d9e0223229e5ff65413ed8b82bc8a", "size_bytes": 3729866},
+    {"name": "embryophyta_mito.fam.h3p", "sha256": "d6c667ed468655f6d39f376d7c4fe3783374698edd685aaaffbee8afbb25590c", "size_bytes": 9180501},
+    {"name": "embryophyta_pltd.fam", "sha256": "4c8010f9562556ab069a4e445bfeb5b61ea4f5729ac555853b022c957c3c87cd", "size_bytes": 15229776},
+    {"name": "embryophyta_pltd.fam.h3f", "sha256": "75c21ed4e0dcc0075fca0167fbc3082fc2537e72b411d064ae7c6633ea2632da", "size_bytes": 3776688},
+    {"name": "embryophyta_pltd.fam.h3i", "sha256": "fff2f5ab48aa1fb8188824f3fcba07dc7fe0b5be704fbbf4403cb5e415a0113b", "size_bytes": 4811},
+    {"name": "embryophyta_pltd.fam.h3m", "sha256": "3fbfc234baa9c16fe4fb95f36c4de6e5e1aff0a19bbbe76d16f7880a554583ac", "size_bytes": 5589384},
+    {"name": "embryophyta_pltd.fam.h3p", "sha256": "93503410f33205d65b6018d734e6269eb1ffdc7408a86adeb9aaf89cfc333e8c", "size_bytes": 13759366}
+  ]
+}

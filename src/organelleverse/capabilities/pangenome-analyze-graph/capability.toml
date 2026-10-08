@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.analyze_graph"
+bundle_version = "1.2.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Analyze Pangenome Graph"
+description = "Analyze a verified graph Result: sample and path PAV with configurable core threshold (strict 1.0 by default), graph statistics, PAV or aligned-sequence phylogeny, annotation projection, and source-linked report. Advanced inputs select verified artifacts from the same Result by artifact_id."
+keywords = ["graph", "pangenome", "pav", "phylogeny", "report"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.analysis_service:analyze_graph"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

@@ -1,0 +1,38 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.test_topologies"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Test Candidate Tree Topologies"
+description = "Use IQ-TREE likelihoods and RELL resampling to compare candidate phylogenies with AU, SH, and KH tests."
+keywords = ["au", "iq-tree", "phylogeny", "sh", "topology", "tree-comparison"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.topology:test_topologies"
+side_effects = ["subprocess", "write_files"]
+deterministic = false
+deterministic_reason = "IQ-TREE RELL resampling and multithreaded likelihood search can change p-values in the last digits between runs even with a fixed seed."
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "candidate_trees"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "model"
+codec = "json"

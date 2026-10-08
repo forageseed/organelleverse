@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phenotype.write_cms_evidence"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Write CMS evidence"
+description = "Export full CMS evidence JSON and separate evidence columns in TSV."
+keywords = ["cms", "evidence", "homology", "phenotype", "reference"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.phenotype.cms.evidence:write_cms_evidence"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

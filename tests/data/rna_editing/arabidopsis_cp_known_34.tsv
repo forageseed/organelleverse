@@ -1,0 +1,35 @@
+site_id	seqid	position	ref	edited	strand	gene	region	source_position	source_codon	source_aa_change	coordinate_note
+matK-2931	NC_000932.1	2931	G	A	-	matK	CDS	2931	236 Cau	H>Y	as_published
+atpF-12707	NC_000932.1	12707	G	A	-	atpF	CDS	12707	31 cCa	P>L	as_published
+rpoC1-21806	NC_000932.1	21806	G	A	-	rpoC1	CDS	21806	170 uCA	S>L	as_published
+rpoB-23898	NC_000932.1	23898	G	A	-	rpoB	CDS	23898	811 uCa	S>L	as_published
+rpoB-25779	NC_000932.1	25779	G	A	-	rpoB	CDS	25779	184 uCa	S>L	as_published
+rpoB-25992	NC_000932.1	25992	G	A	-	rpoB	CDS	25992	113 uCu	S>L	as_published
+psbZ-35800	NC_000932.1	35800	C	T	+	psbZ	CDS	35800	17 uCa	S>L	as_published
+rps14-37092	NC_000932.1	37092	G	A	-	rps14	CDS	37092	50 cCa	P>L	as_published
+rps14-37161	NC_000932.1	37161	G	A	-	rps14	CDS	37161	27 uCa	S>L	as_published
+accD-57868	NC_000932.1	57868	C	T	+	accD	CDS	57868	265 uCg	S>L	as_published
+accD-58642	NC_000932.1	58642	C	T	+	accD	3′UTR	58642			as_published
+psbF-63985	NC_000932.1	63985	G	A	-	psbF	CDS	63985	26 uCu	S>F	as_published
+psbE-64109	NC_000932.1	64109	G	A	-	psbE	CDS	64109	72 Ccu	P>S	as_published
+petL-65716	NC_000932.1	65716	C	T	+	petL	CDS	65716	2 cCu	P>L	as_published
+rps12-69553	NC_000932.1	69553	G	A	-	rps12	intron	69553			as_published
+clpP-69942	NC_000932.1	69942	G	A	-	clpP	CDS	69942	187 Cau	H>Y	as_published
+rpoA-78691	NC_000932.1	78691	G	A	-	rpoA	CDS	78691	67 uCu	S>F	as_published
+rpl23-86055	NC_000932.1	86055	G	A	-	rpl23	CDS	86056	30 uCa	S>L	rpl23_codon30_position2_maps_to_86055;published_86056_is_A
+ndhB-94999	NC_000932.1	94999	G	A	-	ndhB	CDS	94999	494 cCa	P>L	as_published
+ndhB-95225	NC_000932.1	95225	G	A	-	ndhB	CDS	95225	419 Cau	H>Y	as_published
+ndhB-95608	NC_000932.1	95608	G	A	-	ndhB	CDS	95608	291 uCa	S>L	as_published
+ndhB-95644	NC_000932.1	95644	G	A	-	ndhB	CDS	95644	279 uCa	S>L	as_published
+ndhB-95650	NC_000932.1	95650	G	A	-	ndhB	CDS	95650	277 uCa	S>L	as_published
+ndhB-96419	NC_000932.1	96419	G	A	-	ndhB	CDS	96419	249 uCu	S>F	as_published
+ndhB-96579	NC_000932.1	96579	G	A	-	ndhB	CDS	96579	196 Cau	H>Y	as_published
+ndhB-96698	NC_000932.1	96698	G	A	-	ndhB	CDS	96698	156 cCa	P>L	as_published
+ndhB-97016	NC_000932.1	97016	G	A	-	ndhB	CDS	97016	50 uCa	S>L	as_published
+ndhF-112349	NC_000932.1	112349	G	A	-	ndhF	CDS	112349	97 uCa	S>L	as_published
+ndhD-116281	NC_000932.1	116281	G	A	-	ndhD	CDS	116281	296 cCc	P>L	as_published
+ndhD-116290	NC_000932.1	116290	G	A	-	ndhD	CDS	116290	293 uCa	S>L	as_published
+ndhD-116494	NC_000932.1	116494	G	A	-	ndhD	CDS	116494	225 uCa	S>L	as_published
+ndhD-116785	NC_000932.1	116785	G	A	-	ndhD	CDS	116785	128 uCa	S>L	as_published
+ndhD-117166	NC_000932.1	117166	G	A	-	ndhD	CDS	117166	1 aCg	>M	as_published
+ndhG-118858	NC_000932.1	118858	G	A	-	ndhG	CDS	118858	17 uCc	S>F	as_published

@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "transfer.detect_transfers_blast"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Detect Transfers Blast"
+description = "Identify NUMT/NUPT candidates via BLASTN (layer 1)."
+keywords = ["analyze", "blast", "detect", "restored", "result", "transfer", "transfers"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.transfer.transfer:detect_transfers_blast"
+side_effects = ["subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "nuclear_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle_fasta"
+codec = "path"

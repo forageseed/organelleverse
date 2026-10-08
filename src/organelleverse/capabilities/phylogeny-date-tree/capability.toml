@@ -1,0 +1,78 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.date_tree"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Date Tree"
+description = "Estimate divergence ages in Ma with IQ-TREE/LSD2 hard bounds and degenerate-time warnings, or partitioned two-chain MCMCTree relaxed clocks, soft calibrations, posterior HPD and convergence diagnostics. All tips are extant."
+keywords = ["calibration", "dating", "divergence", "iqtree", "lsd2", "mcmctree", "phylogeny"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.service:date_tree"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = false
+deterministic_reason = "LSD2 resampling and MCMCTree posterior sampling are stochastic."
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "tree_newick"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "calibrations"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "outgroup"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "model"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "partition_nexus"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "ci_replicates"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "clock_sd"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dry_run"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mcmctree_options"
+codec = "json"

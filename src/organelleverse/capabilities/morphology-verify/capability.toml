@@ -1,0 +1,46 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.verify"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Verify"
+description = "Verify segmented objects with the configured multimodal model via per-object cropped, constrained closed questions; verdicts (agree/disagree/uncertain) are pinned to model id, version, and prompt hash. The model never generates or modifies masks."
+keywords = ["analyze", "morphology", "provenance", "result", "verify"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.verify:verify"
+side_effects = ["read_files", "network"]
+deterministic = false
+deterministic_reason = "Verdicts depend on a remote multimodal model that may update."
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "label_map"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "image"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "model"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "model_version"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "on_disagree"
+codec = "json"

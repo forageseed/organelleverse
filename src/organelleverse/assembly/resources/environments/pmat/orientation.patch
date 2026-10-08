@@ -1,0 +1,63 @@
+--- a/graphtools.c
++++ b/graphtools.c
+@@ -516,15 +516,15 @@
+             fprintf(fprawgfa, "L\t%d\t", (*bfslinks)[i].lctgsmp);
+             if ((*bfslinks)[i].lutrsmp == (*bfslinks)[i].rutrsmp) {
+                 if ((*bfslinks)[i].lutrsmp == 3) {
++                    fprintf(fprawgfa, "+\t%d\t-\t0M\n", (*bfslinks)[i].rctgsmp);
++                } else if ((*bfslinks)[i].lutrsmp == 5) {
+                     fprintf(fprawgfa, "-\t%d\t+\t0M\n", (*bfslinks)[i].rctgsmp);
+-                } else if ((*bfslinks)[i].lutrsmp == 5) {
+-                    fprintf(fprawgfa, "+\t%d\t-\t0M\n", (*bfslinks)[i].rctgsmp);
+                 }
+             } else {
+                 if ((*bfslinks)[i].lutrsmp == 3) {
++                    fprintf(fprawgfa, "+\t%d\t+\t0M\n", (*bfslinks)[i].rctgsmp);
++                } else if ((*bfslinks)[i].lutrsmp == 5) {
+                     fprintf(fprawgfa, "-\t%d\t-\t0M\n", (*bfslinks)[i].rctgsmp);
+-                } else if ((*bfslinks)[i].lutrsmp == 5) {
+-                    fprintf(fprawgfa, "+\t%d\t+\t0M\n", (*bfslinks)[i].rctgsmp);
+                 }
+             }
+         }
+@@ -1052,15 +1052,15 @@
+             fprintf(fpmaingfa, "L\t%d\t", mainlinks[i].lctgsmp);
+             if (mainlinks[i].lutrsmp == mainlinks[i].rutrsmp) {
+                 if (mainlinks[i].lutrsmp == 3) {
++                    fprintf(fpmaingfa, "+\t%d\t-\t0M\n", mainlinks[i].rctgsmp);
++                } else if (mainlinks[i].lutrsmp == 5) {
+                     fprintf(fpmaingfa, "-\t%d\t+\t0M\n", mainlinks[i].rctgsmp);
+-                } else if (mainlinks[i].lutrsmp == 5) {
+-                    fprintf(fpmaingfa, "+\t%d\t-\t0M\n", mainlinks[i].rctgsmp);
+                 }
+             } else {
+                 if (mainlinks[i].lutrsmp == 3) {
++                    fprintf(fpmaingfa, "+\t%d\t+\t0M\n", mainlinks[i].rctgsmp);
++                } else if (mainlinks[i].lutrsmp == 5) {
+                     fprintf(fpmaingfa, "-\t%d\t-\t0M\n", mainlinks[i].rctgsmp);
+-                } else if (mainlinks[i].lutrsmp == 5) {
+-                    fprintf(fpmaingfa, "+\t%d\t+\t0M\n", mainlinks[i].rctgsmp);
+                 }
+             }
+         }
+--- a/path2fa.c
++++ b/path2fa.c
+@@ -37,9 +37,9 @@
+ /*  Function to reverse complement a sequence */
+ char *convert_seq(const char *seq, int flag) {
+     uint64_t i;
+-    if (flag == 3) {
++    if (flag == 5) {
+         return strdup(seq);
+-    } else if (flag == 5) {
++    } else if (flag == 3) {
+         size_t len = strlen(seq);
+         char *rev_comp = (char *)malloc(len + 1);
+         if (!rev_comp) {
+--- a/version.h
++++ b/version.h
+@@ -28,3 +28,3 @@
+ 
+-#define VERSION_PMAT "2.1.5"
++#define VERSION_PMAT "2.1.5 + OrganelleVerse orientation patch"
+ 

@@ -1,0 +1,29 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "coevolution.normalize_edge_mean"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Normalize Edge Mean"
+description = "Normalize each species-tree edge by its cross-gene mean."
+keywords = ["analyze", "coevolution", "edge", "mean", "normalize", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.coevolution._bxb_extract:normalize_edge_mean"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "normalized_matrix"
+
+[[contract.binding.parameters]]
+name = "matrix"
+codec = "json"

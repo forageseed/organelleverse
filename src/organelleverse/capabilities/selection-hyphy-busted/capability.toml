@@ -1,0 +1,54 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.hyphy_busted"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "HyPhy BUSTED"
+description = "Gene-wide test for episodic diversifying selection with HyPhy BUSTED on a codon alignment and tree; foreground branches follow the codeml #1 labelling convention. Returns LRT, p-value, omega distribution and high evidence-ratio sites, and keeps HyPhy's raw JSON."
+keywords = ["busted", "codon", "episodic", "hyphy", "positive-selection", "selection"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.hyphy:hyphy_busted"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = false
+deterministic_reason = "HyPhy seeds its rate-class optimisation from random starting points, so likelihoods can differ in the last digits between runs."
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "tree"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "foreground_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mark_clade"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "alpha"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "srv"
+codec = "json"

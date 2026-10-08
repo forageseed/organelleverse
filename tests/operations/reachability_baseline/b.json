@@ -1,0 +1,10 @@
+[
+  {
+    "blocks": [
+      "assembly.pmat_graph_build"
+    ],
+    "first_recorded": "2026-07-25",
+    "missing": "pmat_graph_input",
+    "tracked_by": "design section 11.8 - a pmat_graph_input producer; class (i) with a DataContract and validator but no construction site anywhere, it survives every other intervention"
+  }
+]

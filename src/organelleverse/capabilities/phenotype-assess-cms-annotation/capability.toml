@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phenotype.assess_cms_annotation"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Assess annotated CMS evidence"
+description = "Join canonical mitochondrial CDS locations and neighbors, Rust LOSAT protein homology, TMbed predictions, TPM contrasts and selected unphased RNA-edited proteins; no causal score."
+keywords = ["annotation", "cms", "evidence", "topology"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.phenotype.cms.annotation_evidence:assess_cms_annotation"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

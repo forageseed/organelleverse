@@ -1,0 +1,14 @@
+{
+  "fixture_id": "ddAraThal4-organelle-hifi-v1",
+  "doi": "10.5281/zenodo.10367917",
+  "url": "https://zenodo.org/records/10367917/files/ddAraThal4_organelle.hifi.fa.gz?download=1",
+  "license": "CC-BY-4.0",
+  "credit": "Chenxi Zhou",
+  "technology": "pacbio_hifi",
+  "quality_state": "ccs",
+  "md5": "a8f6b96e84a4f2d5856ef5496b3c9a1f",
+  "sha256": "18960f44a75221164fa2c4f2a0e9b6f4baf6c417371989720de9c352d660b0b4",
+  "size_bytes": 44849451,
+  "mitochondrial_markers": ["cox1", "cox2", "cox3", "cob", "nad1", "atp1", "atp6"],
+  "plastid_markers": ["rbcl", "psaa", "psba", "atpb", "rpob"]
+}

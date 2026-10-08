@@ -1,0 +1,23 @@
+{
+  "kind": "result",
+  "schema_version": "organelleverse.result.v1",
+  "operation_id": "qc.read_statistics",
+  "operation_version": "1.0",
+  "scope": "none",
+  "status": "ok",
+  "summary_text": "Read QC: read_statistics",
+  "metrics": {
+    "bases": 12,
+    "mean_length": 4.0,
+    "mean_quality": 23.333333333333332,
+    "median_length": 4.0,
+    "n50": 6,
+    "reads": 3
+  },
+  "findings": [],
+  "flags": [],
+  "artifacts": [],
+  "provenance": null,
+  "errors": [],
+  "suggested_operations": []
+}

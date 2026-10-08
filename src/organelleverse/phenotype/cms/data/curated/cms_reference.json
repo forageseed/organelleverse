@@ -1,0 +1,28 @@
+[
+  {
+    "name": "orf79",
+    "accession": "BAA18902.1",
+    "nucleotide_accession": "D14339.1",
+    "species": "Oryza sativa Indica Group",
+    "length_aa": 79,
+    "cms_type": "BT-CMS",
+    "record_url": "https://www.ncbi.nlm.nih.gov/nuccore/D14339.1",
+    "protein_url": "https://www.ncbi.nlm.nih.gov/protein/BAA18902.1",
+    "publication": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1383642/",
+    "download_date": "2026-10-01",
+    "evidence": "Accession-checked known CMS reference; homology in a query does not establish its phenotype"
+  },
+  {
+    "name": "orf138",
+    "accession": "CAA79332.1",
+    "nucleotide_accession": "Z18896.1",
+    "species": "Raphanus sativus",
+    "length_aa": 138,
+    "cms_type": "Ogu-CMS",
+    "record_url": "https://www.ncbi.nlm.nih.gov/nuccore/Z18896.1",
+    "protein_url": "https://www.ncbi.nlm.nih.gov/protein/CAA79332.1",
+    "publication": "https://pubmed.ncbi.nlm.nih.gov/8000006/",
+    "download_date": "2026-10-01",
+    "evidence": "Accession-checked known CMS reference; homology in a query does not establish its phenotype"
+  }
+]

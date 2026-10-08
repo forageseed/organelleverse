@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.summarize"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Summarize"
+description = "Aggregate per-object measurements into per-class summary statistics."
+keywords = ["analyze", "morphology", "restored", "result", "summarize"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.measure:summarize"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "numpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "morphology_summary"
+
+[[contract.binding.parameters]]
+name = "per_object"
+codec = "json"

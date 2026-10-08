@@ -1,0 +1,19 @@
+{
+  "version": "mitochondrion_cleanroom_v1",
+  "organelle": "mitochondrion",
+  "provenance": "OrganelleVerse-authored initial parameters calibrated against bundled Ranunculus PMGA-positive and native hard-negative fixtures.",
+  "min_structure_score": 20.0,
+  "min_total_score": 50.0,
+  "stem_weights": {
+    "acceptor": 1.5,
+    "d_arm": 0.8,
+    "anticodon": 1.4,
+    "t_arm": 1.2
+  },
+  "critical_stems": ["acceptor", "anticodon", "t_arm"],
+  "critical_stem_bonus": 8.0,
+  "anticodon_match_score": 6.0,
+  "anticodon_mismatch_penalty": 8.0,
+  "no_structure_penalty": 30.0,
+  "low_complexity_penalty": 12.0
+}

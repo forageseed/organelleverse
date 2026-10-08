@@ -1,0 +1,34 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "population.compute_fst"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compute Fst"
+description = "Compute per-site F_ST from a VCF using the heterozygosity-ratio estimator."
+keywords = ["analyze", "compute", "fst", "population", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.population.population_core:compute_fst"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "fst"
+
+[[contract.binding.parameters]]
+name = "vcf_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "pop_assignments"
+codec = "json"

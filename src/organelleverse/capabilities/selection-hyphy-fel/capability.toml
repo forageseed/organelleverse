@@ -1,0 +1,54 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.hyphy_fel"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "HyPhy FEL"
+description = "Site-level test for pervasive positive or negative selection with HyPhy FEL; lists significant codon sites and keeps HyPhy's raw JSON."
+keywords = ["codon", "fel", "hyphy", "pervasive", "selection", "site"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.hyphy:hyphy_fel"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = false
+deterministic_reason = "HyPhy seeds its rate-class optimisation from random starting points, so likelihoods can differ in the last digits between runs."
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "tree"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "foreground_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mark_clade"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "alpha"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "srv"
+codec = "json"

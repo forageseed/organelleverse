@@ -1,0 +1,124 @@
+{
+  "profiles": [
+    {
+      "profile": "hifi",
+      "technology": "pacbio_hifi",
+      "quality_state": "ccs",
+      "biosample": "HiMT demo",
+      "study": "HiMT v1.0.7 demo",
+      "platform": "PacBio Sequel II",
+      "license": "https://github.com/tang-shuyuan/HiMT/blob/main/LICENSE",
+      "sources": [
+        {
+          "order": 0,
+          "accession": "demo",
+          "url": "https://github.com/tang-shuyuan/HiMT/releases/download/v1.0.7/demo.fa",
+          "size_bytes": 155069510,
+          "md5": "c33d1772ea808e159409d051fb96ce49",
+          "sha256": "b97379103c581ed4f4c294c6fcc3533ed777fb96d82eef1d53e62718f3b6fb7d",
+          "records": 11208,
+          "platform": "PacBio Sequel II",
+          "library_strategy": "WGS"
+        }
+      ],
+      "reference": null,
+      "selection": null
+    },
+    {
+      "profile": "clr",
+      "technology": "pacbio_clr",
+      "quality_state": "raw",
+      "biosample": "SAMN02724977",
+      "study": "Arabidopsis thaliana Ler-0 PacBio RS II",
+      "platform": "PacBio RS II",
+      "license": "https://www.ncbi.nlm.nih.gov/sra/SRR1284093",
+      "sources": [
+        {
+          "order": 0,
+          "accession": "SRR1284093",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR128/003/SRR1284093/SRR1284093_subreads.fastq.gz",
+          "size_bytes": 419097963,
+          "md5": "a4afff75dd8e344d2bd286413ef92236",
+          "sha256": null,
+          "records": null,
+          "platform": "PacBio RS II",
+          "library_strategy": "WGS"
+        },
+        {
+          "order": 1,
+          "accession": "SRR1284095",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR128/005/SRR1284095/SRR1284095_subreads.fastq.gz",
+          "size_bytes": 379827164,
+          "md5": "d65e7a4c4c6262ff5e93e68cecb516f2",
+          "sha256": null,
+          "records": null,
+          "platform": "PacBio RS II",
+          "library_strategy": "WGS"
+        },
+        {
+          "order": 2,
+          "accession": "SRR1284703",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR128/003/SRR1284703/SRR1284703_subreads.fastq.gz",
+          "size_bytes": 424390458,
+          "md5": "dee4c02b52ef585bf33759fe04e3b325",
+          "sha256": null,
+          "records": null,
+          "platform": "PacBio RS II",
+          "library_strategy": "WGS"
+        }
+      ],
+      "reference": {
+        "accessions": ["NC_037304.1", "NC_000932.1"],
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_037304.1,NC_000932.1&rettype=fasta&retmode=text",
+        "size_bytes": 529892,
+        "md5": "64ed5f5979c83ab3b7fcdf632b63746c",
+        "sha256": "bfdaf1c902c2566c52a158043673758506e8b1189220a57d42acb900a0759dbe"
+      },
+      "selection": {
+        "mapper": "minimap2",
+        "preset": "map-pb",
+        "threads": 1,
+        "min_mapq": 5,
+        "min_aligned_span": 1000,
+        "id_format": "{accession}|{original_id}"
+      }
+    },
+    {
+      "profile": "ont",
+      "technology": "ont",
+      "quality_state": "raw",
+      "biosample": "SAMEA113427147",
+      "study": "Arabidopsis thaliana Are-6 PromethION",
+      "platform": "ONT PromethION",
+      "license": "https://www.ebi.ac.uk/ena/browser/view/ERR11436628",
+      "sources": [
+        {
+          "order": 0,
+          "accession": "ERR11436628",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR114/028/ERR11436628/ERR11436628.fastq.gz",
+          "size_bytes": 6460968828,
+          "md5": "4d8ab1b70bb81ffb983b5ba6ff6cf650",
+          "sha256": null,
+          "records": null,
+          "platform": "ONT PromethION",
+          "library_strategy": "WGS"
+        }
+      ],
+      "reference": {
+        "accessions": ["NC_037304.1", "NC_000932.1"],
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_037304.1,NC_000932.1&rettype=fasta&retmode=text",
+        "size_bytes": 529892,
+        "md5": "64ed5f5979c83ab3b7fcdf632b63746c",
+        "sha256": "bfdaf1c902c2566c52a158043673758506e8b1189220a57d42acb900a0759dbe"
+      },
+      "selection": {
+        "mapper": "minimap2",
+        "preset": "map-ont",
+        "threads": 1,
+        "min_mapq": 5,
+        "min_aligned_span": 1000,
+        "id_format": "{accession}|{original_id}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.check_hyphy"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Check HyPhy"
+description = "Locate the HyPhy executable (argument, ORGANELLEVERSE_HYPHY, PATH, conda envs) and report its version and which selection batch files (BUSTED/aBSREL/RELAX/MEME/FEL) are installed."
+keywords = ["check", "hyphy", "install", "selection"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.hyphy:check_hyphy"
+side_effects = ["subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "hyphy_status"

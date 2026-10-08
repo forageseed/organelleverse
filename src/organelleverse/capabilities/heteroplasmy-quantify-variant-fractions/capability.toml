@@ -1,0 +1,81 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "heteroplasmy.quantify_variant_fractions"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Quantify Known Organelle Variant Fractions"
+description = "Estimate quality-filtered alternate-allele fractions at user-supplied SNV sites from indexed BAM/CRAM; not a variant caller or structural-path estimator. Optionally masks sites in BED or other-organelle homologous regions (MTPT/NUMT) instead of reporting them; by default a mitochondrial run with a reference_fasta searches the package's bundled plastomes for plastid-derived inserts, and nuclear_reference_fasta additionally masks NUMT/NUPT copies."
+keywords = ["allele_fraction", "bam", "heteroplasmy", "pileup", "substoichiometric"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.heteroplasmy:quantify_variant_fractions"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "bam_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "sites_tsv"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "scope"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_mapping_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_base_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "exclude_duplicates"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reference_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "mask_regions_bed"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "homology_reference_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "homology_min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "homology_min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "auto_homology_mask"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "nuclear_reference_fasta"
+codec = "path"

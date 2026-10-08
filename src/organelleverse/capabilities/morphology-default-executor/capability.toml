@@ -1,0 +1,58 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.default_executor"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Default Executor"
+description = "Default OrgSegNet inference executor using the real mmseg API."
+keywords = ["analyze", "default", "executor", "morphology", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.orgseg:default_executor"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "PIL"
+
+[[contract.dependencies]]
+kind = "python"
+name = "mmseg"
+
+[[contract.dependencies]]
+kind = "python"
+name = "numpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"
+
+[[contract.binding.parameters]]
+name = "config"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "checkpoint"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "device"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "image_paths"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "out_dir"
+codec = "directory"
+path_role = "output"

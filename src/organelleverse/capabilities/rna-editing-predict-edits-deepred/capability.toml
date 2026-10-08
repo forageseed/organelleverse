@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "rna_editing.predict_edits_deepred"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Predict Edits Deepred"
+description = "Predict C-to-U editing sites via Deepred-Mt deep neural network."
+keywords = ["analyze", "deepred", "edits", "genome", "predict", "restored", "result", "rna_editing"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+output_kind = "result"
+callable_locator = "organelleverse.rna_editing.rna_edit:predict_edits_deepred"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

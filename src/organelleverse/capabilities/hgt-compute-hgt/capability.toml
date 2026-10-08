@@ -1,0 +1,34 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "hgt.compute_hgt"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compute Hgt"
+description = "Detect HGT candidates with minimap2/mappy-style local alignment."
+keywords = ["analyze", "compute", "hgt", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.hgt.hgt_core:compute_hgt"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "hgt_candidates"
+
+[[contract.binding.parameters]]
+name = "donor_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "recipient_fasta"
+codec = "path"

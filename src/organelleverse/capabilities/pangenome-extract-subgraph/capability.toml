@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.extract_subgraph"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Extract Pangenome Subgraph"
+description = "Extract a validated induced subgraph by paths, nodes, a half-open path interval or exact gene names from verified graph annotation evidence."
+keywords = ["genes", "graph", "pangenome", "paths", "result"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.graph_operations:extract_subgraph"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

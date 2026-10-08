@@ -1,0 +1,20 @@
+# Generated; recompute with organelleverse.assets.compute_content.
+schema = "organelleverse.asset.v1"
+
+[asset]
+namespace = "phenotype"
+name = "cms_reference"
+version = "1.0"
+summary = "Unverified legacy CMS files retained for traceability; default getters use the nested checked seed."
+
+[content]
+files = 12
+bytes = 93258
+merkle = "sha256:78147db8ec397828c57836593c50399a2c4fba5de903eeebe4696d9c04c8a9e7"
+
+[provenance]
+source = "NCBI protein (Entrez efetch), accessions listed in cms_reference.json"
+license = ""
+rebuild = ""
+derived_from = []
+notes = "Legacy catalog is not scientifically validated: 34 of 35 packaged FASTA records disagree with declared protein lengths. Default getters use the nested accession-checked ORF79/ORF138 seed. The current downloader validates that seed and publishes to cache; it does not rebuild or overwrite these legacy files. Models and curated/ are separate nested assets."

@@ -1,0 +1,244 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "organelleverse"
+version = "1.0.0"
+description = "Plant organelle assembly, annotation, retrieval, and quality control."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "PhytoOrga AI Team" }]
+keywords = [
+    "bioinformatics",
+    "mitochondria",
+    "chloroplast",
+    "plastid",
+    "plant",
+    "organelle",
+    "genome",
+    "assembly",
+    "annotation",
+    "quality-control",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "annotated-types>=0.7",
+    "biopython>=1.85",
+    "gfapy>=1.0",
+    "jsonschema>=4.18",
+    "matplotlib>=3.8",
+    "nbformat>=5.10",
+    "numpy>=1.26",
+    "packaging>=23",
+    "pydantic>=2.12.3",
+    "pyarrow>=18",
+    "PyYAML>=6,<7",
+    "pyhmmer>=0.7",
+    # Primer3 C library bindings for marker-primer design
+    # (barcode.design_marker_primers); wheels ship for all desktop platforms.
+    "primer3-py>=2.0",
+    "scikit-image>=0.22",
+    "scipy>=1.12",
+]
+
+[project.scripts]
+organelleverse-environments = "organelleverse.tools.environment_cli:main"
+organelleverse-capability = "organelleverse.tools.capability_cli:main"
+
+[project.optional-dependencies]
+orf = ["orfipy>=0.0.4"]
+hotplug = ["watchdog>=4,<7"]
+# BAM/alignment evidence (qc.assembly graph/mapping evidence, transfer depth
+# validation). pysam publishes no Windows wheel (T-G2), so it can never be a
+# core dependency; without it the affected operations fail closed naming the
+# missing package and this extra.
+qc = [
+    "pysam>=0.22",
+]
+# Anchored segmental alignment for comparative.compute_genome_identity
+# (mVISTA-style tracks). Neither mappy nor edlib publishes a Windows wheel,
+# so like pysam they stay optional; identity.py imports them lazily and fails
+# closed with OrganelleDependencyError naming the package and this extra.
+align = [
+    "edlib>=1.3.9",
+    "mappy>=2.24",
+]
+dev = [
+    # Real reference engine for the independent ORF capability regressions.
+    "orfipy>=0.0.4",
+    "build>=1.2,<2",
+    # Release tests build plugins without isolation as well as project archives.
+    "hatchling",
+    "setuptools>=68",
+    "wheel",
+    "httpx>=0.27,<1",
+    "pyright>=1.1.390,<2",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.15,<1",
+    # Canonical optional backends the committed exact-equivalence fixtures are
+    # generated against. The runtime code degrades to pure-Python fallbacks
+    # when these are absent, but then produced values legitimately differ from
+    # the committed fixtures (backend identity is part of the result), so the
+    # test/verification environment must pin them.
+    "pandas>=2.0",
+    "pytrf>=1.3",
+    "scikit-allel>=1.3",
+    "seaborn>=0.13",
+    "vcfpy>=0.13",
+    "edlib>=1.3.9",
+    "mappy>=2.24",
+    # tests/compute drives the L5 provider protocol over the real MCP SDK;
+    # the implementation targets the 2.x lowlevel Server constructor-callback
+    # API (see compute/protocol.py).
+    "mcp>=2,<3",
+]
+report = [
+    "multiqc>=1.22",
+]
+# L5 compute-provider transports (spec §15). Lazy: bare import loads none of them.
+# The SDK pin matches the implemented lowlevel Server constructor-callback API
+# (mcp 2.x; ported from the 1.x decorator API on 2026-08-17).
+compute-mcp = ["mcp>=2,<3"]
+wsl = ["mcp>=2,<3"]
+ssh = ["mcp>=2,<3"]
+slurm = ["mcp>=2,<3"]
+
+[project.entry-points."organelleverse.compute_providers"]
+wsl = "organelleverse.compute.providers.wsl:provider_factory"
+ssh = "organelleverse.compute.providers.ssh:provider_factory"
+slurm = "organelleverse.compute.providers.slurm:provider_factory"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/organelleverse"]
+
+[tool.hatch.build.targets.sdist]
+# The Python distribution is the src package; frontends, vendored runtimes,
+# and agent working dirs ship through their own channels. Without these
+# excludes the sdist swallowed desktop/science-app/node_modules (40k+ files,
+# 160MB) and blew past PyPI's upload limit.
+exclude = [
+    "desktop",
+    "runtime",
+    "rust",
+    ".superpowers",
+    ".github",
+    "scripts",
+    "examples",
+    "upstream-runtime-tests",
+    "node_modules",
+    "docs/reports/**",
+    "docs/superpowers/**",
+    "docs/desktop/**",
+]
+
+[tool.hatch.build]
+exclude = [
+    "docs/reports/**",
+    "docs/superpowers/**",
+    "src/organelleverse/annotation/data/**/*.bak",
+    "src/organelleverse/annotation/data/**/backup_old/**",
+    "tests/**",
+    "tests/output/**",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "--import-mode=importlib",
+    # Default run excludes `slow` (single tests measured >60s; see the marker
+    # list). Run only the slow tests with `-m "slow"`; run everything,
+    # including the slow ones, with `-m ""` (note that also re-selects the
+    # release_* and r_kernel gates excluded here).
+    "-m",
+    "not slow and not release_annotation and not release_assembly_oatk and not release_assembly_himt and not release_assembly_getorganelle and not release_assembly_pmat and not release_assembly_qc and not r_kernel and not integration",
+]
+markers = [
+    "slow: long-running tests excluded by default (run with '-m slow')",
+    "r_kernel: marks tests needing a working local R runtime (deselect with '-m \"not r_kernel\"')",
+    "realdata: tests requiring real genome data",
+    "integration: non-skippable local real-tool integration gates",
+    "release_annotation: non-skippable real-tool annotation release gate",
+    "release_assembly_oatk: non-skippable real-tool Oatk assembly release gate",
+    "release_assembly_himt: non-skippable real-tool HiMT assembly release gate",
+    "release_assembly_getorganelle: non-skippable real-tool GetOrganelle assembly release gate",
+    "release_assembly_pmat: non-skippable real-tool PMAT2 assembly release gate",
+    "release_assembly_qc: environment-controlled real-tool assembly QC gate that consumes an existing assembly Result",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "external_tools",
+    "rust/target",
+    "tests/output",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["B011"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+include = [
+    "src/organelleverse/__init__.py",
+    "src/organelleverse/environments.py",
+    "src/organelleverse/io.py",
+    "src/organelleverse/qc.py",
+    "src/organelleverse/report.py",
+    "src/organelleverse/runtime.py",
+    "src/organelleverse/writer.py",
+    "src/organelleverse/core",
+    "src/organelleverse/assets",
+    "src/organelleverse/io_core",
+    "src/organelleverse/operations",
+    "src/organelleverse/capabilities",
+    "src/organelleverse/assembly",
+    "src/organelleverse/quality_control",
+    "src/organelleverse/reporting/report.py",
+    "src/organelleverse/annotation/genbank.py",
+    "src/organelleverse/annotation/gff3.py",
+    "src/organelleverse/annotation/readers.py",
+    "src/organelleverse/annotation/api.py",
+    "src/organelleverse/annotation/execution.py",
+    "src/organelleverse/annotation/backends",
+    "src/organelleverse/annotation/models.py",
+    "src/organelleverse/annotation/service.py",
+    "src/organelleverse/annotation/validation.py",
+    "src/organelleverse/annotation/writer.py",
+    "src/organelleverse/fetch/nuclear.py",
+    "src/organelleverse/fetch/ngdc.py",
+    "src/organelleverse/fetch/manifest.py",
+    "src/organelleverse/fetch/_http.py",
+    "src/organelleverse/fetch/taxon.py",
+    "src/organelleverse/fetch/_content.py",
+    "src/organelleverse/fetch/imp_cache.py",
+    "src/organelleverse/fetch/gir.py",
+    "src/organelleverse/fetch/imp.py",
+    "src/organelleverse/fetch/pgd.py",
+    "src/organelleverse/fetch/tair.py",
+    "src/organelleverse/fetch/genome_size.py",
+    "tests/contracts",
+    "tests/annotation",
+    "tests/operations",
+    "tests/capabilities",
+    "tests/assembly",
+    "tests/release/test_assembly_oatk_release_gate.py",
+]

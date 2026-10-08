@@ -1,0 +1,394 @@
+{
+  "Acacia_confusa": {
+    "imp_id": "Aco1",
+    "confidence": "heuristic_consistent"
+  },
+  "Actinidia_eriantha": {
+    "imp_id": "Aer2",
+    "confidence": "heuristic_consistent"
+  },
+  "Adansonia_digitata": {
+    "imp_id": "Adi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Adansonia_rubrostipa": {
+    "imp_id": "Aru1",
+    "confidence": "heuristic_consistent"
+  },
+  "Aechmea_fasciata": {
+    "imp_id": "Afa1",
+    "confidence": "heuristic_consistent"
+  },
+  "Agropyron_cristatum": {
+    "imp_id": "Acr1",
+    "confidence": "heuristic_consistent"
+  },
+  "Agrostis_stolonifera": {
+    "imp_id": "Ast1",
+    "confidence": "heuristic_consistent"
+  },
+  "Ammopiptanthus_mongolicus": {
+    "imp_id": "Amo1",
+    "confidence": "heuristic_consistent"
+  },
+  "Amorphophallus_albus": {
+    "imp_id": "Aal1",
+    "confidence": "heuristic_consistent"
+  },
+  "Apios_americana": {
+    "imp_id": "Aam1",
+    "confidence": "heuristic_consistent"
+  },
+  "Apocynum_venetum": {
+    "imp_id": "Ave1",
+    "confidence": "heuristic_consistent"
+  },
+  "Arabidopsis_thaliana": {
+    "imp_id": "Ath1",
+    "confidence": "heuristic_consistent"
+  },
+  "Aristolochia_californica": {
+    "imp_id": "Aca1",
+    "confidence": "heuristic_consistent"
+  },
+  "Artocarpus_heterophyllus": {
+    "imp_id": "Ahe1",
+    "confidence": "heuristic_consistent"
+  },
+  "Astragalus_membranaceus": {
+    "imp_id": "Ame1",
+    "confidence": "heuristic_consistent"
+  },
+  "Avena_longiglumis": {
+    "imp_id": "Alo1",
+    "confidence": "heuristic_consistent"
+  },
+  "Avicennia_marina": {
+    "imp_id": "Ama1",
+    "confidence": "heuristic_consistent"
+  },
+  "Bambusa_oldhamii": {
+    "imp_id": "Bol1",
+    "confidence": "heuristic_consistent"
+  },
+  "Beta_vulgaris": {
+    "imp_id": "Bvu1",
+    "confidence": "heuristic_consistent"
+  },
+  "Bolboschoenus_planiculmis": {
+    "imp_id": "Bpl1",
+    "confidence": "heuristic_consistent"
+  },
+  "Brassica_nigra": {
+    "imp_id": "Bni1",
+    "confidence": "heuristic_consistent"
+  },
+  "Callicarpa_nudiflora": {
+    "imp_id": "Cnu2",
+    "confidence": "heuristic_consistent"
+  },
+  "Calotropis_procera": {
+    "imp_id": "Cpr2",
+    "confidence": "heuristic_consistent"
+  },
+  "Calystegia_soldanella": {
+    "imp_id": "Cso1",
+    "confidence": "heuristic_consistent"
+  },
+  "Camellia_granthamiana": {
+    "imp_id": "Cgr1",
+    "confidence": "heuristic_consistent"
+  },
+  "Camellia_meiocarpa": {
+    "imp_id": "Cme3",
+    "confidence": "heuristic_consistent"
+  },
+  "Cereus_jamacaru": {
+    "imp_id": "Cja1",
+    "confidence": "heuristic_consistent"
+  },
+  "Chenopodium_acuminatum": {
+    "imp_id": "Cac1",
+    "confidence": "heuristic_consistent"
+  },
+  "Chenopodium_formosanum": {
+    "imp_id": "Cfo1",
+    "confidence": "heuristic_consistent"
+  },
+  "Chimonanthus_praecox": {
+    "imp_id": "Cpr1",
+    "confidence": "heuristic_consistent"
+  },
+  "Chlorophytum_comosum": {
+    "imp_id": "Cco1",
+    "confidence": "heuristic_consistent"
+  },
+  "Chrysosplenium_macrophyllum": {
+    "imp_id": "Cma1",
+    "confidence": "heuristic_consistent"
+  },
+  "Cinnamomum_chago": {
+    "imp_id": "Cch1",
+    "confidence": "heuristic_consistent"
+  },
+  "Cnidium_monnieri": {
+    "imp_id": "Cmo1",
+    "confidence": "heuristic_consistent"
+  },
+  "Convolvulus_arvensis": {
+    "imp_id": "Car1",
+    "confidence": "heuristic_consistent"
+  },
+  "Cordia_subcordata": {
+    "imp_id": "Csu1",
+    "confidence": "heuristic_consistent"
+  },
+  "Cyperus_rotundus": {
+    "imp_id": "Cro1",
+    "confidence": "heuristic_consistent"
+  },
+  "Delonix_regia": {
+    "imp_id": "Dre1",
+    "confidence": "heuristic_consistent"
+  },
+  "Dendrobium_officinale": {
+    "imp_id": "Dof1",
+    "confidence": "heuristic_consistent"
+  },
+  "Descurainia_sophia": {
+    "imp_id": "Dso1",
+    "confidence": "heuristic_consistent"
+  },
+  "Dracaena_cambodiana": {
+    "imp_id": "Dca1",
+    "confidence": "heuristic_consistent"
+  },
+  "Elaeis_guineensis": {
+    "imp_id": "Egu1",
+    "confidence": "heuristic_consistent"
+  },
+  "Eucalyptus_urophylla": {
+    "imp_id": "Eur1",
+    "confidence": "heuristic_consistent"
+  },
+  "Fagus_sylvatica": {
+    "imp_id": "Fsy1",
+    "confidence": "heuristic_consistent"
+  },
+  "Ficus_hirta": {
+    "imp_id": "Fhi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Fragaria_nipponica": {
+    "imp_id": "Fni1",
+    "confidence": "heuristic_consistent"
+  },
+  "Gleditsia_sinensis": {
+    "imp_id": "Gsi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Hemerocallis_citrina": {
+    "imp_id": "Hci1",
+    "confidence": "heuristic_consistent"
+  },
+  "Hippophae_gyantsensis": {
+    "imp_id": "Hgy1",
+    "confidence": "heuristic_consistent"
+  },
+  "Hydrangea_macrophylla": {
+    "imp_id": "Hma1",
+    "confidence": "heuristic_consistent"
+  },
+  "Ilex_aquifolium": {
+    "imp_id": "Iaq1",
+    "confidence": "heuristic_consistent"
+  },
+  "Ipomoea_trifida": {
+    "imp_id": "Itr1",
+    "confidence": "heuristic_consistent"
+  },
+  "Isatis_tinctoria": {
+    "imp_id": "Iti1",
+    "confidence": "heuristic_consistent"
+  },
+  "Leucaena_leucocephala": {
+    "imp_id": "Lle1",
+    "confidence": "heuristic_consistent"
+  },
+  "Linum_usitatissimum": {
+    "imp_id": "Lus1",
+    "confidence": "heuristic_consistent"
+  },
+  "Lonicera_macranthoides": {
+    "imp_id": "Lma1",
+    "confidence": "heuristic_consistent"
+  },
+  "Macadamia_tetraphylla": {
+    "imp_id": "Mte1",
+    "confidence": "heuristic_consistent"
+  },
+  "Magnolia_officinalis": {
+    "imp_id": "Mof1",
+    "confidence": "heuristic_consistent"
+  },
+  "Malus_hupehensis": {
+    "imp_id": "Mhu1",
+    "confidence": "heuristic_consistent"
+  },
+  "Mangifera_indica": {
+    "imp_id": "Min1",
+    "confidence": "heuristic_consistent"
+  },
+  "Microstegium_vimineum": {
+    "imp_id": "Mvi2",
+    "confidence": "heuristic_consistent"
+  },
+  "Morus_alba": {
+    "imp_id": "Mal2",
+    "confidence": "heuristic_consistent"
+  },
+  "Oenanthe_sinensis": {
+    "imp_id": "Osi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Paeonia_lactiflora": {
+    "imp_id": "Pla1",
+    "confidence": "heuristic_consistent"
+  },
+  "Paraleonurus_japonicus": {
+    "imp_id": "Pja1",
+    "confidence": "heuristic_consistent"
+  },
+  "Passiflora_edulis": {
+    "imp_id": "Ped1",
+    "confidence": "heuristic_consistent"
+  },
+  "Phoebe_chekiangensis": {
+    "imp_id": "Pch1",
+    "confidence": "heuristic_consistent"
+  },
+  "Phoenix_roebelenii": {
+    "imp_id": "Pro1",
+    "confidence": "heuristic_consistent"
+  },
+  "Plantago_ovata": {
+    "imp_id": "Pov1",
+    "confidence": "heuristic_consistent"
+  },
+  "Pontederia_crassipes": {
+    "imp_id": "Pcr1",
+    "confidence": "heuristic_consistent"
+  },
+  "Populus_simonii": {
+    "imp_id": "Psi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Prunella_vulgaris": {
+    "imp_id": "Pvu1",
+    "confidence": "heuristic_consistent"
+  },
+  "Prunus_padus": {
+    "imp_id": "Ppa1",
+    "confidence": "heuristic_consistent"
+  },
+  "Prunus_pseudocerasus": {
+    "imp_id": "Pps1",
+    "confidence": "heuristic_consistent"
+  },
+  "Pueraria_montana": {
+    "imp_id": "Pmo1",
+    "confidence": "heuristic_consistent"
+  },
+  "Ribes_rubrum": {
+    "imp_id": "Rru1",
+    "confidence": "heuristic_consistent"
+  },
+  "Saccharum_officinarum": {
+    "imp_id": "Sof1",
+    "confidence": "heuristic_consistent"
+  },
+  "Salicornia_ramosissima": {
+    "imp_id": "Sra1",
+    "confidence": "heuristic_consistent"
+  },
+  "Salix_repens": {
+    "imp_id": "Sre1",
+    "confidence": "heuristic_consistent"
+  },
+  "Salix_viminalis": {
+    "imp_id": "Svi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Sapria_himalayana": {
+    "imp_id": "Shi1",
+    "confidence": "heuristic_consistent"
+  },
+  "Secale_cereale": {
+    "imp_id": "Sce1",
+    "confidence": "heuristic_consistent"
+  },
+  "Sideroxylon_spinosum": {
+    "imp_id": "Ssp1",
+    "confidence": "heuristic_consistent"
+  },
+  "Solanum_lycopersicum": {
+    "imp_id": "Sly1",
+    "confidence": "heuristic_consistent"
+  },
+  "Solanum_pennellii": {
+    "imp_id": "Spe1",
+    "confidence": "heuristic_consistent"
+  },
+  "Solidago_canadensis": {
+    "imp_id": "Sca1",
+    "confidence": "heuristic_consistent"
+  },
+  "Sporobolus_alterniflorus": {
+    "imp_id": "Sal1",
+    "confidence": "heuristic_consistent"
+  },
+  "Styphnolobium_japonicum": {
+    "imp_id": "Sja1",
+    "confidence": "heuristic_consistent"
+  },
+  "Syagrus_oleracea": {
+    "imp_id": "Sol1",
+    "confidence": "heuristic_consistent"
+  },
+  "Tagetes_erecta": {
+    "imp_id": "Ter1",
+    "confidence": "heuristic_consistent"
+  },
+  "Telfairia_occidentalis": {
+    "imp_id": "Toc1",
+    "confidence": "heuristic_consistent"
+  },
+  "Theobroma_grandiflorum": {
+    "imp_id": "Tgr1",
+    "confidence": "heuristic_consistent"
+  },
+  "Thinopyrum_obtusiflorum": {
+    "imp_id": "Tob1",
+    "confidence": "heuristic_consistent"
+  },
+  "Turritis_glabra": {
+    "imp_id": "Tgl1",
+    "confidence": "heuristic_consistent"
+  },
+  "Tussilago_farfara": {
+    "imp_id": "Tfa1",
+    "confidence": "heuristic_consistent"
+  },
+  "Verbena_officinalis": {
+    "imp_id": "Vof1",
+    "confidence": "heuristic_consistent"
+  },
+  "Vigna_reflexopilosa": {
+    "imp_id": "Vre1",
+    "confidence": "heuristic_consistent"
+  },
+  "Zoysia_macrostachya": {
+    "imp_id": "Zma1",
+    "confidence": "heuristic_consistent"
+  }
+}

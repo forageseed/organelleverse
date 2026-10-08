@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.recommend_parameters"
+bundle_version = "1.1.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Recommend Pangenome Parameters"
+description = "Derive evidence-linked PGGB parameters from Mash and optional RepeatMasker, recording the raw segment estimate and the 5000 bp plastid minimum supported by the Poales benchmark."
+keywords = ["agent", "mash", "pangenome", "parameters", "recommend", "repeatmasker"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+input_sequence = true
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.tuning_service:recommend_parameters"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

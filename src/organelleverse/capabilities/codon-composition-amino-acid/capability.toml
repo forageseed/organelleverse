@@ -1,0 +1,36 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "codon_composition.amino_acid"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Amino Acid"
+description = "Compute amino-acid composition from CDS sequences."
+keywords = ["acid", "amino", "analyze", "codon_composition", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.codon_composition.codon:amino_acid"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "cds_fasta"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { cds_fasta = "fixtures/basic/input/cds.fasta" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

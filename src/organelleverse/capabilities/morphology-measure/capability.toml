@@ -1,0 +1,46 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.measure"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Measure"
+description = "Measure per-object morphometrics from a semantic-segmentation label map."
+keywords = ["analyze", "measure", "morphology", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.measure:measure"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "numpy"
+
+[[contract.dependencies]]
+kind = "python"
+name = "skimage"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "morphometrics"
+
+[[contract.binding.parameters]]
+name = "label_map"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "pixel_size_um"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_source"
+codec = "json"

@@ -1,0 +1,15 @@
+@EXPLICIT
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/gsl-2.7-h93259b0_0.tar.bz2#8550d64004810fa0b5f552d1f21f9fe51483cd30d2d3200d7b0c5e324f7e6995
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda/osx-64/hmmer-3.4-hc70aa7a_4.tar.bz2#6e5953cb69f318b09dbd9279c4824c1ebcc5a749447dc2569e3299d302f9e1f2
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/libblas-3.9.0-31_h7f60823_openblas.conda#2192f9cfa72a1a6127eb1c57a9662eb1b44c6506f2b7517cf021f1262d2bf56d
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/libcblas-3.9.0-31_hff6cab4_openblas.conda#a64b24e195f7790722e1557ff5ed9ecceaaf85559b182d0d03fa61c1fd60326c
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/libcxx-16.0.6-hd57cbcb_0.conda#9063271847cf05f3a6cc6cae3e7f0ced032ab5f3a3c9d3f943f876f39c5c2549
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/libgfortran-5.0.0-14_2_0_h51e75f0_103.conda#124dcd89508bd16f562d9d3ce6a906336a7f18e963cd14f2877431adee14028e
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/libgfortran5-14.2.0-h51e75f0_103.conda#d2ac5e09587e5b21b7bb5795d24f33257e44320749c125448611211088ef8795
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/osx-64/libopenblas-0.3.29-h3f8574a_0.conda#72e18a6dc3658bc20ae34f2ab931fcf10574aabe6e185de26a83b11035ca9535
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/libzlib-1.3.1-hd75f5a5_0.conda#49fd2bde256952ab6a8265f3b2978ae624db1f096e3340253699e2534426244a
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/llvm-openmp-18.1.3-hb6ac08f_0.conda#997e4169ea474a7bc137fed3b5f4d94b1175162b3318e8cb3943003e460fe458
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/mpi-1.0-openmpi.tar.bz2#1326b28195e8808cebc18a593f84c5cbd606826a150dd7e0365f11b86238b5df
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda/osx-64/oatk-1.0-h7f84b70_1.tar.bz2#ff6955fcfe9892311993687affa8c974d3d4692eb1018de713fa8ef90ed8026d
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/openmpi-4.1.6-h2961c6d_100.conda#2af8f499eb0ba63d4eb46c06814fc6ff9133c94e08b469e6216611af82ff867a
+https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/osx-64/zlib-1.3.1-hd75f5a5_0.conda#a336237ea930eb83c4a77c45a192f57ec352c4e8b6ca9df136123d8e464b594d

@@ -1,0 +1,64 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "diversity.sliding_window_diversity"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Sliding Window Diversity"
+description = "DnaSP-style sliding-window π with mutation-hotspot (高变区) calling optional GenBank labelling, opt-in pre-alignment plastome orientation normalization and leave-one-out hotspot QC."
+keywords = ["analyze", "diversity", "hotspot", "pi", "result", "sliding-window"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.diversity.diversity:sliding_window_diversity"
+side_effects = ["read_files", "subprocess", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "window_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "step"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gap_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "normalize_orientation"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "orientation_reference"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "alignment_method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "single_sample_drop"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { alignment_fasta = "fixtures/basic/input/alignment.fasta", window_size = 100, step = 50, gap_mode = "exclude" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

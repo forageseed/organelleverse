@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.evaluate_block_benchmark"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Evaluate Published Alignment Block Consistency"
+description = "Classify reference graph placements against independently supplied directed alignment intervals. Separates unique consistent, unique inconsistent, ambiguous and unmapped block-base observations. Does not infer base-level CIGAR or breakpoint accuracy."
+keywords = ["graph", "pangenome", "report"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.block_benchmark:evaluate_block_benchmark"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

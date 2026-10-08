@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "coevolution.compartment_map_from_prefix"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compartment Map From Prefix"
+description = "Build a ``{gene: compartment}`` map from name-prefix rules."
+keywords = ["analyze", "coevolution", "compartment", "from", "map", "prefix", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.coevolution.coevolution:compartment_map_from_prefix"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "compartment_map"
+
+[[contract.binding.parameters]]
+name = "genes"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "prefix_rules"
+codec = "json"

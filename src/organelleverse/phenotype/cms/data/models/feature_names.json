@@ -1,0 +1,1 @@
+["aromaticity", "charge", "chimera_entropy", "chimera_score", "cms_homolog_score", "cms_identity", "dist_to_nearest_gene", "gravy", "has_cms_homolog", "has_proximal_boost", "length_aa", "max_qcov", "mw", "n_chimera_sources", "n_cys", "n_met", "n_nearby_5kb", "n_neg", "n_pos", "n_ser_thr", "nearest_is_proximal", "total_qcov"]

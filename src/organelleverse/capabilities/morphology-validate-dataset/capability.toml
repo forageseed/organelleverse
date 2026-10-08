@@ -1,0 +1,31 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.validate_dataset"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Validate Dataset"
+description = "Validate an OrgSegNet fine-tune dataset directory layout."
+keywords = ["analyze", "dataset", "morphology", "restored", "result", "validate"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.train:validate_dataset"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "dataset_validation"
+
+[[contract.binding.parameters]]
+name = "data_root"
+codec = "directory"
+path_role = "input"

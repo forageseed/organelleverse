@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "annotation.write_edited_cds"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Write edited CDS comparisons"
+description = "Export paired pre/post-edit CDS and protein FASTA plus a genomic-to-CDS editing mapping table."
+keywords = ["annotation", "cds", "rna-editing", "splicing", "translation"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.annotation.edited_cds:write_edited_cds"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

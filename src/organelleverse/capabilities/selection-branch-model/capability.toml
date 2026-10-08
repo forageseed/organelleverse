@@ -1,0 +1,37 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.branch_model"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Branch Model"
+description = "Plan branch-model codeml inputs without writing user-facing files."
+keywords = ["analyze", "branch", "model", "restored", "result", "selection"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.models:branch_model"
+side_effects = ["read_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "tree"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "run"
+codec = "json"

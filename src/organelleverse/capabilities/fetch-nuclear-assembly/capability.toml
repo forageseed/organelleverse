@@ -1,0 +1,27 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "fetch.nuclear_assembly"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Fetch a nuclear genome assembly"
+description = "Downloads a nuclear genome assembly record from NCBI Datasets; not reproducible since new assemblies land and reference picks can change."
+keywords = ["assembly", "fetch", "ncbi"]
+execution_mode = "durable"
+stage = "read"
+input_kind = "none"
+output_kind = "data"
+output_modalities = ["nuclear_assemblies"]
+callable_locator = "organelleverse.fetch._agent_ops:op_nuclear_assembly"
+side_effects = ["network", "write_files"]
+deterministic = false
+deterministic_reason = "NCBI Datasets assembly metadata changes as new assemblies are released and reference picks are updated."
+idempotent = false
+cacheable = false
+
+[contract.retry]
+max_attempts = 5
+retryable_error_codes = ["network.transient", "network.malformed_response"]

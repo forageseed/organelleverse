@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "ir_boundary.ir_boundary"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Ir Boundary"
+description = "Analyze IR junction boundaries across \u22651 chloroplast genome, with sequence-level IR fallback."
+keywords = ["analyze", "boundary", "genome", "ir", "ir_boundary", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+input_sequence = true
+output_kind = "result"
+callable_locator = "organelleverse.ir_boundary.ir_boundary:ir_boundary"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

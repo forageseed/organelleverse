@@ -1,0 +1,73 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.select_partition_scheme"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Select Partition Scheme"
+description = "Select a partition scheme with IQ-TREE MFP+MERGE and fast relaxed clustering, with MrBayes model mapping and optional three-codon-position BIC comparison."
+keywords = ["analyze", "iqtree", "merge", "modelfinder", "mrbayes", "partition", "partitionfinder", "phylogeny"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.service:select_partition_scheme"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "partition_nexus"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "merge"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "model_set"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "rcluster"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "rcluster_fast"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "rcluster_max"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "compare_codon_positions"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "bootstrap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dry_run"
+codec = "json"

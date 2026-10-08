@@ -1,0 +1,14 @@
+LOCUS       sample                    30 bp    DNA              UNK 01-JAN-1980
+DEFINITION  annotation presence fixture.
+ACCESSION   sample
+VERSION     sample
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  .
+            .
+FEATURES             Location/Qualifiers
+     CDS             1..30
+                     /gene="accD"
+ORIGIN
+        1 atgatgatga tgatgatgat gatgatgatg
+//

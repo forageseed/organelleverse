@@ -1,0 +1,49 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "rna_editing.quantify_efficiency"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Quantify Known RNA Editing Sites"
+description = "Measure edited, reference and other read support at caller-supplied RNA editing sites from indexed RNA-seq BAM/CRAM pileups; does not discover sites."
+keywords = ["analyze", "bam", "editing", "pileup", "restored", "rna_seq"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.rna_editing.efficiency:quantify_known_site_efficiency"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "bam_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "sites_tsv"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "scope"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_mapping_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_base_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "exclude_duplicates"
+codec = "json"

@@ -1,0 +1,92 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "rna_editing.detect_editing_sites"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Detect RNA Editing Sites De Novo"
+description = "Discover candidate C-to-U editing from RNA BAM and reference FASTA with library-strand, quality, depth, frequency and read-end filters; optional DNA SNP exclusion and GenBank codon consequences. Report all mismatch backgrounds."
+keywords = ["analyze", "bam", "denovo", "editing", "rna_seq"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.rna_editing.detection:detect_editing_sites"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "bam_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "annotation_genbank"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "dna_bam_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "scope"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "library_type"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_mapping_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_base_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_edited_reads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_editing_fraction"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "trim_read_ends"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "exclude_duplicates"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_dna_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_dna_nonref_fraction"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { bam_path = "fixtures/basic/input/reads.bam", reference_fasta = "fixtures/basic/input/reference.fa", scope = "plastid" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

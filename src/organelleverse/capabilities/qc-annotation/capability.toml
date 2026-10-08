@@ -1,0 +1,22 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "qc.annotation"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Assess annotation quality"
+description = "Consumes an already-published mitochondrial annotation result and computes quality-control metrics and findings over its gene models."
+keywords = ["annotation", "assessment", "quality-control"]
+execution_mode = "durable"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+organelle_types = ["mitochondrion"]
+callable_locator = "organelleverse.quality_control.api:annotation"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false

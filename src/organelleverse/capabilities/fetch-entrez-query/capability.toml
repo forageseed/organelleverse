@@ -1,0 +1,28 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "fetch.entrez_query"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Query NCBI nuccore for organelle records"
+description = "Runs a live Entrez nuccore search term and returns matching organelle records; not reproducible since the underlying database changes over time."
+keywords = ["entrez", "fetch", "ncbi"]
+execution_mode = "durable"
+stage = "read"
+input_kind = "none"
+output_kind = "data"
+organelle_types = ["mitochondrion", "plastid"]
+output_modalities = ["organelle_records"]
+callable_locator = "organelleverse.fetch._agent_ops:op_entrez_query"
+side_effects = ["network", "write_files"]
+deterministic = false
+deterministic_reason = "nuccore is a live database; matching records change over time."
+idempotent = false
+cacheable = false
+
+[contract.retry]
+max_attempts = 5
+retryable_error_codes = ["network.transient", "network.malformed_response"]

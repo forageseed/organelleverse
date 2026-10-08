@@ -1,0 +1,32 @@
+[
+  {
+    "distribution": null,
+    "max_age_ma": 123.4522,
+    "min_age_ma": 90.8908,
+    "mrca": null,
+    "root": true,
+    "source": "https://doi.org/10.3389/fpls.2023.1205511; Bromeliaceae stem secondary range"
+  },
+  {
+    "distribution": null,
+    "max_age_ma": 37.7002,
+    "min_age_ma": 15.3615,
+    "mrca": [
+      "Brocchinia_tatei",
+      "Aechmea_fasciata"
+    ],
+    "root": false,
+    "source": "https://doi.org/10.3389/fpls.2023.1205511; Bromeliaceae crown secondary range"
+  },
+  {
+    "distribution": null,
+    "max_age_ma": null,
+    "min_age_ma": 70.0,
+    "mrca": [
+      "Typha_sp__11CS3675",
+      "Sparganium_erectum_subsp__negl"
+    ],
+    "root": false,
+    "source": "https://doi.org/10.1038/s41598-018-27279-3; Typha stem fossil minimum"
+  }
+]

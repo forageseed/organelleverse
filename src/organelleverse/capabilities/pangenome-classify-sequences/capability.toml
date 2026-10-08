@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.classify_sequences"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Classify Sequences"
+description = "Classify each contig/sequence as core / variable / private."
+keywords = ["analyze", "classify", "genome", "pangenome", "restored", "result", "sequences"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+input_sequence = true
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.pangenome:classify_sequences"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

@@ -1,0 +1,37 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "format_conversion.convert_genbank_to_gff3"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Convert Genbank To Gff3"
+description = "Convert GenBank features to GFF3 lines. Returns list of strings."
+keywords = ["analyze", "convert", "format_conversion", "genbank", "gff3", "restored", "result", "to"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.format_conversion.convert_core:convert_genbank_to_gff3"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "gff3_lines"
+
+[[contract.binding.parameters]]
+name = "genbank_path"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { genbank_path = "fixtures/basic/input/record.gb" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

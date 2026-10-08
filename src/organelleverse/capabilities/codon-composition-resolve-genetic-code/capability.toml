@@ -1,0 +1,31 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "codon_composition.resolve_genetic_code"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Resolve Genetic Code"
+description = "Resolve user input to an NCBI ``transl_table`` id."
+keywords = ["analyze", "code", "codon_composition", "genetic", "resolve", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.codon_composition.codon_core:resolve_genetic_code"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "genetic_code_id"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

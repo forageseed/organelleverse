@@ -1,0 +1,818 @@
+{
+  "name": "OVASM GeneDB",
+  "version": "v20261003",
+  "format": "protein FASTA, headers organelle|gene|accession",
+  "file": "organelle_proteins.faa",
+  "scope": "annotated organelle protein-coding genes of versioned GenBank records",
+  "excluded_genera": [
+    "Arabidopsis",
+    "Coffea",
+    "Oryza",
+    "Salvia"
+  ],
+  "dropped_rule": "mitochondrial proteins sharing >= 0.25 of their 8-mers with plastid proteins (plastid-derived copies)",
+  "proteins": 4078,
+  "genes": {
+    "mitochondrion": 48,
+    "plastid": 90
+  },
+  "gene_names": {
+    "mitochondrion": [
+      "atp1",
+      "atp4",
+      "atp6",
+      "atp8",
+      "atp9",
+      "ccmb",
+      "ccmc",
+      "ccmf",
+      "ccmfc",
+      "ccmfn",
+      "ccmfn1",
+      "ccmfn2",
+      "cob",
+      "cox1",
+      "cox2",
+      "cox3",
+      "matr",
+      "mttb",
+      "nad1",
+      "nad2",
+      "nad3",
+      "nad4",
+      "nad4l",
+      "nad5",
+      "nad6",
+      "nad7",
+      "nad9",
+      "rp13",
+      "rp15",
+      "rpl10",
+      "rpl16",
+      "rpl2",
+      "rpl5",
+      "rpl6",
+      "rps1",
+      "rps10",
+      "rps11",
+      "rps12",
+      "rps13",
+      "rps14",
+      "rps19",
+      "rps2",
+      "rps3",
+      "rps4",
+      "rps7",
+      "rps8",
+      "sdh3",
+      "sdh4"
+    ],
+    "plastid": [
+      "accd",
+      "atpa",
+      "atpb",
+      "atpe",
+      "atpf",
+      "atph",
+      "atpi",
+      "ccsa",
+      "cema",
+      "chlb",
+      "chll",
+      "chln",
+      "clpp",
+      "cyst",
+      "infa",
+      "matk",
+      "mbpx",
+      "ndha",
+      "ndhb",
+      "ndhc",
+      "ndhd",
+      "ndhe",
+      "ndhf",
+      "ndhg",
+      "ndhh",
+      "ndhi",
+      "ndhj",
+      "ndhk",
+      "peta",
+      "petb",
+      "petd",
+      "petg",
+      "petl",
+      "petn",
+      "psaa",
+      "psab",
+      "psac",
+      "psai",
+      "psaj",
+      "psam",
+      "psba",
+      "psbb",
+      "psbc",
+      "psbd",
+      "psbe",
+      "psbf",
+      "psbh",
+      "psbi",
+      "psbj",
+      "psbk",
+      "psbl",
+      "psbm",
+      "psbn",
+      "psbt",
+      "psbz",
+      "rbcl",
+      "rpl14",
+      "rpl16",
+      "rpl2",
+      "rpl20",
+      "rpl21",
+      "rpl22",
+      "rpl23",
+      "rpl32",
+      "rpl33",
+      "rpl36",
+      "rpoa",
+      "rpob",
+      "rpoc1",
+      "rpoc2",
+      "rps11",
+      "rps12",
+      "rps14",
+      "rps15",
+      "rps16",
+      "rps18",
+      "rps19",
+      "rps2",
+      "rps3",
+      "rps4",
+      "rps7",
+      "rps8",
+      "ycf1",
+      "ycf10",
+      "ycf12",
+      "ycf2",
+      "ycf3",
+      "ycf4",
+      "ycf66",
+      "ycf68"
+    ]
+  },
+  "shared_fraction_gap": {
+    "kept_max": 0.156,
+    "dropped_min": 0.356
+  },
+  "dropped": [
+    {
+      "organelle": "mitochondrion",
+      "gene": "peta",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.974
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "ycf4",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.96
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rbcl",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.949
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psbj",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.697
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "petl",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.386
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "petg",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.433
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rps15",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psba",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.567
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rpl32",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.7
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psac",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "ndhe",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.915
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rpl20",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.891
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rps18",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rpl33",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.864
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psaj",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "petg",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "petl",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psbt",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.356
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psbn",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.778
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "atp1",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.99
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rps19",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rpl16",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rpl14",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.922
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "infa",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rpl36",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "rps11",
+      "accession": "NC_012119.1",
+      "shared_with_other": 1.0
+    },
+    {
+      "organelle": "mitochondrion",
+      "gene": "psbm",
+      "accession": "NC_012119.1",
+      "shared_with_other": 0.704
+    }
+  ],
+  "sources": [
+    {
+      "accession": "NC_006581.1",
+      "organism": "Nicotiana tabacum",
+      "file": "NC_006581.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 35
+    },
+    {
+      "accession": "NC_007945.1",
+      "organism": "Physcomitrium patens",
+      "file": "NC_007945.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 39
+    },
+    {
+      "accession": "NC_008285.1",
+      "organism": "Brassica napus",
+      "file": "NC_008285.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 30
+    },
+    {
+      "accession": "NC_008332.1",
+      "organism": "Zea mays subsp. parviglumis",
+      "file": "NC_008332.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 33
+    },
+    {
+      "accession": "NC_010303.1",
+      "organism": "Cycas taitungensis",
+      "file": "NC_010303.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 39
+    },
+    {
+      "accession": "NC_012119.1",
+      "organism": "Vitis vinifera",
+      "file": "NC_012119.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 65
+    },
+    {
+      "accession": "NC_015099.1",
+      "organism": "Beta vulgaris subsp. maritima",
+      "file": "NC_015099.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 28
+    },
+    {
+      "accession": "NC_020455.1",
+      "organism": "Glycine max",
+      "file": "NC_020455.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 36
+    },
+    {
+      "accession": "NC_021152.1",
+      "organism": "Liriodendron tulipifera",
+      "file": "NC_021152.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 42
+    },
+    {
+      "accession": "NC_023337.1",
+      "organism": "Helianthus annuus",
+      "file": "NC_023337.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 25
+    },
+    {
+      "accession": "NC_027976.1",
+      "organism": "Ginkgo biloba",
+      "file": "NC_027976.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 40
+    },
+    {
+      "accession": "NC_028096.1",
+      "organism": "Populus tremula",
+      "file": "NC_028096.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 33
+    },
+    {
+      "accession": "NC_036024.1",
+      "organism": "Triticum aestivum",
+      "file": "NC_036024.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 36
+    },
+    {
+      "accession": "NC_037468.1",
+      "organism": "Nymphaea colorata",
+      "file": "NC_037468.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 42
+    },
+    {
+      "accession": "NC_037508.1",
+      "organism": "Marchantia polymorpha subsp. ruderalis",
+      "file": "NC_037508.1.gb",
+      "organelle": "mitochondrion",
+      "excluded": false,
+      "proteins": 41
+    },
+    {
+      "accession": "NC_012818.1",
+      "organism": "Alsophila spinulosa",
+      "file": "Alsophila_spinulosa_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 89
+    },
+    {
+      "accession": "NC_005086.1",
+      "organism": "Amborella trichopoda",
+      "file": "Amborella_trichopoda_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 81
+    },
+    {
+      "accession": "NC_008829.1",
+      "organism": "Angiopteris evecta",
+      "file": "Angiopteris_evecta_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 88
+    },
+    {
+      "accession": "NC_000932.1",
+      "organism": "Arabidopsis thaliana",
+      "file": "Arabidopsis_thaliana_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": true
+    },
+    {
+      "accession": "NC_014575.1",
+      "organism": "Cedrus deodara",
+      "file": "Cedrus_deodara_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 75
+    },
+    {
+      "accession": "NC_008334.1",
+      "organism": "Citrus sinensis",
+      "file": "Citrus_sinensis_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 87
+    },
+    {
+      "accession": "163884508445366",
+      "organism": "Coffea arabica",
+      "file": "Coffea_arabica_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": true
+    },
+    {
+      "accession": "NC_010548.1",
+      "organism": "Cryptomeria japonica",
+      "file": "Cryptomeria_japonica_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 82
+    },
+    {
+      "accession": "NC_007144.1",
+      "organism": "Cucumis sativus",
+      "file": "Cucumis_sativus_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_009618.1",
+      "organism": "Cycas taitungensis",
+      "file": "Cycas_taitungensis_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 87
+    },
+    {
+      "accession": "NC_008325.1",
+      "organism": "Daucus carota",
+      "file": "Daucus_carota_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 85
+    },
+    {
+      "accession": "NC_011954.1",
+      "organism": "Ephedra equisetina",
+      "file": "Ephedra_equisetina_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 72
+    },
+    {
+      "accession": "NC_014699.1",
+      "organism": "Equisetum arvense",
+      "file": "Equisetum_arvense_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_008115.1",
+      "organism": "Eucalyptus globulus subsp. globulus",
+      "file": "Eucalyptus_globulus_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 83
+    },
+    {
+      "accession": "NC_016986.1",
+      "organism": "Ginkgo biloba",
+      "file": "Ginkgo_biloba_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_007942.1",
+      "organism": "Glycine max",
+      "file": "Glycine_max_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 83
+    },
+    {
+      "accession": "NC_011942.1",
+      "organism": "Gnetum parvifolium",
+      "file": "Gnetum_parvifolium_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 66
+    },
+    {
+      "accession": "NC_007944.1",
+      "organism": "Gossypium hirsutum",
+      "file": "Gossypium_hirsutum_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 83
+    },
+    {
+      "accession": "NC_007977.1",
+      "organism": "Helianthus annuus",
+      "file": "Helianthus_annuus_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 85
+    },
+    {
+      "accession": "NC_008590.1",
+      "organism": "Hordeum vulgare subsp. vulgare",
+      "file": "Hordeum_vulgare_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 83
+    },
+    {
+      "accession": "NC_006861.1",
+      "organism": "Huperzia lucidula",
+      "file": "Huperzia_lucidula_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 87
+    },
+    {
+      "accession": "NC_014675.1",
+      "organism": "Isoetes flaccida",
+      "file": "Isoetes_flaccida_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_007578.1",
+      "organism": "Lactuca sativa",
+      "file": "Lactuca_sativa_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_022136.1",
+      "organism": "Lygodium japonicum",
+      "file": "Lygodium_japonicum_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 90
+    },
+    {
+      "accession": "NC_001319.1",
+      "organism": "Marchantia paleacea",
+      "file": "Marchantia_paleacea_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 78
+    },
+    {
+      "accession": "NC_003119.8",
+      "organism": "Medicago truncatula",
+      "file": "Medicago_truncatula_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 76
+    },
+    {
+      "accession": "NC_014592.1",
+      "organism": "Myriopteris lindheimeri",
+      "file": "Myriopteris_lindheimeri_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 88
+    },
+    {
+      "accession": "NC_001879.2",
+      "organism": "Nicotiana tabacum",
+      "file": "Nicotiana_tabacum_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_006050.1",
+      "organism": "Nymphaea alba",
+      "file": "Nymphaea_alba_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 85
+    },
+    {
+      "accession": "NC_020147.1",
+      "organism": "Ophioglossum californicum",
+      "file": "Ophioglossum_californicum_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_001320.1",
+      "organism": "Oryza sativa Japonica Group",
+      "file": "Oryza_sativa_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": true
+    },
+    {
+      "accession": "NC_006290.1",
+      "organism": "Panax ginseng",
+      "file": "Panax_ginseng_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 85
+    },
+    {
+      "accession": "NC_005087.2",
+      "organism": "Physcomitrium patens",
+      "file": "Physcomitrium_patens_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 83
+    },
+    {
+      "accession": "NC_001631.1",
+      "organism": "Pinus thunbergii",
+      "file": "Pinus_thunbergii_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 69
+    },
+    {
+      "accession": "NC_009143.1",
+      "organism": "Populus trichocarpa",
+      "file": "Populus_trichocarpa_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 82
+    },
+    {
+      "accession": "NC_014697.1",
+      "organism": "Prunus persica",
+      "file": "Prunus_persica_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 85
+    },
+    {
+      "accession": "NC_003386.1",
+      "organism": "Psilotum nudum",
+      "file": "Psilotum_nudum_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 86
+    },
+    {
+      "accession": "NC_008602.1",
+      "organism": "Sorghum bicolor",
+      "file": "Sorghum_bicolor_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_002202.1",
+      "organism": "Spinacia oleracea",
+      "file": "Spinacia_oleracea_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 81
+    },
+    {
+      "accession": "NC_020321.1",
+      "organism": "Taxus mairei",
+      "file": "Taxus_mairei_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 78
+    },
+    {
+      "accession": "NC_014676.2",
+      "organism": "Theobroma cacao",
+      "file": "Theobroma_cacao_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 81
+    },
+    {
+      "accession": "NC_002762.1",
+      "organism": "Triticum aestivum",
+      "file": "Triticum_aestivum_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 83
+    },
+    {
+      "accession": "NC_007957.1",
+      "organism": "Vitis vinifera",
+      "file": "Vitis_vinifera_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 84
+    },
+    {
+      "accession": "NC_010654.1",
+      "organism": "Welwitschia mirabilis",
+      "file": "Welwitschia_mirabilis_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 70
+    },
+    {
+      "accession": "JX416857.1",
+      "organism": "Zamia furfuracea",
+      "file": "Zamia_furfuracea_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 87
+    },
+    {
+      "accession": "NC_001666.2",
+      "organism": "Zea mays",
+      "file": "Zea_mays_chloroplast.gb",
+      "organelle": "plastid",
+      "excluded": false,
+      "proteins": 82
+    }
+  ]
+}

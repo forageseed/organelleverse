@@ -1,0 +1,449 @@
+"""Capability Plan 04, Task 1: the generator itself emits real fixtures.
+
+Decision 004 measured 132 (now 150) admitted capability bundles shipping
+*zero* fixtures: ``LocalVerificationEnvironment.evaluate_fixture`` is real
+(see ``tests/capabilities/test_verification_fixtures.py``), but nothing on
+disk ever gave it a fixture to evaluate. Hand-editing a ``capability.toml``
+does not survive: every domain's own
+``tests/capabilities/test_restored_<domain>_bundles.py`` re-runs the real
+generator (``scripts/capabilities/build_restored_bundles.py``) against the
+real, checked-in bundle tree and unconditionally overwrites
+``capability.toml`` from the ledger. So a fixture must come from the
+generator itself, or it does not survive.
+
+This file proves the generator's new fixture-capture mechanism end to end,
+using ``composition.gc_content`` - the same capability
+``test_verification_fixtures.py`` already proved the *evaluator* against,
+now proving the *generator* actually produces what that evaluator consumes.
+
+**Where the AST-only boundary sits.** Every other fact this generator derives
+(``_plan_bundle``, ``_detect_canonical_core``, ``_validate_named_parameter_override``,
+...) comes from ``ast.parse`` alone - never an import, per the module's own
+docstring. ``_capture_fixtures`` is the *one* deliberate exception: it
+imports ``organelleverse.capabilities.adapters.<domain>``'s ``FIXTURES``
+table (small, hand-authored, dependency-free adapter data - the same trust
+level as ``OVERRIDES``) and then imports and actually calls the capability's
+real implementation, exactly once per declared case, to freeze its real
+return value as that case's ``expect`` file. That import/call only happens
+for a capability a domain adapter explicitly opts in for by name; every
+capability without a ``FIXTURES`` entry is generated exactly as before,
+untouched by this step.
+"""
+
+from __future__ import annotations
+
+import importlib.metadata
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from types import ModuleType
+
+import pytest
+
+from organelleverse.capabilities.admission import admit_capabilities
+from organelleverse.capabilities.discovery import discover_capabilities
+from organelleverse.capabilities.hashing import hash_bundle
+from organelleverse.capabilities.index import CapabilityIndex, CapabilityStatus
+from organelleverse.capabilities.parser import parse_capability_bundle
+from organelleverse.capabilities.verification import (
+    LocalVerificationEnvironment,
+    VerificationStore,
+    verify_capability,
+)
+from organelleverse.core.result import OrganelleResult
+from organelleverse.operations.registry import OperationRegistry
+from tests._paths import PROJECT_ROOT
+
+_GC_CONTENT_ID = "composition.gc_content"
+_COMPUTE_GC_CONTENT_ID = "composition.compute_gc_content"
+
+_GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
+_LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
+_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_REAL_BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
+
+
+def _load_generator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("build_restored_bundles", _GENERATOR_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _isolate_non_core_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    (project / ".organelleverse" / "capabilities").mkdir(parents=True)
+    home.mkdir()
+
+    def no_entry_points(**kwargs: object) -> tuple[()]:
+        return ()
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", no_entry_points)
+    monkeypatch.setenv("ORGANELLEVERSE_HOME", str(home))
+    monkeypatch.delenv("ORGANELLEVERSE_CAPABILITY_PATH", raising=False)
+    monkeypatch.chdir(project)
+    return home
+
+
+# --- deliverable: the generator itself emits a real, captured fixture -----------
+
+
+def test_generator_emits_a_real_captured_fixture_for_gc_content(tmp_path: Path) -> None:
+    """Regenerating the ``composition`` domain attaches a real fixture.
+
+    Generates into an isolated ``tmp_path`` output root - never
+    ``_REAL_BUNDLE_ROOT`` - so running this test never rewrites tracked
+    source. Every other test in this module discovers or verifies the
+    *committed* bundle tree; if this one also wrote into it, it would
+    silently repair a mutated ``composition-gc-content/capability.toml`` or
+    ``expected.json`` before
+    ``test_declared_fixtures_and_on_disk_fixture_artifacts_agree_both_directions``
+    (or any other test in this file) ever got to look at it - the test
+    suite healing tracked source into passing, rather than the committed
+    tree actually being what the generator produces.
+
+    Asserting the generated bytes equal the committed bytes, exactly, is
+    what makes the ``tmp_path`` isolation not just "no longer mutates
+    source" but a real guarantee on top of it: what is committed under
+    ``src/organelleverse/capabilities/composition-gc-content`` really is
+    what today's generator, run today, produces - not something that only
+    matched once and has since drifted.
+    """
+    generator = _load_generator()
+    isolated_output_root = tmp_path / "capabilities"
+
+    report = generator.build_domain(
+        domain="composition",
+        ledger_path=_LEDGER_PATH,
+        current_root=_CURRENT_ROOT,
+        output_root=isolated_output_root,
+    )
+
+    generated_ids = {item.capability_id for item in report.generated}
+    assert generated_ids == {_GC_CONTENT_ID, _COMPUTE_GC_CONTENT_ID}
+
+    bundle_path = isolated_output_root / "composition-gc-content" / "capability.toml"
+    bundle = parse_capability_bundle(bundle_path)
+    assert len(bundle.fixtures) == 1
+    fixture = bundle.fixtures[0]
+    assert fixture.case == "basic"
+    assert fixture.equivalence.value == "exact"
+    assert fixture.input == {"kind": "none"}
+    assert fixture.parameters == {"genome_fasta": "fixtures/basic/input/genome.fasta"}
+
+    expected_path = bundle_path.parent / fixture.expect
+    expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    assert expected["status"] == "ok"
+    assert expected["metrics"]["gc_content"] == 0.6
+
+    committed_bundle_dir = _REAL_BUNDLE_ROOT / "composition-gc-content"
+    assert bundle_path.read_bytes() == (committed_bundle_dir / "capability.toml").read_bytes(), (
+        "the freshly-generated capability.toml differs from what is committed"
+    )
+    assert expected_path.read_bytes() == (committed_bundle_dir / fixture.expect).read_bytes(), (
+        "the freshly-generated fixtures/basic/expected.json differs from what is committed"
+    )
+
+
+# --- deliverable 4: discover -> verify -> admit -> invoke, for the real bundle ---
+
+
+def test_the_real_generated_bundle_is_discovered_verified_admitted_and_invoked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The fixture this test reads is the one the generator wrote to disk -
+    not a copy, not an augmented stand-in. Nothing here fabricates
+    ``status``, a ``VerificationRecord``, an ``execution_identity``, or an
+    ``EquivalenceEvidence``: every one is produced by the real pipeline.
+    """
+    home = _isolate_non_core_roots(tmp_path, monkeypatch)
+
+    discovered = discover_capabilities()
+    entry = discovered.describe(_GC_CONTENT_ID)
+    assert entry.origins[0].channel == "core"
+    assert entry.execution_identity is None
+    assert len(entry.bundle.fixtures) == 1
+
+    store = VerificationStore(home / "verifications")
+    record = verify_capability(
+        _GC_CONTENT_ID, store=store, environment=LocalVerificationEnvironment(discovered)
+    )
+    assert len(record.equivalence) == 1
+    evidence = record.equivalence[0]
+    assert evidence.case == "basic"
+    assert evidence.verdict == "pass"
+    assert evidence.candidate.bundle_content_hash == entry.content_hash
+
+    admitted = discover_capabilities()
+    admitted_entry = admitted.describe(_GC_CONTENT_ID)
+    assert admitted_entry.status is CapabilityStatus.ADMITTED, admitted_entry.diagnostic
+
+    binding_source = admitted.binding_source()
+    registry = OperationRegistry(capability_source=binding_source)
+    invoke_fasta = tmp_path / "invoke" / "genome.fasta"
+    invoke_fasta.parent.mkdir(parents=True, exist_ok=True)
+    invoke_fasta.write_text(">other\nGGGGCCCCAAAATTTT\n", encoding="utf-8")
+    result = registry.invoke(
+        _GC_CONTENT_ID, input=None, parameters={"genome_fasta": str(invoke_fasta)}
+    )
+    assert isinstance(result, OrganelleResult)
+    assert result.status == "ok"
+    assert result.metrics["gc_content"] == 0.5
+
+
+# --- deliverable 5: a generator-produced fixture whose expectation goes stale ----
+
+
+def test_a_generator_produced_fixture_with_a_corrupted_expectation_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Runs the *real* generator (real ledger, real adapter, real
+    ``gc_content``) into an isolated ``tmp_path`` output root, so the
+    fixture file it writes is genuinely generator-produced - then corrupts
+    only that isolated copy's ``expected.json`` (simulating a fixture gone
+    stale) and proves verification/admission actually notices.
+    """
+    home = _isolate_non_core_roots(tmp_path, monkeypatch)
+    generator = _load_generator()
+    isolated_output_root = tmp_path / "generated" / "capabilities"
+
+    report = generator.build_domain(
+        domain="composition",
+        ledger_path=_LEDGER_PATH,
+        current_root=_CURRENT_ROOT,
+        output_root=isolated_output_root,
+    )
+    generated_ids = {item.capability_id for item in report.generated}
+    assert _GC_CONTENT_ID in generated_ids
+
+    bundle_dir = isolated_output_root / "composition-gc-content"
+    bundle = parse_capability_bundle(bundle_dir / "capability.toml")
+    fixture = bundle.fixtures[0]
+    expected_path = bundle_dir / fixture.expect
+    corrupted = json.loads(expected_path.read_text(encoding="utf-8"))
+    corrupted["metrics"]["gc_content"] = 0.999
+    expected_path.write_text(json.dumps(corrupted, sort_keys=True) + "\n", encoding="utf-8")
+
+    real_entry = discover_capabilities().describe(_GC_CONTENT_ID)
+    assert real_entry.origins[0].channel == "core"
+    corrupted_entry = real_entry.model_copy(
+        update={
+            "bundle": bundle,
+            "bundle_root": bundle_dir,
+            "content_hash": hash_bundle(bundle_dir),
+            "status": CapabilityStatus.DISCOVERED,
+            "diagnostic": None,
+            "parameter_schema": None,
+            "verification_environment_key": None,
+            "worker_parameters": None,
+        }
+    )
+    index = CapabilityIndex(entries=(corrupted_entry,))
+    store = VerificationStore(home / "verifications")
+
+    record = verify_capability(
+        _GC_CONTENT_ID, store=store, environment=LocalVerificationEnvironment(index)
+    )
+    assert record.equivalence[0].verdict == "fail"
+
+    admitted = admit_capabilities(index, store=store)
+    admitted_entry = admitted.describe(_GC_CONTENT_ID)
+    assert admitted_entry.status is CapabilityStatus.REJECTED
+    assert admitted_entry.diagnostic is not None
+    assert admitted_entry.diagnostic.code == "capability.equivalence_failed"
+
+
+# --- deliverable 6: every COMMITTED fixture-bearing bundle actually verifies -----
+
+
+def _committed_fixture_bearing_ids() -> set[str]:
+    """A second, direct parse of the real bundle tree.
+
+    Walks the real bundle tree and parses each ``capability.toml`` for real
+    (never assumed), collecting every capability id that declares at least
+    one ``[[fixture]]``. The discovery-based enumeration below is asserted
+    equal to this one - that proves ``discover_capabilities()`` is not
+    silently dropping or adding a bundle relative to a direct parse of the
+    same tree, a real and useful guarantee.
+
+    What it does **not** prove: both this function and
+    ``discover_capabilities()`` learn "does this bundle have a fixture"
+    from the exact same place - the ``[[fixture]]`` block inside
+    ``capability.toml``. If that block is deleted while
+    ``fixtures/<case>/expected.json`` is left orphaned on disk, both
+    readers lose the fixture from their enumeration *together* and still
+    agree - the cross-check passes on a bundle that just lost its fixture.
+    Catching that (and the mirror case - a declaration whose file is gone)
+    needs a comparison against a source that does not itself depend on
+    parsing ``capability.toml``'s ``[[fixture]]`` block: see
+    ``test_declared_fixtures_and_on_disk_fixture_artifacts_agree_both_directions``,
+    which compares declared cases against ``fixtures/*/expected.json`` files
+    actually present on disk.
+    """
+    ids: set[str] = set()
+    for toml_path in sorted(_REAL_BUNDLE_ROOT.glob("*/capability.toml")):
+        bundle = parse_capability_bundle(toml_path)
+        if bundle.fixtures:
+            ids.add(bundle.capability.id)
+    return ids
+
+
+def _declared_fixture_keys() -> set[tuple[str, str]]:
+    """``(capability_id, expectation_path)`` for declared payload fixtures.
+
+    Reads straight from each committed ``capability.toml``'s parsed
+    ``fixtures`` - independent of anything on disk under ``fixtures/``.
+    """
+    keys: set[tuple[str, str]] = set()
+    for toml_path in sorted(_REAL_BUNDLE_ROOT.glob("*/capability.toml")):
+        bundle = parse_capability_bundle(toml_path)
+        for fixture in bundle.fixtures:
+            # Adversarial fixtures assert an error code and carry no JSON payload.
+            if fixture.expect is not None:
+                keys.add((bundle.capability.id, fixture.expect))
+    return keys
+
+
+def _on_disk_fixture_keys() -> set[tuple[str, str]]:
+    """``(capability_id, expectation_path)`` for physical expectation files.
+
+    Reads straight from the filesystem: every ``fixtures/<case>/expected.json``
+    actually present under a bundle directory, independent of whether that
+    bundle's ``capability.toml`` still declares a matching ``[[fixture]]`` at
+    all. ``capability_id`` is still read from that same bundle's
+    ``capability.toml`` purely as a label - neither mutation this module
+    defends against (a truncated ``[[fixture]]`` block, a deleted
+    ``expected.json``) touches ``[capability] id``, so labeling by it does
+    not reintroduce the same-source blind spot ``_committed_fixture_bearing_ids``
+    has for the fixture declaration itself.
+    """
+    keys: set[tuple[str, str]] = set()
+    for toml_path in sorted(_REAL_BUNDLE_ROOT.glob("*/capability.toml")):
+        capability_id = parse_capability_bundle(toml_path).capability.id
+        bundle_dir = toml_path.parent
+        expected_paths = set(bundle_dir.glob("fixtures/**/expected.json"))
+        expected_paths.update(bundle_dir.glob("fixtures/**/*.expected.json"))
+        for expected_path in sorted(expected_paths):
+            keys.add((capability_id, expected_path.relative_to(bundle_dir).as_posix()))
+    return keys
+
+
+def test_every_committed_fixture_bearing_bundle_verifies_to_a_real_passing_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No committed fixture escapes being checked.
+
+    ``test_a_generator_produced_fixture_with_a_corrupted_expectation_is_rejected``
+    proves the *mechanism* rejects a wrong expectation - but only against an
+    isolated ``tmp_path`` copy the test itself constructs. It never touches
+    what is actually committed under ``src/organelleverse/capabilities/``,
+    so it does not prove those specific, shipped ``expected.json`` files are
+    checked by anything. This test does: it discovers the real, on-disk
+    index, finds every bundle that currently carries a fixture - never
+    hardcoded to a count, so a newly-fixtured bundle is covered
+    automatically - and actually verifies every one of them, asserting every
+    real ``EquivalenceEvidence`` records ``verdict == "pass"``. A wrong
+    committed ``expected.json`` - hand-edited, or gone stale after a source
+    change - fails this test, not silently.
+
+    What this test cannot notice on its own: a bundle whose ``[[fixture]]``
+    declaration is deleted while its ``fixtures/`` files are left behind
+    simply drops out of "every bundle that currently carries a fixture" -
+    the enumeration shrinks and this test still passes, silently, on fewer
+    bundles than before. That gap is closed by
+    ``test_declared_fixtures_and_on_disk_fixture_artifacts_agree_both_directions``,
+    which compares what is declared against what is actually on disk rather
+    than trusting the declaration to still be there.
+    """
+    home = _isolate_non_core_roots(tmp_path, monkeypatch)
+
+    index = discover_capabilities()
+    fixture_bearing = [entry for entry in index.entries if entry.bundle.fixtures]
+    discovered_ids = {entry.capability_id for entry in fixture_bearing}
+
+    expected_ids = _committed_fixture_bearing_ids()
+    assert discovered_ids == expected_ids
+    assert len(expected_ids) > 0
+
+    store = VerificationStore(home / "verifications")
+    environment = LocalVerificationEnvironment(index)
+    failures: list[tuple[str, str, str]] = []
+    for entry in fixture_bearing:
+        record = verify_capability(entry.capability_id, store=store, environment=environment)
+        assert record.equivalence, (
+            f"{entry.capability_id} carries a fixture but produced zero evidence"
+        )
+        for evidence in record.equivalence:
+            if evidence.verdict != "pass":
+                failures.append((entry.capability_id, evidence.case, evidence.verdict))
+    assert failures == []
+
+
+# --- deliverable 7: a declaration and its artifact cannot silently diverge ------
+
+
+def test_declared_fixtures_and_on_disk_fixture_artifacts_agree_both_directions() -> None:
+    """Neither ``_committed_fixture_bearing_ids`` nor ``discover_capabilities()``
+    can notice a deleted ``[[fixture]]`` declaration: both learn "does this
+    bundle have a fixture" from the same place, so a deleted declaration
+    drops out of both readers together and they still agree with each
+    other - agreement is not existence.
+
+    This test compares two genuinely independent sources instead: what
+    ``capability.toml`` *declares* (``_declared_fixture_keys`` - a
+    ``[[fixture]]`` block naming a case) against what the filesystem
+    *contains* (``_on_disk_fixture_keys`` - a real
+    ``fixtures/<case>/expected.json`` file), keyed by
+    ``(capability_id, expectation_path)`` in both directions. Flat named
+    ``*.expected.json`` files are valid too; error-code fixtures have no payload.
+
+    - a truncated ``[[fixture]]`` block leaves ``fixtures/<case>/expected.json``
+      orphaned on disk with no matching declaration - present in
+      ``_on_disk_fixture_keys``, absent from ``_declared_fixture_keys``;
+    - a deleted ``expected.json`` leaves a declaration with nothing on disk
+      to back it - present in ``_declared_fixture_keys``, absent from
+      ``_on_disk_fixture_keys``.
+
+    Either way the two sets disagree, and the assertion below names exactly
+    which ``(capability_id, case)`` is missing on which side. This stays
+    fully derived - adding a new, honestly-captured fixture adds the same
+    key to both sides and this test keeps passing with no edit here.
+    """
+    declared = _declared_fixture_keys()
+    on_disk = _on_disk_fixture_keys()
+
+    assert declared == on_disk, (
+        "declared in capability.toml but no expected.json on disk: "
+        f"{sorted(declared - on_disk)}; "
+        "an expected.json exists on disk but capability.toml declares no matching "
+        f"fixture: {sorted(on_disk - declared)}"
+    )
+
+
+def test_fixture_inventory_accepts_named_payloads_and_error_code_cases(tmp_path, monkeypatch):
+    import shutil
+
+    bundle = tmp_path / "annotation-find-orfs"
+    shutil.copytree(_REAL_BUNDLE_ROOT / "annotation-find-orfs", bundle)
+    monkeypatch.setattr(sys.modules[__name__], "_REAL_BUNDLE_ROOT", tmp_path)
+    expected = {("annotation.find_orfs", "fixtures/nc_000932_psba_negative/expected.json")}
+    assert _declared_fixture_keys() == _on_disk_fixture_keys() == expected
+    (bundle / "fixtures/nc_000932_psba_negative/expected.json").unlink()
+    assert _declared_fixture_keys() - _on_disk_fixture_keys() == expected
+
+
+def test_named_expectation_remains_visible_after_declaration_is_deleted(tmp_path, monkeypatch):
+    import shutil
+
+    bundle = tmp_path / "annotation-find-orfs"
+    shutil.copytree(_REAL_BUNDLE_ROOT / "annotation-find-orfs", bundle)
+    monkeypatch.setattr(sys.modules[__name__], "_REAL_BUNDLE_ROOT", tmp_path)
+    manifest = bundle / "capability.toml"
+    manifest.write_text(manifest.read_text().split("[[fixture]]", 1)[0])
+    assert _on_disk_fixture_keys() - _declared_fixture_keys() == {
+        ("annotation.find_orfs", "fixtures/nc_000932_psba_negative/expected.json")
+    }

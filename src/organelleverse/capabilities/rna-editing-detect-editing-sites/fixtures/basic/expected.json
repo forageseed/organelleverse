@@ -1,0 +1,223 @@
+{
+  "kind": "result",
+  "schema_version": "organelleverse.result.v1",
+  "operation_id": "rna_editing.detect_editing_sites",
+  "operation_version": "1.0",
+  "scope": "plastid",
+  "status": "ok",
+  "summary_text": "Detected 2 candidate C-to-U RNA editing sites.",
+  "metrics": {
+    "callable_position_strands": 90,
+    "dna_exclusions": {
+      "dna_nonreference": 0,
+      "insufficient_dna_depth": 0
+    },
+    "mismatch_statistics": [
+      {
+        "callable_positions": 88,
+        "depth_sum": 880,
+        "genomic_change": "A>C",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 88,
+        "depth_sum": 880,
+        "genomic_change": "A>G",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 88,
+        "depth_sum": 880,
+        "genomic_change": "A>T",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 1,
+        "depth_sum": 10,
+        "genomic_change": "C>A",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 1,
+        "depth_sum": 10,
+        "genomic_change": "C>G",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 1,
+        "depth_sum": 10,
+        "genomic_change": "C>T",
+        "is_c_to_u_compatible": true,
+        "mismatch_reads": 4,
+        "passing_sites": 1,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 1,
+        "depth_sum": 10,
+        "genomic_change": "G>A",
+        "is_c_to_u_compatible": true,
+        "mismatch_reads": 4,
+        "passing_sites": 1,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 1,
+        "depth_sum": 10,
+        "genomic_change": "G>C",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 1,
+        "depth_sum": 10,
+        "genomic_change": "G>T",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 0,
+        "depth_sum": 0,
+        "genomic_change": "T>A",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 0,
+        "depth_sum": 0,
+        "genomic_change": "T>C",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      },
+      {
+        "callable_positions": 0,
+        "depth_sum": 0,
+        "genomic_change": "T>G",
+        "is_c_to_u_compatible": false,
+        "mismatch_reads": 0,
+        "passing_sites": 0,
+        "seqid": "cp",
+        "strand": ".",
+        "transcript_change": null
+      }
+    ],
+    "parameters": {
+      "exclude_duplicates": true,
+      "library_type": "unstranded",
+      "max_dna_nonref_fraction": 0.1,
+      "min_base_quality": 25,
+      "min_depth": 10,
+      "min_dna_depth": 10,
+      "min_edited_reads": 3,
+      "min_editing_fraction": 0.1,
+      "min_mapping_quality": 25,
+      "trim_read_ends": 5
+    },
+    "site_count": 2,
+    "sites": [
+      {
+        "depth": 10,
+        "dna_depth": null,
+        "dna_nonref_fraction": null,
+        "edited": "T",
+        "edited_count": 4,
+        "editing_fraction": 0.4,
+        "effects": [],
+        "other_count": 0,
+        "position": 21,
+        "ref": "C",
+        "ref_count": 6,
+        "seqid": "cp",
+        "strand": "+",
+        "strand_evidence": "substitution_assumed",
+        "transcript_edited": "U",
+        "transcript_ref": "C"
+      },
+      {
+        "depth": 10,
+        "dna_depth": null,
+        "dna_nonref_fraction": null,
+        "edited": "A",
+        "edited_count": 4,
+        "editing_fraction": 0.4,
+        "effects": [],
+        "other_count": 0,
+        "position": 51,
+        "ref": "G",
+        "ref_count": 6,
+        "seqid": "cp",
+        "strand": "-",
+        "strand_evidence": "substitution_assumed",
+        "transcript_edited": "U",
+        "transcript_ref": "C"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "kind": "finding",
+      "code": "rna_editing.candidate_sites",
+      "metric": "site_count",
+      "value": 2,
+      "unit": "",
+      "confidence": null,
+      "evidence_artifact_ids": []
+    }
+  ],
+  "flags": [
+    "candidate_sites_not_validated_editing",
+    "mates_counted_separately",
+    "transcript_strand_assumed_from_substitution",
+    "no_dna_snp_exclusion"
+  ],
+  "artifacts": [],
+  "provenance": null,
+  "errors": [],
+  "suggested_operations": [],
+  "object_id": "result:sha256:f79cf18fce7cec2b2624b745f4b9a510623b41a6b3b8153fbb6de25349769223"
+}

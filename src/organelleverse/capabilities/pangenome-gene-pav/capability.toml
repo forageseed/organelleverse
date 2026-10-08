@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.gene_pav"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Gene Pav"
+description = "Presence of named GenBank CDS features across supplied annotations."
+keywords = ["analyze", "gene", "genome", "pangenome", "pav", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+input_sequence = true
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.pangenome:gene_pav"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

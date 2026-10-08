@@ -1,0 +1,59 @@
+{
+  "article": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11956084/",
+  "supplement": "https://pmc.ncbi.nlm.nih.gov/articles/instance/11956084/bin/mmc11.zip",
+  "download_endpoint": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11956084/supplementaryFiles",
+  "download_date": "2026-10-01",
+  "file": "sFile8_NC_021152.PMGA.gb",
+  "reference_accession": "NC_021152",
+  "original_record_id": "contig1",
+  "original_region_1based": [
+    247123,
+    252853
+  ],
+  "original_exons_1based": [
+    [
+      247123,
+      247504
+    ],
+    [
+      250257,
+      250574
+    ],
+    [
+      252789,
+      252853
+    ]
+  ],
+  "coordinate_shift": 247122,
+  "sites": [
+    {
+      "seqid": "NC_021152_cox2_region",
+      "position": 3447,
+      "strand": "+",
+      "ref": "C",
+      "edited": "T"
+    },
+    {
+      "seqid": "NC_021152_cox2_region",
+      "position": 3450,
+      "strand": "+",
+      "ref": "C",
+      "edited": "T"
+    }
+  ],
+  "expected_changes": [
+    {
+      "position": 232,
+      "before": "S",
+      "after": "F"
+    },
+    {
+      "position": 233,
+      "before": "T",
+      "after": "M"
+    }
+  ],
+  "expected_protein_basis": "Supplemental CDS translation, replacing only positions 232/233 by published Figure 1 F/M; not a fully edited transcript or RNA-seq haplotype.",
+  "annotation_source": "Author supplied curated three-exon CDS; exon boundaries are inputs, not inferred by this capability.",
+  "license": "Article CC BY-NC-ND 4.0; attributed scientific excerpt for regression, no relicensing claim."
+}

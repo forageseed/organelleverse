@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.spread_labels"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Spread Labels"
+description = "Iteratively push apart labels closer than ``min_gap_bp`` on the circle."
+keywords = ["analyze", "labels", "restored", "result", "spread", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.ogdraw:spread_labels"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "spread_labels"
+
+[[contract.binding.parameters]]
+name = "gene_mids"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genome_length"
+codec = "json"

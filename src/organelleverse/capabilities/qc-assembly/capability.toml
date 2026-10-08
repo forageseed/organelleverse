@@ -1,0 +1,31 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "qc.assembly"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.5"
+title = "Assess assembly quality"
+description = "Consumes an existing assembly result and computes quality-control metrics and findings (completeness, contamination, structure) over it."
+keywords = ["assembly", "assessment", "quality-control"]
+execution_mode = "durable"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+organelle_types = ["mitochondrion", "plastid"]
+callable_locator = "organelleverse.quality_control.api:assembly"
+side_effects = ["read_files", "write_files", "subprocess", "network"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "pysam"
+optional = true
+
+[[contract.dependencies]]
+kind = "python"
+name = "pyhmmer"

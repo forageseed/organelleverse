@@ -1,0 +1,40 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_heatmap"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot Heatmap"
+description = "Draw a heatmap using seaborn (for ERC correlation matrices, RSCU, etc.)."
+keywords = ["analyze", "heatmap", "plot", "restored", "result", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.plots:plot_heatmap"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[[contract.dependencies]]
+kind = "python"
+name = "pandas"
+
+[[contract.dependencies]]
+kind = "python"
+name = "seaborn"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"
+
+[[contract.binding.parameters]]
+name = "data"
+codec = "json"

@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "coevolution.project_paths"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Project Paths"
+description = "Project gene-tree branch lengths onto master-tree edge space (rooted trees)."
+keywords = ["analyze", "coevolution", "paths", "project", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.coevolution.erc_engine:project_paths"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "path_matrix"
+
+[[contract.binding.parameters]]
+name = "gene_trees"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_tree_newick"
+codec = "json"

@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "optimization.random"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Optimization Random"
+description = "Generate bounded candidate proposals from a closed strategy specification and persisted observations. Scientific scores and adoption are supplied only by an independent evaluator and the governed study engine."
+keywords = ["graph", "pangenome", "pav", "phylogeny", "report"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.optimization.native_strategies:random"
+side_effects = []
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

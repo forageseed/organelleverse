@@ -1,0 +1,48 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "qc.compare_assembly_to_reference"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compare assembly candidates to a reference"
+description = "Both-strand reference interval union and block-weighted identity; plastome quadrant comparisons before and after replayable orientation normalization. Each FASTA record is an independent candidate."
+keywords = ["assembly", "orientation", "quality-control", "reference", "ssc"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.quality_control.api:compare_assembly_to_reference"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "mappy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "input_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { input_fasta = "fixtures/basic/input/candidate.fa", reference_fasta = "fixtures/basic/input/reference.fa" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

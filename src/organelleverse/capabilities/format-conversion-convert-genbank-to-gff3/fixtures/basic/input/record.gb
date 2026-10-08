@@ -1,0 +1,7 @@
+LOCUS       R1                        12 bp    DNA     linear   PLN 01-JAN-2025
+FEATURES             Location/Qualifiers
+     CDS             join(1..3,10..12)
+                     /gene="nad5"
+ORIGIN
+        1 aaacccgggttt
+//

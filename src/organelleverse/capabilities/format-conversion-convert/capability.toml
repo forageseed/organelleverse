@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "format_conversion.convert"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Convert"
+description = "Convert a GenBank-annotated genome to GFF3 and/or FASTA (content also inline in metrics)."
+keywords = ["analyze", "convert", "format_conversion", "genome", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+output_kind = "result"
+callable_locator = "organelleverse.format_conversion.convert:convert"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

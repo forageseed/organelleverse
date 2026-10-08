@@ -1,0 +1,17 @@
+{
+  "schema_version": "organelleverse.annotation-release-fixtures.v1",
+  "fixtures": [
+    {
+      "name": "Ranunculus_PMGA",
+      "fasta": "Ranunculus.fasta",
+      "fasta_sha256": "cadd98957f0316f25e287a2cb9091b978eebcbae82c931724ab1195140991ff3",
+      "baseline": "Ranunculus.gff",
+      "baseline_sha256": "cc9095e1470ce6dfd36fe15a5d8a67202fa843ec368aae9733cc13f3aaf1b0b1"
+    },
+    {
+      "name": "Arabidopsis_compound_locations",
+      "genbank": "Arabidopsis_thaliana.gb",
+      "genbank_sha256": "f2bc66a16f3983d347bf385066c3582cfa53f33eec0e423456196c35b634d8f8"
+    }
+  ]
+}

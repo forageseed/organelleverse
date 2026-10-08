@@ -1,0 +1,45 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "diversity.compute_nucleotide_diversity"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compute Nucleotide Diversity"
+description = "Compute \u03c0 from a multi-sequence alignment. Returns dict."
+keywords = ["analyze", "compute", "diversity", "nucleotide", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.diversity.diversity_core:compute_nucleotide_diversity"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "allel"
+
+[[contract.dependencies]]
+kind = "python"
+name = "numpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "diversity_metrics"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { alignment_fasta = "fixtures/basic/input/alignment.fasta" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

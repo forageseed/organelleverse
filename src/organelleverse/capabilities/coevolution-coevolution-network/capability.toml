@@ -1,0 +1,28 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "coevolution.coevolution_network"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Coevolution Network"
+description = "Build a coevolution network from correlation results."
+keywords = ["analyze", "coevolution", "network", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.coevolution.coevolution:coevolution_network"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "correlations"
+codec = "json"

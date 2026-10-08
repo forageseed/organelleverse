@@ -1,0 +1,30 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "population.call_variants"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Call Variants"
+description = "Plan or run variant calling with output in a managed run directory."
+keywords = ["analyze", "call", "population", "restored", "result", "variants"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.population.service:call_variants"
+side_effects = ["subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "bam_dir"
+codec = "directory"
+path_role = "input"

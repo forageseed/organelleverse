@@ -1,0 +1,20 @@
+# Generated; recompute with organelleverse.assets.compute_content.
+schema = "organelleverse.asset.v1"
+
+[asset]
+namespace = "rna_editing"
+name = "plantc2u"
+version = "flank90"
+summary = "PlantC2U convolutional C-to-U editing model, plastid-trained, 90 nt flank."
+
+[content]
+files = 1
+bytes = 967704
+merkle = "sha256:104e4ff330c3c46076ab5ea3ddba6c345bc7a9b424c41c9a77c9fb1b0a4db80b"
+
+[provenance]
+source = ""
+license = ""
+rebuild = ""
+derived_from = ["PlantC2U (Xu et al. 2024)"]
+notes = "Vendored via git-lfs; same no-remote caveat as deepredmt. Upstream source URL and license were not recorded and must be established before redistribution is claimed."

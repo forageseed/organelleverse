@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "population.detect_numt"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Detect Numt"
+description = "Detect NUMTs (nuclear mitochondrial DNA segments) by local alignment."
+keywords = ["analyze", "detect", "numt", "population", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.population.population:detect_numt"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "nuclear_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "mito_fasta"
+codec = "path"

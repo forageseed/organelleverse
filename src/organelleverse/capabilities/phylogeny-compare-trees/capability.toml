@@ -1,0 +1,33 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.compare_trees"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compare Trees"
+description = "Unrooted Robinson-Foulds distance between two Newick/NEXUS trees, listing conflicting splits with their support."
+keywords = ["analyze", "compare", "foulds", "phylogeny", "rf", "robinson", "tree"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.treecompare:compare_trees"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "tree_a"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "tree_b"
+codec = "path"

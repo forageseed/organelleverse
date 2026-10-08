@@ -1,0 +1,91 @@
+__pycache__/
+.superpowers/
+*.py[cod]
+*.bak
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.organelleverse/
+cv_out/
+rust/target/
+/rst
+/rst1
+/rub
+
+# Local/generated release validation artifacts.
+/_input_pop.fa
+/gfa_graph_demo.*
+/network.png
+/tests/output/
+/synteny_matrix.png
+
+# Vendored third-party tool clones (fetch upstream separately if needed; do not
+# re-vendor via git clone, which drags in a nested .git and can leak credentials
+# through embedded remote URLs).
+external_tools/
+
+# Generated preview galleries (rebuild via scripts/generate_visualization_preview.py).
+docs/reports/visualization_preview/
+docs/reports/erc_visualization_preview/
+
+# Local isolated implementation worktrees.
+.worktrees/
+temp/
+.venv/
+
+# Raw benchmark payloads (large downloaded/derived genomes and tool outputs;
+# reports, scripts and small summary JSON stay tracked).
+docs/reports/realdata-matrix/bench26/fasta/
+docs/reports/realdata-matrix/bench26/gb/
+docs/reports/realdata-matrix/bench26/geseq_out/
+docs/reports/realdata-matrix/bench26/ov_out/
+docs/reports/realdata-matrix/bench26/__pycache__/
+docs/reports/realdata-matrix/fetch-test/full-battery/
+
+# Staged bundled Python runtimes (fetched + installed at packaging time, T-G3)
+/desktop/src-tauri/runtime/
+
+# GeneCode sidecar checkout (local clone of zjuphD/GeneCode)
+/runtime/genecode/
+
+# Local UI diagnostics and one-off migration helpers.
+/desktop/science-app/gui-test-screenshots/
+/desktop/science-app/tmp/
+/desktop/science-app/tool_screenshot.png
+/desktop/science-app/scripts/add_morphology_i18n.py
+
+# Repository-root scratch files produced by phylogeny and morphology runs.
+/-
+/tree.*
+/tmp/
+/scripts/bug_hunt.py
+/scripts/morphology_screenshots.py
+/src/organelleverse/annotation/data/plastome/references/*.test.fa
+
+# Publication exports: keep editable SVG, PDF and lightweight PNG previews;
+# journal-scale TIFFs and iterative repair renders are reproducible locally.
+/paper_figures/outputs/*.tiff
+/paper_figures/supplementary_figures/*.tiff
+/paper_figures/svg_work/**/previews/
+/paper_figures/svg_work/**/rounds/
+
+# Large downloaded/derived scientific intermediates. Curated reports, scripts
+# and compact result summaries remain trackable.
+/docs/reports/coevolution-erc/
+/docs/reports/coevolution-plantcell-erc/
+/docs/reports/jipb-grape/mt_fa/
+/docs/reports/jipb-grape/pt_fa/
+/docs/reports/jipb-grape/raw/
+/docs/reports/jipb-grape/ws_test/
+/docs/reports/phylo-rest/proteomes/
+/docs/reports/selection-rnaedit/codeml_bs/
+/docs/reports/selection-rnaedit/rbcl_cds.fasta
+/docs/reports/selection-rnaedit/rbcl_codon.paml
+/docs/reports/selection-rnaedit/rbcl_prot.fasta
+/docs/reports/selection-rnaedit/rbcl_prot_aln.fasta
+/docs/reports/modules-rest/run.log

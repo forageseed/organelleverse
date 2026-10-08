@@ -1,0 +1,12 @@
+[
+  {
+    "first_recorded": "2026-07-25",
+    "modality": "gene_records",
+    "tracked_by": "design section 11.5 - DataContracts for gene_records and genome_size_candidates"
+  },
+  {
+    "first_recorded": "2026-07-25",
+    "modality": "genome_size_candidates",
+    "tracked_by": "design section 11.5 - DataContracts for gene_records and genome_size_candidates"
+  }
+]

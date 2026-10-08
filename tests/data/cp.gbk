@@ -1,0 +1,24 @@
+LOCUS       CPTEST                   300 bp    DNA     circular UNK 01-JAN-1980
+DEFINITION  test chloroplast.
+ACCESSION   CPTEST
+VERSION     CPTEST
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  .
+            .
+FEATURES             Location/Qualifiers
+     repeat_region   1..100
+                     /note="IRA"
+     CDS             95..200
+                     /gene="rbcL"
+     repeat_region   201..300
+                     /note="IRB"
+     CDS             205..250
+                     /gene="matK"
+ORIGIN
+        1 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt
+       61 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt
+      121 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt
+      181 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt
+      241 acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt acgtacgtac gtacgtacgt
+//

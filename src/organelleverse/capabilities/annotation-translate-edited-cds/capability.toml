@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "annotation.translate_edited_cds"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Translate edited organelle CDSs"
+description = "Reconstruct annotated joined CDSs, apply genomic RNA editing sites, and report paired proteins and start/stop/amino-acid changes with unphased evidence."
+keywords = ["annotation", "cds", "rna-editing", "splicing", "translation"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.annotation.edited_cds:translate_edited_cds"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

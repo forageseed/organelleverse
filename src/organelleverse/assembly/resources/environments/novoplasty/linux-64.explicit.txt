@@ -1,0 +1,7 @@
+@EXPLICIT
+https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda#1dd3fffd892081df9726d7eb7e0dea6198962ba775bd88842135a4ddb4deb3c9
+https://conda.anaconda.org/conda-forge/linux-64/libgcc-16.2.0-ha9f2e26_7.conda#e031634c3a928f9594eba868bc46ef5230d6571a364a0c63215b06c4563bfcea
+https://conda.anaconda.org/conda-forge/linux-64/libgomp-16.2.0-he0feb66_7.conda#92a0bb350c7be6a4eedcb4e111c60aefd176018e6b1c009a6e025dbe9bbcd758
+https://conda.anaconda.org/conda-forge/linux-64/libxcrypt-4.4.38-h280c20c_0.conda#f7e9292dd219a6435bbb1223da9586c3e70d66d169c5a92f08db3f2127df04e9
+https://conda.anaconda.org/bioconda/noarch/novoplasty-4.3.5-pl5321hdfd78af_0.tar.bz2#ccbb6833a75844758efa2a9305deadd9073f147e8048d45cd6ff0ba7483a77c7
+https://conda.anaconda.org/conda-forge/linux-64/perl-5.44.0-0_h7cc23a3_perl5.conda#37b594b2bfc5691757ecd657ccc7d921ff30f2931600a5515f73da023981859b

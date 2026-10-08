@@ -1,0 +1,64 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.batch_measure"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Batch measure"
+description = "Batch morphometrics over every label map in a directory: progress-state resume, per-item failure isolation, a long objects table, a per-image per-class summary, and a separate exclusion table for verification-blocked objects."
+keywords = ["analyze", "batch", "morphology", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.batch:batch_measure_dir"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "numpy"
+
+[[contract.dependencies]]
+kind = "python"
+name = "skimage"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "batch_summary"
+
+[[contract.binding.parameters]]
+name = "label_dir"
+codec = "directory"
+path_role = "input"
+
+[[contract.binding.parameters]]
+name = "state_dir"
+codec = "directory"
+path_role = "output"
+
+[[contract.binding.parameters]]
+name = "pixel_size_um"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_source"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "preflight"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_area"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "instance_map"
+codec = "json"

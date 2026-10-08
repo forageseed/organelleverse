@@ -1,0 +1,32 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "rna_editing.encode_matrix"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Encode Matrix"
+description = "One-hot encode windows into the ``(N, seq_len, 5)`` tensor the CNN expects."
+keywords = ["analyze", "encode", "matrix", "restored", "result", "rna_editing"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.rna_editing._plantc2u:encode_matrix"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "numpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"
+
+[[contract.binding.parameters]]
+name = "seqs"
+codec = "json"

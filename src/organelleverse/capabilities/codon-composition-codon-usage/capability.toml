@@ -1,0 +1,36 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "codon_composition.codon_usage"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Codon Usage"
+description = "Compute RSCU, ENC, GC3s from CDS sequences (ENC per Wright 1990)."
+keywords = ["analyze", "codon", "codon_composition", "restored", "result", "usage"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.codon_composition.codon:codon_usage"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "cds_fasta"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { cds_fasta = "fixtures/basic/input/cds.fasta" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

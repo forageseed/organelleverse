@@ -1,0 +1,32 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_transfer_schematic"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot Transfer Schematic"
+description = "Render donor-recipient transfer events as linked coordinate bars (compute-only)."
+keywords = ["analyze", "plot", "restored", "result", "schematic", "transfer", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.suite_plots:plot_transfer_schematic"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"
+
+[[contract.binding.parameters]]
+name = "events"
+codec = "json"

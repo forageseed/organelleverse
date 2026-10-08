@@ -1,0 +1,28 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "fetch.ngdc_gwh"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Fetch organelle records from NGDC GWH"
+description = "Downloads organelle records from NGDC's Genome Warehouse (CNCB/CGIR), a live database covering both mitochondrial and plastid genomes."
+keywords = ["fetch", "ngdc", "plastid"]
+execution_mode = "durable"
+stage = "read"
+input_kind = "none"
+output_kind = "data"
+organelle_types = ["mitochondrion", "plastid"]
+output_modalities = ["organelle_records"]
+callable_locator = "organelleverse.fetch._agent_ops:op_ngdc_gwh"
+side_effects = ["network", "write_files"]
+deterministic = false
+deterministic_reason = "NGDC Genome Warehouse content is updated continuously; identical queries can return different records."
+idempotent = false
+cacheable = false
+
+[contract.retry]
+max_attempts = 5
+retryable_error_codes = ["network.transient", "network.malformed_response"]

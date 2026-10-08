@@ -1,0 +1,64 @@
+{
+  "kind": "result",
+  "schema_version": "organelleverse.result.v1",
+  "operation_id": "annotation.find_orfs",
+  "operation_version": "1.0",
+  "scope": "plastid",
+  "status": "ok",
+  "summary_text": "1 sequence-only ORFs across 1 records.",
+  "metrics": {
+    "backend": "orfipy",
+    "backend_version": "0.0.4",
+    "coordinate_system": "1-based inclusive; parts in transcript order",
+    "interpretation": "Genomic sequence candidates; RNA editing, splicing, expression, and CMS causality are not tested.",
+    "orf_count": 1,
+    "orfs": [
+      {
+        "ambiguous_bases": 0,
+        "cds_sequence": "ATGACTGCAATTTTAGAGAGACGCGAAAGCGAAAGCCTATGGGGTCGCTTCTGTAACTGGATAACTAGCACTGAAAACCGTCTTTACATTGGATGGTTTGGTGTTTTGATGATCCCTACCTTATTGACCGCAACTTCTGTTTTTATTATCGCATTCATTGCTGCTCCTCCAGTAGATATTGATGGTATTCGTGAACCTGTTTCTGGATCTCTTCTTTACGGAAACAATATTATTTCCGGTGCCATTATTCCTACTTCTGCAGCTATTGGATTGCATTTTTACCCAATCTGGGAAGCTGCATCCGTTGATGAATGGCTATACAACGGCGGTCCTTATGAACTAATTGTTCTACACTTTTTACTTGGTGTAGCTTGTTATATGGGTCGTGAGTGGGAACTTAGTTTCCGTCTGGGTATGCGTCCTTGGATTGCTGTTGCATATTCAGCTCCTGTTGCAGCTGCGACTGCTGTTTTCTTGATCTATCCAATTGGTCAGGGAAGTTTTTCTGATGGTATGCCTCTAGGAATCTCTGGTACTTTCAACTTTATGATTGTATTCCAGGCTGAGCACAACATTCTTATGCACCCATTTCACATGTTAGGTGTAGCTGGTGTATTCGGCGGCTCCCTTTTTAGTGCTATGCATGGTTCCTTGGTAACTTCTAGTTTGATCAGGGAAACCACAGAAAATGAATCTGCTAATGAAGGTTACAGATTCGGGCAAGAAGAAGAAACTTACAACATTGTAGCTGCTCACGGTTATTTTGGCCGATTGATTTTCCAATATGCTAGTTTCAACAATTCTCGTTCTTTACATTTCTTCTTAGCGGCTTGGCCGGTAGTAGGTATTTGGTTTACTGCTTTAGGTATTAGTACTATGGCTTTCAACCTAAATGGTTTCAATTTCAACCAATCAGTAGTTGATAGTCAAGGACGTGTTATTAATACTTGGGCTGATATTATTAACCGTGCTAACCTTGGTATGGAAGTTATGCATGAACGTAATGCTCACAACTTCCCTCTAGACCTAGCTGCTGTTGAGGCTCCATCTACAAATGGATAA",
+        "end": 1077,
+        "frame": -1,
+        "id": "orf_1",
+        "length_aa": 353,
+        "partial_3prime": false,
+        "partial_5prime": false,
+        "parts": [
+          {
+            "end": 1077,
+            "start": 16
+          }
+        ],
+        "protein_sequence": "MTAILERRESESLWGRFCNWITSTENRLYIGWFGVLMIPTLLTATSVFIIAFIAAPPVDIDGIREPVSGSLLYGNNIISGAIIPTSAAIGLHFYPIWEAASVDEWLYNGGPYELIVLHFLLGVACYMGREWELSFRLGMRPWIAVAYSAPVAAATAVFLIYPIGQGSFSDGMPLGISGTFNFMIVFQAEHNILMHPFHMLGVAGVFGGSLFSAMHGSLVTSSLIRETTENESANEGYRFGQEEETYNIVAAHGYFGRLIFQYASFNNSRSLHFFLAAWPVVGIWFTALGISTMAFNLNGFNFNQSVVDSQGRVINTWADIINRANLGMEVMHERNAHNFPLDLAAVEAPSTNG",
+        "sequence_id": "NC_000932.1_psbA",
+        "start": 16,
+        "start_codon": "ATG",
+        "stop_codon": "TAA",
+        "strand": "-",
+        "wraps_origin": false
+      }
+    ],
+    "parameters": {
+      "circular": false,
+      "genetic_code": 11,
+      "include_nested": false,
+      "include_partial": false,
+      "min_aa": 300,
+      "organelle": "plastid",
+      "start_mode": "atg",
+      "strand": "-"
+    },
+    "records_scanned": 1,
+    "sequence_lengths": {
+      "NC_000932.1_psbA": 1083
+    }
+  },
+  "findings": [],
+  "flags": [
+    "sequence_only_orf_candidates"
+  ],
+  "artifacts": [],
+  "provenance": null,
+  "errors": [],
+  "suggested_operations": [],
+  "object_id": "result:sha256:d374405d3b387b524a2e2b45e08ad42164e58762a029f3a4d58f8f2d9a6109b8"
+}

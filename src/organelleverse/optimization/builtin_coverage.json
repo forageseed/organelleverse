@@ -1,0 +1,1101 @@
+{
+  "schema_version": "organelleverse.optimization.builtin-coverage.v1",
+  "capabilities": {
+    "annotation.extract": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.find_orfs": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.write_orfs": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.translate_edited_cds": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.write_edited_cds": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.write": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "assembly.write": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "barcode.compute_barcode_candidates": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "barcode.compute_jaccard_identity": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "barcode.design_barcode": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "barcode.design_marker_primers": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "barcode.identify": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "codon_composition.amino_acid": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "codon_composition.codon_usage": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "codon_composition.compute_amino_acid_composition": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "codon_composition.compute_codon_usage": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "codon_composition.compute_enc": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "codon_composition.resolve_genetic_code": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.bxb_lengths_dlcpar": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.bxb_lengths_lca": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.coevolution_network": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.compartment_map_from_prefix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.correlation_matrix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.extract_branch_lengths": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.filter_outlier_tree": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.fisher": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.normalize_edge_mean": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.normalize_gene_sum": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.perm_test": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.phylogenomics": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.project_paths": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.rate_covariation": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.reconcile_trees": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.residual_matrix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "coevolution.run_coevolution": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.run_erc": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.run_orthofinder": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "coevolution.species_tree_edges": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.compare_genes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.compare_genomes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.detect_structural_variants": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "comparative.compute_genome_identity": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "comparative.gene_table": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.normalize_gene_names": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.normalize_plastome_orientation": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.normalize_genes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "comparative.synteny": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "composition.compute_gc_content": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "composition.gc_content": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "diversity.compute_neutral_tests": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "diversity.compute_nucleotide_diversity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "diversity.neutral_tests": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "diversity.nucleotide_diversity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "diversity.sliding_window_diversity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.accession_list": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.dedup_genomes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.entrez_query": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.gene_records": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.genome_size_candidates": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.ngdc_gwh": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.nuclear_assembly": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "fetch.refseq_snapshot": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "format_conversion.convert": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "format_conversion.convert_genbank_to_fasta": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "format_conversion.convert_genbank_to_gff3": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "hgt.compute_hgt": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "hgt.detect_hgt": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "io.read_fasta_genome": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "io.read_genbank_genome": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "ir_boundary.ir_boundary": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "localization.check_all_backends": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "localization.check_backend": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "localization.install_hint": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "localization.predict": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "localization.score_nls": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "localization.score_pts": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "localization.score_signal_peptide": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "localization.score_transit_peptides": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "localization.score_transmembrane": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "morphology.batch_measure": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "morphology.check_all_backends": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "morphology.check_backend": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "morphology.correct": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "morphology.default_executor": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "morphology.install_hint": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "morphology.measure": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "morphology.overlay": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "morphology.segment": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "morphology.summarize": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "morphology.train": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "morphology.training_code_snippet": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "morphology.validate_dataset": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "morphology.verify": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "pangenome.analyze_graph": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "pangenome.build_graph": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "pangenome.check_all_backends": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "pangenome.check_backend": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "pangenome.classify_sequences": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "pangenome.convert_graph_result": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "pangenome.extract_subgraph": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "pangenome.gene_pav": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "pangenome.install_hint": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "pangenome.pan_repeats": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "pangenome.recommend_parameters": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phenotype.cms": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phenotype.cms_protein_fasta": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phenotype.cms_reference_json": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phenotype.compute_cms_candidates": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phenotype.download_cms_sequences": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.align": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.build_mjn": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.build_msn": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.build_partitioned_supermatrix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.build_tcs_network": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.build_tree": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.collapse_haplotypes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.gene_presence_traits": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.reconstruct_ancestral_states": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.compare_trees": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.test_topologies": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.compute_alignment": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.date_tree": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.extract_shared_genes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.haplotype_network": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.iqtree_to_mrbayes_model": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.pairwise_distances": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.pdistance": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.plan_tree_build": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.render_network": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "phylogeny.run_build_tree": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.run_mrbayes": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.run_astral": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.run_trim_alignment": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.select_partition_scheme": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phylogeny.tcs_connection_limit": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "ppr.predict_binding_sites": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phylogeny.trim_alignment": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "population.call_variants": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "population.check_all_backends": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "population.check_backend": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "population.compute_fst": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "population.cytonuclear_gwas": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "population.detect_numt": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "population.fst_scan": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "population.install_hint": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "population.prepare_gemma_input": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "qc.annotation": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "qc.assembly": {
+      "status": "not_applicable",
+      "reason_code": "optimization.execution_resources_only"
+    },
+    "qc.compare_assembly_to_reference": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "qc.filter_long_reads": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "qc.filter_short_reads": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "qc.read_statistics": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "qc.write": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.change_n": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.encode_matrix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.extract_window": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.extract_windows": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.plantc2u_model_path": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "rna_editing.predict_edits": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "rna_editing.predict_edits_deepred": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "rna_editing.predict_edits_plantc2u": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "rna_editing.predict_edits_prep": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.validate_edits": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.detect_editing_sites": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_editing.quantify_efficiency": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_seq.quantify_exon_expression": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "rna_seq.quantify_splicing_efficiency": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "heteroplasmy.quantify_variant_fractions": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "heteroplasmy.estimate_structural_fractions": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.align_protein": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.batch_codeml": {
+      "status": "not_applicable",
+      "reason_code": "optimization.execution_resources_only"
+    },
+    "selection.branch_model": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.branch_site_model": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.check_kaks_calculator": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "selection.clade_model": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.compute_kaks": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.fasta_to_axt": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.install_hint": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "selection.kaks": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.kaks_calculator": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.likelihood_ratio_test": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.pal2nal": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.parse_codeml_output": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.parse_kaks_output": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.prepare_codeml": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.run_codeml": {
+      "status": "not_applicable",
+      "reason_code": "optimization.execution_resources_only"
+    },
+    "selection.run_kaks_calculator_workflow": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.site_model": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.to_paml": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.translate_cds": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.validate_cds": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.validate_cds_sequences": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.write_branch_model": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.write_branch_site_model": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.write_clade_model": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.write_codeml_inputs": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.write_site_model": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "selection.check_hyphy": {
+      "status": "not_applicable",
+      "reason_code": "optimization.environment_inspection"
+    },
+    "selection.hyphy_absrel": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.hyphy_busted": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.hyphy_fel": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.hyphy_meme": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.hyphy_relax": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "selection.parse_hyphy_json": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "structure.compute_multiconf": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "structure.compute_repeats": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "structure.introns": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "structure.multiconf": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "structure.repeats": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "structure.resolve_configs": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "trans_splicing.detect_trans_splicing": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.compute_transfer": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.detect_mtpt": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.detect_transfers_blast": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.detect_transfers_evidence": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.validate_transfers_depth": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.validate_transfers_longread": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "variation.compute_snp": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "variation.snp": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "variation.snp_density": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "visualization.classify_gene": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.ideogram": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.nuclear_transfer_ideogram": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_collinearity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_erc_distribution": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_erc_group_ridges": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_erc_network": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_erc_pair_scatter": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_erc_significance": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_gbdraw": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_gene_structure": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_genome_identity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_genome_map": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_gfa_graph": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_heatmap": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_localization_bars": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_matrix_heatmap": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_network": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_ogdraw_map": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_pan_circular": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_qc_dashboard": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_rna_editing_summary": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_rscu_usage": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_scatter": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_selection_summary": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_structure_map": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_splicing_schematic": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_synteny_matrix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_track_density": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_transfer_schematic": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_transfer_tracks": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_tree": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.save_plot": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.spread_labels": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.summarize_synteny_matrix": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.write_erc_visualization_report": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.write_ideogram": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.write_nuclear_transfer_ideogram": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.write_visualization_preview_report": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "pangenome.evaluate_graph_benchmark": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_benchmark_metric"
+    },
+    "optimization.grid": {
+      "status": "not_applicable",
+      "reason_code": "optimization.search_orchestration"
+    },
+    "optimization.random": {
+      "status": "not_applicable",
+      "reason_code": "optimization.search_orchestration"
+    },
+    "optimization.space_filling": {
+      "status": "not_applicable",
+      "reason_code": "optimization.search_orchestration"
+    },
+    "optimization.successive_halving": {
+      "status": "not_applicable",
+      "reason_code": "optimization.search_orchestration"
+    },
+    "pangenome.evaluate_conformation_benchmark": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_benchmark_metric"
+    },
+    "pangenome.evaluate_block_benchmark": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_benchmark_metric"
+    },
+    "annotation.find_orfs": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "annotation.translate_edited_cds": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.write_edited_cds": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "annotation.write_orfs": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phenotype.assess_cms_annotation": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phenotype.assess_cms_candidates": {
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
+    },
+    "phenotype.predict_cms_topology": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "phenotype.write_cms_evidence": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    }
+  }
+}

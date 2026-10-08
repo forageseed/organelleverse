@@ -1,0 +1,20 @@
+# Generated; recompute with organelleverse.assets.compute_content.
+schema = "organelleverse.asset.v1"
+
+[asset]
+namespace = "rna_editing"
+name = "deepredmt"
+version = "210520"
+summary = "Deepred-Mt convolutional C-to-U editing model, mitochondrion-trained."
+
+[content]
+files = 3
+bytes = 16460056
+merkle = "sha256:b2adcd56ae943307d5b6020988db2389275edb9f5ad58dd2ab71ca00469f3da1"
+
+[provenance]
+source = ""
+license = ""
+rebuild = ""
+derived_from = ["Deepred-Mt (Edera et al. 2021)"]
+notes = "Vendored via git-lfs. This repository has NO git remote, so the only copy of these weights is the local .git/lfs/objects store; losing it makes them unrecoverable from here. Upstream source URL and license were not recorded when the weights were added and must be established before redistribution is claimed."

@@ -1,0 +1,24 @@
+{
+  "version": "1.2",
+  "dbname": "cms_proteins",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "OrganelleVerse CMS Proteins",
+  "number-of-letters": 9414,
+  "number-of-sequences": 35,
+  "last-updated": "2026-04-07T13:43:00",
+  "number-of-volumes": 1,
+  "bytes-total": 64946,
+  "bytes-to-cache": 9842,
+  "files": [
+    "cms_proteins.pdb",
+    "cms_proteins.phr",
+    "cms_proteins.pin",
+    "cms_proteins.pog",
+    "cms_proteins.pos",
+    "cms_proteins.pot",
+    "cms_proteins.psq",
+    "cms_proteins.ptf",
+    "cms_proteins.pto"
+  ]
+}

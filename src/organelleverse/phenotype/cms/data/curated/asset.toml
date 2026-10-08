@@ -1,0 +1,19 @@
+schema = "organelleverse.asset.v1"
+
+[asset]
+namespace = "phenotype"
+name = "cms_curated_reference"
+version = "1.0"
+summary = "Two accession-checked CMS reference proteins: ORF79 and ORF138."
+
+[content]
+files = 2
+bytes = 1398
+merkle = "sha256:3ca269c529c7bf8265ef0d4140876a75e68a903700a9d8252fb8e780a980d024"
+
+[provenance]
+source = "NCBI D14339.1/BAA18902.1 and Z18896.1/CAA79332.1, downloaded 2026-10-01"
+license = "NCBI biological sequence records; source publication links retained in cms_reference.json"
+rebuild = "Extract specified CDS translation qualifiers from the pinned nucleotide records; verify CDS translation and expected protein ID/length."
+derived_from = []
+notes = "A small seed, not a comprehensive CMS catalog. Parent legacy set has 34 length mismatches among 35 FASTA records and is excluded from default references."

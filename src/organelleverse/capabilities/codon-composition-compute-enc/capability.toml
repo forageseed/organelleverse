@@ -1,0 +1,40 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "codon_composition.compute_enc"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compute Enc"
+description = "Compute Wright's effective number of codons (ENC)."
+keywords = ["analyze", "codon_composition", "compute", "enc", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.codon_composition.codon_core:compute_enc"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "enc"
+
+[[contract.binding.parameters]]
+name = "counts"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "codon_to_aa"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { counts = { TTT = 1, TTC = 2, TTA = 3, TTG = 4, TCT = 5, TCC = 1, TCA = 2, TCG = 3, TAT = 4, TAC = 5, TAA = 1, TAG = 2, TGT = 3, TGC = 4, TGA = 5, TGG = 1, CTT = 2, CTC = 3, CTA = 4, CTG = 5, CCT = 1, CCC = 2, CCA = 3, CCG = 4, CAT = 5, CAC = 1, CAA = 2, CAG = 3, CGT = 4, CGC = 5, CGA = 1, CGG = 2, ATT = 3, ATC = 4, ATA = 5, ATG = 1, ACT = 2, ACC = 3, ACA = 4, ACG = 5, AAT = 1, AAC = 2, AAA = 3, AAG = 4, AGT = 5, AGC = 1, AGA = 2, AGG = 3, GTT = 4, GTC = 5, GTA = 1, GTG = 2, GCT = 3, GCC = 4, GCA = 5, GCG = 1, GAT = 2, GAC = 3, GAA = 4, GAG = 5, GGT = 1, GGC = 2, GGA = 3, GGG = 4 }, codon_to_aa = { TTT = "F", TTC = "F", TTA = "L", TTG = "L", TCT = "S", TCC = "S", TCA = "S", TCG = "S", TAT = "Y", TAC = "Y", TAA = "*", TAG = "*", TGT = "C", TGC = "C", TGA = "*", TGG = "W", CTT = "L", CTC = "L", CTA = "L", CTG = "L", CCT = "P", CCC = "P", CCA = "P", CCG = "P", CAT = "H", CAC = "H", CAA = "Q", CAG = "Q", CGT = "R", CGC = "R", CGA = "R", CGG = "R", ATT = "I", ATC = "I", ATA = "I", ATG = "M", ACT = "T", ACC = "T", ACA = "T", ACG = "T", AAT = "N", AAC = "N", AAA = "K", AAG = "K", AGT = "S", AGC = "S", AGA = "R", AGG = "R", GTT = "V", GTC = "V", GTA = "V", GTG = "V", GCT = "A", GCC = "A", GCA = "A", GCG = "A", GAT = "D", GAC = "D", GAA = "E", GAG = "E", GGT = "G", GGC = "G", GGA = "G", GGG = "G" } }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

@@ -1,0 +1,50 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.correct"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Correct"
+description = "Record a human correction of a segmentation label map as a hash-addressed provenance object: both endpoint hashes, affected-region summary, correction type, free-text reason, operator, and timestamp."
+keywords = ["analyze", "correction", "morphology", "provenance", "result"]
+execution_mode = "inline"
+# The brief asks for stage "transform", but the frozen OperationSpec
+# validator restricts transform to Genome/Data core-object input AND output
+# (spec.py validate_contract); a label-map path-parameter flow returning an
+# OrganelleResult is only admissible as analyze. The frozen contract is not
+# widened; the deviation is recorded in the T4 commit message.
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.correction:correct"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "original_label_map"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "corrected_label_map"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "correction_type"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reason"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "operator"
+codec = "json"

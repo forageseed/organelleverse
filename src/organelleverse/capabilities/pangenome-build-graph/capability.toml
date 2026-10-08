@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.build_graph"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Build Graph"
+description = "Build a graph in a deterministic managed workspace."
+keywords = ["analyze", "build", "genome", "graph", "pangenome", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+input_sequence = true
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.service:build_graph"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

@@ -1,0 +1,20 @@
+# Generated; recompute with organelleverse.assets.compute_content.
+schema = "organelleverse.asset.v1"
+
+[asset]
+namespace = "phenotype"
+name = "cms_models"
+version = "1.0"
+summary = "Logistic-regression CMS classifier, scaler, and feature list."
+
+[content]
+files = 4
+bytes = 3366
+merkle = "sha256:24ff90d81d2b9c8edd3af710cda5b93a7e9946c38774d2f777f921cc186b384a"
+
+[provenance]
+source = ""
+license = ""
+rebuild = ""
+derived_from = []
+notes = "ORPHANED: no code path loads these. A repository-wide and full-history search finds no joblib.load and no extractor for the 22 features in feature_names.json. training_report.json advertises cv_auc_mean 0.9937 for a model that is unreachable from any entry point; that figure is not backed by executable code. Do not cite it."

@@ -1,0 +1,10 @@
+{
+  "accession": "NC_000932.1",
+  "gene": "psbA",
+  "genomic_start_1based": 383,
+  "genomic_end_1based": 1444,
+  "strand": -1,
+  "source": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_000932.1&rettype=gbwithparts&retmode=text",
+  "retrieved": "2026-10-01",
+  "scope": "Curated CDS and protein sequence; coordinate relocation tests do not measure whole-genome recall."
+}

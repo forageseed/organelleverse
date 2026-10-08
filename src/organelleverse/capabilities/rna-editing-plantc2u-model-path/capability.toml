@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "rna_editing.plantc2u_model_path"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plantc2u Model Path"
+description = "Absolute path to the packaged PlantC2U HDF5 checkpoint."
+keywords = ["analyze", "model", "path", "plantc2u", "restored", "result", "rna_editing"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.rna_editing._plantc2u:plantc2u_model_path"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"

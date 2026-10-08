@@ -1,0 +1,24 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "fetch.dedup_genomes"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Deduplicate organelle genome records"
+description = "Removes duplicate organelle records from an already-fetched set using only metadata already in hand; a pure, cacheable computation."
+keywords = ["dedup", "genome", "transform"]
+execution_mode = "inline"
+stage = "transform"
+input_kind = "data"
+output_kind = "data"
+organelle_types = ["mitochondrion", "plastid"]
+input_modalities = ["organelle_records"]
+output_modalities = ["organelle_records"]
+callable_locator = "organelleverse.fetch._agent_ops:op_dedup_genomes"
+side_effects = []
+deterministic = true
+idempotent = true
+cacheable = true

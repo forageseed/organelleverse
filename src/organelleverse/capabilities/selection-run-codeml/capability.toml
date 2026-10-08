@@ -1,0 +1,34 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.run_codeml"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Run Codeml"
+description = "Run CodeML using a managed copy of its control and input files."
+keywords = ["analyze", "codeml", "restored", "result", "run", "selection"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.service:run_codeml"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "Bio"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "codeml_run"
+
+[[contract.binding.parameters]]
+name = "ctl_path"
+codec = "path"

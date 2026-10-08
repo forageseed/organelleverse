@@ -1,0 +1,22 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "assembly.write"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Write an assembly result"
+description = "Atomically materializes a non-failed canonical assembly result to a caller-selected destination."
+keywords = ["assembly", "publish", "write"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+organelle_types = ["mitochondrion", "plastid"]
+callable_locator = "organelleverse.assembly.api:write"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false

@@ -1,0 +1,32 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.nuclear_transfer_ideogram"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Nuclear Transfer Ideogram"
+description = "Prepare a panel-C style NUMT/NUPT chromosome ideogram without writing files."
+keywords = ["analyze", "ideogram", "nuclear", "restored", "result", "transfer", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.suite_plots:nuclear_transfer_ideogram"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "chromosomes"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "fragments"
+codec = "json"

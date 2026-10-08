@@ -1,0 +1,81 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "annotation.find_orfs"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Discover organelle ORFs"
+description = "Scan individual FASTA records with orfipy, configurable genetic code and start modes, linear partial ORFs, and circular coordinate parts."
+keywords = ["annotation", "circular", "orf", "sequence"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.annotation.orfs:find_orfs"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "genome_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genetic_code"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_aa"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "start_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "strand"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "include_nested"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "include_partial"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "circular"
+codec = "json"
+
+[[contract.dependencies]]
+kind = "python"
+name = "orfipy_core"
+locator = "orfipy"
+version_spec = ">=0.0.4"
+
+[[fixture]]
+case = "nc_000932_psba_negative"
+input = { kind = "none" }
+parameters = { genome_fasta = "fixtures/psba-negative.fasta", organelle = "plastid", genetic_code = 11, min_aa = 300, strand = "-" }
+expect = "fixtures/nc_000932_psba_negative/expected.json"
+equivalence = "exact"
+
+[[fixture]]
+case = "context_dependent_code_rejected"
+input = { kind = "none" }
+parameters = { genome_fasta = "fixtures/psba-negative.fasta", genetic_code = 28 }
+adversarial = true
+expect_failure_code = "parameters.invalid_orf_options"

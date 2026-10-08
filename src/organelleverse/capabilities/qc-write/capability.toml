@@ -1,0 +1,22 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "qc.write"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.2"
+title = "Write a quality-control result"
+description = "Atomically materializes a non-failed canonical quality-control result to a caller-selected destination."
+keywords = ["publish", "quality-control", "write"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+organelle_types = ["mitochondrion", "plastid"]
+callable_locator = "organelleverse.quality_control.api:write"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false

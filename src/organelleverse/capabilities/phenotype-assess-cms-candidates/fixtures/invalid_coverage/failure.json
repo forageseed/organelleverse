@@ -1,0 +1,4 @@
+{
+  "failure_code": "cms.invalid_threshold",
+  "message": "Invalid identity, coverage, E-value or hydrophobicity threshold"
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "seed": 20260830,
+  "length": 12000,
+  "mutation_stride": 150,
+  "samples": ["sample_a", "sample_b"]
+}

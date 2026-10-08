@@ -1,0 +1,300 @@
+{
+  "comment": "Hermetic NCBI Datasets v2 snapshot for fetch.genome_size_candidates tests. No test performs a network request; the FakeTransport serves these bodies by URL. Field names are the NCBI Datasets v2 REST report schema (snake_case). Records exercise exact-TaxID equality, assembly-level / RefSeq-category / N50 / unplaced / date / accession ranking, anomalous exclusion, scaffold/contig and phased/diploid non-selection, missing optional statistics, and canonical report bytes + SHA256.",
+  "base_url": "https://api.ncbi.nlm.nih.gov/datasets/v2",
+  "species_name": "Arabidopsis thaliana",
+  "taxid": 3702,
+  "near_relative_taxid": 4565,
+  "taxonomy_response": {
+    "taxonomy_nodes": [
+      {
+        "tax_id": "3702",
+        "organism_name": "Arabidopsis thaliana",
+        "scientific_name": "Arabidopsis thaliana",
+        "common_name": "thale cress",
+        "rank": "species"
+      }
+    ],
+    "total_count": 1
+  },
+  "taxonomy_response_miss": {
+    "taxonomy_nodes": [],
+    "total_count": 0
+  },
+  "taxonomy_response_inconsistent": {
+    "taxonomy_nodes": [
+      {
+        "tax_id": "",
+        "scientific_name": "Arabidopsis thaliana",
+        "rank": "species"
+      }
+    ],
+    "total_count": 1
+  },
+  "reports": [
+    {
+      "accession": "GCF_000001735.4",
+      "assembly_info": {
+        "assembly_name": "TAIR10.1",
+        "assembly_level": "Complete Genome",
+        "assembly_type": "haploid",
+        "refseq_category": "reference genome",
+        "release_date": "2022-09-20",
+        "submission_date": "2022-08-30",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 119668435,
+        "contig_n50": 10740370,
+        "scaffold_n50": 23138553,
+        "unplaced_proportion": 0.0001
+      }
+    },
+    {
+      "accession": "GCF_999111.1",
+      "assembly_info": {
+        "assembly_name": "RepA.1",
+        "assembly_level": "Complete Genome",
+        "assembly_type": "haploid",
+        "refseq_category": "representative genome",
+        "release_date": "2021-01-01",
+        "submission_date": "2020-12-15",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 120000000,
+        "contig_n50": 9000000,
+        "scaffold_n50": 20000000,
+        "unplaced_proportion": 0.001
+      }
+    },
+    {
+      "accession": "GCA_999222.2",
+      "assembly_info": {
+        "assembly_name": "OtherA.1",
+        "assembly_level": "Complete Genome",
+        "assembly_type": "haploid",
+        "refseq_category": "na",
+        "release_date": "2022-09-20",
+        "submission_date": "2022-09-01",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 119000000,
+        "contig_n50": 8000000,
+        "scaffold_n50": 19000000,
+        "unplaced_proportion": 0.0005
+      }
+    },
+    {
+      "accession": "GCF_999333.3",
+      "assembly_info": {
+        "assembly_name": "OtherB.1",
+        "assembly_level": "Complete Genome",
+        "assembly_type": "haploid",
+        "refseq_category": "na",
+        "release_date": "2022-09-20",
+        "submission_date": "2022-09-02",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 119500000,
+        "contig_n50": 8500000,
+        "scaffold_n50": 19500000,
+        "unplaced_proportion": 0.0005
+      }
+    },
+    {
+      "accession": "GCF_999444.4",
+      "assembly_info": {
+        "assembly_name": "ChrRef.1",
+        "assembly_level": "Chromosome",
+        "assembly_type": "haploid",
+        "refseq_category": "reference genome",
+        "release_date": "2020-05-05",
+        "submission_date": "2020-04-01",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 118000000,
+        "contig_n50": 5000000,
+        "scaffold_n50": 15000000,
+        "unplaced_proportion": 0.01
+      }
+    },
+    {
+      "accession": "GCA_999555.5",
+      "assembly_info": {
+        "assembly_name": "ScafA.1",
+        "assembly_level": "Scaffold",
+        "assembly_type": "haploid",
+        "refseq_category": "reference genome",
+        "release_date": "2019-03-03",
+        "submission_date": "2019-02-01",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 117000000,
+        "contig_n50": 100000,
+        "scaffold_n50": 1000000,
+        "unplaced_proportion": 0.05
+      }
+    },
+    {
+      "accession": "GCA_999666.6",
+      "assembly_info": {
+        "assembly_name": "ContigA.1",
+        "assembly_level": "Contig",
+        "assembly_type": "haploid",
+        "refseq_category": "reference genome",
+        "release_date": "2018-06-06",
+        "submission_date": "2018-05-01",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 116000000,
+        "contig_n50": 50000,
+        "scaffold_n50": 50000,
+        "unplaced_proportion": 0.1
+      }
+    },
+    {
+      "accession": "GCF_999777.7",
+      "assembly_info": {
+        "assembly_name": "DiploidA.1",
+        "assembly_level": "Chromosome",
+        "assembly_type": "diploid",
+        "refseq_category": "na",
+        "release_date": "2021-11-11",
+        "submission_date": "2021-10-01",
+        "diploid_role": "primary",
+        "linked_assemblies": [
+          {
+            "accession": "GCA_999777_alt.1",
+            "assembly_type": "alternate_pseudohaplotype_of_diploid"
+          }
+        ],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 230000000,
+        "contig_n50": 6000000,
+        "scaffold_n50": 17000000,
+        "unplaced_proportion": 0.02
+      }
+    },
+    {
+      "accession": "GCF_999888.8",
+      "assembly_info": {
+        "assembly_name": "UnknownPloidy.1",
+        "assembly_level": "Complete Genome",
+        "refseq_category": "reference genome",
+        "release_date": "2023-03-03",
+        "submission_date": "2023-02-01"
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 119700000
+      }
+    },
+    {
+      "accession": "GCF_999999.9",
+      "assembly_info": {
+        "assembly_name": "AtypicalA.1",
+        "assembly_level": "Chromosome",
+        "assembly_type": "haploid",
+        "refseq_category": "reference genome",
+        "release_date": "2017-07-07",
+        "submission_date": "2017-06-01",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": {
+          "is_atypical": true,
+          "warnings": ["assembly flagged as contaminated"]
+        }
+      },
+      "organism": {
+        "tax_id": 3702,
+        "scientific_name": "Arabidopsis thaliana"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 119000000,
+        "contig_n50": 4000000,
+        "scaffold_n50": 14000000,
+        "unplaced_proportion": 0.03
+      }
+    },
+    {
+      "accession": "GCF_888000.0",
+      "assembly_info": {
+        "assembly_name": "NearRelative.1",
+        "assembly_level": "Complete Genome",
+        "assembly_type": "haploid",
+        "refseq_category": "reference genome",
+        "release_date": "2024-01-01",
+        "submission_date": "2023-12-01",
+        "diploid_role": "haploid",
+        "linked_assemblies": [],
+        "atypical": null
+      },
+      "organism": {
+        "tax_id": 4565,
+        "scientific_name": "Arabidopsis lyrata"
+      },
+      "assembly_stats": {
+        "total_sequence_length": 207000000,
+        "contig_n50": 12000000,
+        "scaffold_n50": 25000000,
+        "unplaced_proportion": 0.0001
+      }
+    }
+  ]
+}

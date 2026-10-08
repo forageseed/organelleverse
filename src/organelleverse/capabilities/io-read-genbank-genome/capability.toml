@@ -1,0 +1,21 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "io.read_genbank_genome"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Read a GenBank organelle genome"
+description = "Reads an organelle genome sequence and its existing feature annotations from a GenBank flat file into a canonical OrganelleGenome."
+keywords = ["genbank", "genome", "io"]
+execution_mode = "inline"
+stage = "read"
+input_kind = "none"
+output_kind = "genome"
+callable_locator = "organelleverse.io_genome:read_genbank_genome"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false

@@ -1,0 +1,44 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "comparative.normalize_plastome_orientation"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Normalize Plastome Orientation"
+description = "Normalize circular plastomes to LSC/IRb/SSC/IRa and reference or majority single-copy strands; report unresolved samples and replayable operations."
+keywords = ["comparative", "lsc", "orientation", "plastome", "result", "ssc"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.comparative.orientation:normalize_plastome_orientation"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "mappy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "input_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference_fasta"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { input_fasta = "fixtures/basic/input/plastomes.fasta" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

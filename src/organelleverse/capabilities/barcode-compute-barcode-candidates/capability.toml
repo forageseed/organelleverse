@@ -1,0 +1,37 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "barcode.compute_barcode_candidates"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compute Barcode Candidates"
+description = "Find highly variable regions suitable as barcodes. Returns dict."
+keywords = ["analyze", "barcode", "candidates", "compute", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.barcode.barcode_core:compute_barcode_candidates"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "barcode_candidates"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { alignment_fasta = "fixtures/basic/input/alignment.fasta" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

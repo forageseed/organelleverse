@@ -1,0 +1,43 @@
+LOCUS       CIRCULAR                 1200 bp    DNA     circular UNK 01-JAN-1980
+DEFINITION  deterministic circular mitochondrial test fixture.
+ACCESSION   CIRCULAR
+VERSION     CIRCULAR.1
+KEYWORDS    .
+SOURCE      test plant mitochondrion
+  ORGANISM  test plant mitochondrion
+            .
+FEATURES             Location/Qualifiers
+     source          1..1200
+                     /organism="test plant mitochondrion"
+                     /organelle="mitochondrion"
+                     /mol_type="genomic DNA"
+     gene            40..220
+                     /gene="nad1"
+     gene            complement(280..390)
+                     /gene="trnM-CAU"
+     gene            480..720
+                     /gene="cox1"
+     gene            complement(820..980)
+                     /gene="rrn18"
+ORIGIN
+        1 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+       61 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      121 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      181 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      241 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      301 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      361 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      421 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      481 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      541 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      601 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      661 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      721 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      781 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      841 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      901 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+      961 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+     1021 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+     1081 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+     1141 atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat atgcatgcat
+//

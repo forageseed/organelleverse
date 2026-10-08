@@ -1,0 +1,53 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phenotype.predict_cms_topology"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Predict CMS protein topology"
+description = "Run mature TMbed and its local ProtT5 encoder on CPU, retain directed residue topology and signal peptides separately; validate complete input identity without remote model/device fallback."
+keywords = ["annotation", "cms", "evidence", "topology"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phenotype.cms.topology:predict_cms_topology"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "protein_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "model_dir"
+codec = "directory"
+path_role = "input"
+
+[[contract.binding.parameters]]
+name = "tmbed_path"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "timeout"
+codec = "json"
+
+[[fixture]]
+case = "invalid_threads"
+input = { kind = "none" }
+parameters = { protein_fasta = "fixtures/query.fasta", model_dir = "fixtures/model", threads = 0 }
+adversarial = true
+expect_failure_code = "cms.invalid_topology_parameter"

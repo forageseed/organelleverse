@@ -1,0 +1,6 @@
+accession	position	type
+sample_a	75	SNP
+sample_b	310	indel
+sample_a	525	SNP
+sample_c	845	DEL
+sample_b	1110	SNP

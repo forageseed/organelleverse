@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phenotype.cms_protein_fasta"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Cms Protein Fasta"
+description = "Return the accession-checked seed, excluding the unverified legacy catalog."
+keywords = ["analyze", "cms", "fasta", "phenotype", "protein", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phenotype.cms.resources:cms_protein_fasta"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "artifact"

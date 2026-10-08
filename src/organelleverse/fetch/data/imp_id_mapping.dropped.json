@@ -1,0 +1,100 @@
+{
+  "Ajuga_reptans": {
+    "imp_id": "Are1",
+    "reason": "collision"
+  },
+  "Amaranthus_retroflexus": {
+    "imp_id": "Are1",
+    "reason": "collision"
+  },
+  "Camellia_nitidissima": {
+    "imp_id": "Can1",
+    "reason": "standalone_mismatch",
+    "expected_prefix": "Cni"
+  },
+  "Carex_myosuroides": {
+    "imp_id": "Cam1",
+    "reason": "standalone_mismatch",
+    "expected_prefix": "Cmy"
+  },
+  "Ceratonia_siliqua": {
+    "imp_id": "Csi1",
+    "reason": "collision"
+  },
+  "Citrus_sinensis": {
+    "imp_id": "Csi1",
+    "reason": "collision"
+  },
+  "Fragaria_orientalis": {
+    "imp_id": "Fro1",
+    "reason": "standalone_mismatch",
+    "expected_prefix": "For"
+  },
+  "Geum_urbanum": {
+    "imp_id": "Gur1",
+    "reason": "collision"
+  },
+  "Glycyrrhiza_uralensis": {
+    "imp_id": "Gur1",
+    "reason": "collision"
+  },
+  "Luzula_sylvatica": {
+    "imp_id": "Lus1",
+    "reason": "resolved_pair_loser"
+  },
+  "Magnolia_zenii": {
+    "imp_id": "Maz1",
+    "reason": "standalone_mismatch",
+    "expected_prefix": "Mze"
+  },
+  "Matricaria_chamomilla": {
+    "imp_id": "Mac1",
+    "reason": "standalone_mismatch",
+    "expected_prefix": "Mch"
+  },
+  "Medicago_sativa": {
+    "imp_id": "Mes1",
+    "reason": "collision"
+  },
+  "Melastoma_sanguineum": {
+    "imp_id": "Mes1",
+    "reason": "collision"
+  },
+  "Phleum_pratense": {
+    "imp_id": "Ppr1",
+    "reason": "collision"
+  },
+  "Poa_pratensis": {
+    "imp_id": "Ppr1",
+    "reason": "collision"
+  },
+  "Populus_davidiana": {
+    "imp_id": "Pda1",
+    "reason": "collision"
+  },
+  "Prunus_davidiana": {
+    "imp_id": "Pda1",
+    "reason": "collision"
+  },
+  "Salix_babylonica": {
+    "imp_id": "Sba3",
+    "reason": "collision"
+  },
+  "Salix_lanata": {
+    "imp_id": "Sal1",
+    "reason": "resolved_pair_loser"
+  },
+  "Scutellaria_barbata": {
+    "imp_id": "Sba3",
+    "reason": "collision"
+  },
+  "Silene_noctiflora": {
+    "imp_id": "Sin1",
+    "reason": "standalone_mismatch",
+    "expected_prefix": "Sno"
+  },
+  "Sophora_flavescens": {
+    "imp_id": "Sof1",
+    "reason": "resolved_pair_loser"
+  }
+}

@@ -1,0 +1,30 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.validate_cds_sequences"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Validate Cds Sequences"
+description = "Validate CDS sequences. Returns dict with per-seq results."
+keywords = ["analyze", "cds", "restored", "result", "selection", "sequences", "validate"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.codeml_core:validate_cds_sequences"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "cds_validation"
+
+[[contract.binding.parameters]]
+name = "cds_fasta"
+codec = "path"

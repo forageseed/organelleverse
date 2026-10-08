@@ -1,0 +1,53 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "qc.filter_short_reads"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Filter short reads with fastp"
+description = "Single/paired FASTQ quality and adapter filtering using fastp with parsed JSON metrics and managed output paths."
+keywords = ["fastq", "quality-control", "reads"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.quality_control.api:filter_short_reads"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "reads"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reads2"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_mean_quality"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "adapter_sequence"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "adapter_sequence_r2"
+codec = "json"

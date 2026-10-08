@@ -1,0 +1,37 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "coevolution.bxb_lengths_lca"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Bxb Lengths Lca"
+description = "Extract BXB branch lengths for one gene tree via LCA/SDI reconciliation."
+keywords = ["analyze", "bxb", "coevolution", "lca", "lengths", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.coevolution._bxb_extract:bxb_lengths_lca"
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "edge_lengths"
+
+[[contract.binding.parameters]]
+name = "gene_tree_newick"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_tree_newick"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "edges"
+codec = "json"

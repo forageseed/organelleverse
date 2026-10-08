@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "structure.introns"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Introns"
+description = "Analyze explicitly annotated intron features (GenBank ``intron`` only)."
+keywords = ["analyze", "genome", "introns", "restored", "result", "structure"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+output_kind = "result"
+callable_locator = "organelleverse.structure.structure:introns"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

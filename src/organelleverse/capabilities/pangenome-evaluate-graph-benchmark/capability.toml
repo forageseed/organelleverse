@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.evaluate_graph_benchmark"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Evaluate Graph Homology Benchmark"
+description = "Evaluate exact graph-base homology against an independently captured, versioned benchmark truth artifact. Retains per-anchor evidence and rejects graphs that do not reconstruct the benchmark molecules."
+keywords = ["graph", "pangenome", "pav", "phylogeny", "report"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.benchmark_evaluator:evaluate_graph_benchmark"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

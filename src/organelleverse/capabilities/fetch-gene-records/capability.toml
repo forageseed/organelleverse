@@ -1,0 +1,28 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "fetch.gene_records"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Fetch gene records from NCBI"
+description = "Runs a live NCBI gene-record search and returns matching gene records for either nuclear or organelle genes; not reproducible over time."
+keywords = ["fetch", "gene", "ncbi"]
+execution_mode = "durable"
+stage = "read"
+input_kind = "none"
+output_kind = "data"
+organelle_types = ["mitochondrion", "plastid"]
+output_modalities = ["gene_records"]
+callable_locator = "organelleverse.fetch._agent_ops:op_gene_records"
+side_effects = ["network", "write_files"]
+deterministic = false
+deterministic_reason = "NCBI Gene records are updated continuously; identical queries can return different records."
+idempotent = false
+cacheable = false
+
+[contract.retry]
+max_attempts = 5
+retryable_error_codes = ["network.transient", "network.malformed_response"]

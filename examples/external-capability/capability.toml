@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "example.external_capability"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "External capability example"
+description = "A minimal external capability bundle, generated end-to-end by organelleverse.capabilities.scaffold(...), demonstrating the full discover -> verify -> trust -> admit -> invoke authoring loop from outside this repository. Regenerate with `organelleverse-capability init` or scaffold(...) directly using this test's exact parameters -- never hand-edit these files."
+keywords = ["capability", "generated", "scaffold"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "example_external_capability_capability.impl:run"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical_json"
+
+[[contract.binding.parameters]]
+name = "value"
+codec = "json"

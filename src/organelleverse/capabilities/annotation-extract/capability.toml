@@ -1,0 +1,23 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "annotation.extract"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Extract annotated features from a genome"
+description = "Extracts a chosen subset of feature types (CDS, tRNA, rRNA, ...) from an already-annotated organelle genome into a structured result."
+keywords = ["annotation", "extraction", "feature"]
+execution_mode = "durable"
+stage = "analyze"
+input_kind = "genome"
+output_kind = "result"
+organelle_types = ["mitochondrion", "plastid"]
+callable_locator = "organelleverse.annotation.api:extract"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+references = ["docs/reports/annotation_release/README.md"]

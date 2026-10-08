@@ -1,0 +1,54 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "selection.hyphy_relax"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "HyPhy RELAX"
+description = "Test whether selection is relaxed (k<1) or intensified (k>1) on foreground (test) branches relative to the remaining reference branches with HyPhy RELAX; returns k, LRT, p-value and direction."
+keywords = ["codon", "hyphy", "intensification", "relax", "relaxed-selection", "selection"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.selection.hyphy:hyphy_relax"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = false
+deterministic_reason = "HyPhy seeds its rate-class optimisation from random starting points, so likelihoods can differ in the last digits between runs."
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "tree"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "foreground_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mark_clade"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "alpha"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "models"
+codec = "json"

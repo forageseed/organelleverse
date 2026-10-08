@@ -1,0 +1,37 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "structure.compute_repeats"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Compute Repeats"
+description = "Detect exact SSRs with MISA's 10/5/4/3/3/3 copy thresholds."
+keywords = ["analyze", "compute", "repeats", "restored", "result", "structure"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.structure.structure_core:compute_repeats"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "repeats"
+
+[[contract.binding.parameters]]
+name = "fasta_path"
+codec = "path"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { fasta_path = "fixtures/basic/input/repeats.fasta" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

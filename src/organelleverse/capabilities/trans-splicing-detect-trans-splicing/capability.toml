@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "trans_splicing.detect_trans_splicing"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Detect Trans Splicing"
+description = "Detect trans-splicing genes from GenBank annotation, per locus."
+keywords = ["analyze", "detect", "genome", "restored", "result", "splicing", "trans", "trans_splicing"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "genome"
+output_kind = "result"
+callable_locator = "organelleverse.trans_splicing.trans_splicing:detect_trans_splicing"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

@@ -1,0 +1,20 @@
+{
+  "predictor": "TMbed",
+  "version": "1.0.2",
+  "source": "https://github.com/BernhoferM/TMbed",
+  "source_commit": "8cee893523eb655bc9485c00c65336d27a236191",
+  "model_repository": "Rostlab/prot_t5_xl_half_uniref50-enc",
+  "device": "cpu",
+  "format": "directed_3line_0",
+  "torch": "2.5.1 CPU",
+  "transformers": "4.48.3",
+  "input": "cms_queries.fasta",
+  "expected_transmembrane_counts": {
+    "D14339.1_orf79": 1,
+    "Z18896.1_orf138": 1,
+    "control_cox1": 12,
+    "control_atp6": 5,
+    "control_nad9": 0
+  },
+  "limits": "Actual upstream model output on known CMS-reference proteins and ordinary respiratory controls; topology is predicted, not experimentally verified, and cannot establish CMS causality."
+}

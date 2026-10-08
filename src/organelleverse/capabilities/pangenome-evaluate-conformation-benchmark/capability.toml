@@ -1,0 +1,25 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.evaluate_conformation_benchmark"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Evaluate Published Conformation Discrimination"
+description = "Measure same-conformation pair discrimination using fixed bidirected-edge Jaccard and independent published labels. Reports tie-aware AUROC, average precision, prevalence and per-pair evidence. This is not a base-homology or variant-call accuracy score."
+keywords = ["graph", "pangenome", "report"]
+execution_mode = "inline"
+stage = "consume"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.benchmark_evaluator:evaluate_conformation_benchmark"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

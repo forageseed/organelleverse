@@ -1,0 +1,27 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "fetch.genome_size_candidates"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Fetch nuclear genome-size candidates"
+description = "Resolves a species through NCBI Taxonomy and returns ranked nuclear genome-size candidates; the live ranking can shift between calls."
+keywords = ["fetch", "genome-size", "ncbi"]
+execution_mode = "durable"
+stage = "read"
+input_kind = "none"
+output_kind = "data"
+output_modalities = ["genome_size_candidates"]
+callable_locator = "organelleverse.fetch._agent_ops:op_genome_size_candidates"
+side_effects = ["network", "write_files"]
+deterministic = false
+deterministic_reason = "Ranked candidates depend on live NCBI Taxonomy/Datasets records that change over time."
+idempotent = false
+cacheable = false
+
+[contract.retry]
+max_attempts = 5
+retryable_error_codes = ["network.transient", "network.malformed_response"]

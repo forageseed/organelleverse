@@ -1,0 +1,48 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.gene_presence_traits"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Gene Presence Traits"
+description = "Create annotated CDS presence traits from GenBank exports; annotation absence does not establish biological loss."
+keywords = ["ancestral", "gene", "phylogeny", "traits"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.ancestral:gene_presence_traits"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "genbank_paths"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "genes"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "sample_names"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "include_pseudogenes"
+codec = "json"
+
+[[fixture]]
+case = "presence"
+input = { kind = "none" }
+parameters = { genbank_paths = ["fixtures/presence/input/sample.gb"], genes = ["accD", "ycf1"] }
+expect = "fixtures/presence/expected.json"
+equivalence = "exact"

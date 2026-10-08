@@ -1,0 +1,31 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "morphology.train"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Train"
+description = "Fine-tune OrgSegNet with checkpoints in a platform-managed run."
+keywords = ["analyze", "electron-micrograph", "morphology", "restored", "result", "train"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.morphology.service:train"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = false
+deterministic_reason = "Model fine-tuning depends on random initialization and data ordering."
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "data_root"
+codec = "directory"
+path_role = "input"

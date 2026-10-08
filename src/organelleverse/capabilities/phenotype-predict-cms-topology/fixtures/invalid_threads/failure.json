@@ -1,0 +1,4 @@
+{
+  "failure_code": "cms.invalid_topology_parameter",
+  "message": "threads must be a positive integer"
+}

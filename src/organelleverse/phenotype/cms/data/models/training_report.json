@@ -1,0 +1,30 @@
+{
+  "feature_importance": {
+    "cms_homolog_score": 1.7227491776461523,
+    "cms_identity": 1.7227491776461523,
+    "n_cys": -0.7069991486241418,
+    "dist_to_nearest_gene": -0.5861262562595667,
+    "has_cms_homolog": 0.4197508101436664,
+    "gravy": -0.3895869454754924,
+    "n_neg": -0.28468532279511105,
+    "n_ser_thr": -0.19700693768206487,
+    "n_pos": 0.19330141726871708,
+    "mw": -0.1739186299346995,
+    "length_aa": -0.15279954488611786,
+    "aromaticity": 0.13304006503086147,
+    "n_met": 0.05961211457605603,
+    "charge": -0.021365837960011545,
+    "chimera_entropy": 0.0,
+    "chimera_score": 0.0,
+    "has_proximal_boost": 0.0,
+    "max_qcov": 0.0,
+    "n_chimera_sources": 0.0,
+    "n_nearby_5kb": 0.0,
+    "nearest_is_proximal": 0.0,
+    "total_qcov": 0.0
+  },
+  "n_training_samples": 161,
+  "n_features": 22,
+  "cv_auc_mean": 0.9937289377289378,
+  "cv_auc_std": 0.007027600211154851
+}

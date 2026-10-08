@@ -1,0 +1,97 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.run_mrbayes"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Run MrBayes"
+description = "Bayesian tree inference with MrBayes on a partitioned alignment, reporting ASDSF, PSRF and ESS convergence honestly."
+keywords = ["analyze", "bayesian", "convergence", "mcmc", "mrbayes", "phylogeny", "tree"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.service:run_mrbayes"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "scheme_nexus"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "ngen"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "samplefreq"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "printfreq"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "diagnfreq"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "nruns"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "nchains"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "temp"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "burninfrac"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "stoprule"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "stopval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mpi"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "asdsf_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "psrf_tolerance"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_ess"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dry_run"
+codec = "json"

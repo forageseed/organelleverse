@@ -1,0 +1,42 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "coevolution.bxb_lengths_dlcpar"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Bxb Lengths Dlcpar"
+description = "Extract BXB branch lengths from DLCpar reconciliation output."
+keywords = ["analyze", "bxb", "coevolution", "dlcpar", "lengths", "restored", "result"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.coevolution._bxb_extract:bxb_lengths_dlcpar"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "json_metric"
+result_key = "edge_lengths"
+
+[[contract.binding.parameters]]
+name = "gene_tree_newick"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "locus_recon_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "coal_recon_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "edges"
+codec = "json"

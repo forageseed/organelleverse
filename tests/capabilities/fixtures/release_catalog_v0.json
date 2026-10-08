@@ -1,0 +1,1068 @@
+{
+  "annotation.annotate": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.annotation.api:annotate",
+    "contract_version": "1.0",
+    "dependencies": [
+      {
+        "kind": "python",
+        "locator": "biopython",
+        "name": "Bio",
+        "optional": false,
+        "version_spec": ">=1.85"
+      },
+      {
+        "kind": "python",
+        "locator": "",
+        "name": "pyhmmer",
+        "optional": false,
+        "version_spec": ">=0.7"
+      },
+      {
+        "kind": "executable",
+        "locator": "",
+        "name": "blastn",
+        "optional": false,
+        "version_spec": ""
+      },
+      {
+        "kind": "executable",
+        "locator": "",
+        "name": "makeblastdb",
+        "optional": false,
+        "version_spec": ""
+      },
+      {
+        "kind": "executable",
+        "locator": "",
+        "name": "tblastn",
+        "optional": false,
+        "version_spec": ""
+      }
+    ],
+    "description": "Predicts protein-coding, tRNA, and rRNA gene models on an assembled mitochondrial genome and returns a structured annotation result.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "genome",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "annotation",
+      "gene-prediction",
+      "mitochondrion"
+    ],
+    "operation_id": "annotation.annotate",
+    "organelle_types": [
+      "mitochondrion"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [
+      "docs/reports/annotation_release/README.md"
+    ],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files",
+      "subprocess"
+    ],
+    "stage": "analyze",
+    "title": "Annotate an organelle genome"
+  },
+  "annotation.extract": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.annotation.api:extract",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Extracts a chosen subset of feature types (CDS, tRNA, rRNA, ...) from an already-annotated organelle genome into a structured result.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "genome",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "annotation",
+      "extraction",
+      "feature"
+    ],
+    "operation_id": "annotation.extract",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [
+      "docs/reports/annotation_release/README.md"
+    ],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files"
+    ],
+    "stage": "analyze",
+    "title": "Extract annotated features from a genome"
+  },
+  "annotation.write": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.annotation.api:write",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Atomically materializes a non-failed canonical annotation result to a caller-selected destination.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "result",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "annotation",
+      "publish",
+      "write"
+    ],
+    "operation_id": "annotation.write",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [
+      "docs/reports/annotation_release/README.md"
+    ],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files"
+    ],
+    "stage": "consume",
+    "title": "Write an annotation result"
+  },
+  "assembly.assemble": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.assembly.api:assemble",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Assembles a mitochondrial or plastid genome from long-read sequencing data using a selected backend, producing a structured assembly result.",
+    "deterministic": false,
+    "deterministic_reason": "Assembler heuristics, thread scheduling, and optional remote index lookups can produce different contigs or ordering between runs.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "data",
+    "input_modalities": [
+      "sequencing_reads"
+    ],
+    "input_sequence": false,
+    "keywords": [
+      "assembly",
+      "genome",
+      "sequencing"
+    ],
+    "operation_id": "assembly.assemble",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files",
+      "subprocess",
+      "network"
+    ],
+    "stage": "analyze",
+    "title": "Assemble an organelle genome from sequencing reads"
+  },
+  "assembly.pmat_graph_build": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.assembly.api:pmat_graph_build",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Builds the PMAT2 assembly graph from prepared input data, producing a structured graph-build result used as PMAT's assembly starting point.",
+    "deterministic": false,
+    "deterministic_reason": "Graph construction relies on read-order and heuristic pruning that may vary between runs.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "data",
+    "input_modalities": [
+      "pmat_graph_input"
+    ],
+    "input_sequence": false,
+    "keywords": [
+      "assembly",
+      "genome",
+      "graph"
+    ],
+    "operation_id": "assembly.pmat_graph_build",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files",
+      "subprocess",
+      "network"
+    ],
+    "stage": "analyze",
+    "title": "Build a PMAT assembly graph"
+  },
+  "assembly.write": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.assembly.api:write",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Atomically materializes a non-failed canonical assembly result to a caller-selected destination.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "result",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "assembly",
+      "publish",
+      "write"
+    ],
+    "operation_id": "assembly.write",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files"
+    ],
+    "stage": "consume",
+    "title": "Write an assembly result"
+  },
+  "fetch.accession_list": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_accession_list",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Downloads organelle records for a caller-supplied, explicit list of accessions, reproducing someone else's named dataset exactly.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "accession",
+      "fetch",
+      "ncbi"
+    ],
+    "operation_id": "fetch.accession_list",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "data",
+    "output_modalities": [
+      "organelle_records"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Fetch organelle records by accession"
+  },
+  "fetch.dedup_genomes": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": true,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_dedup_genomes",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Removes duplicate organelle records from an already-fetched set using only metadata already in hand; a pure, cacheable computation.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "data",
+    "input_modalities": [
+      "organelle_records"
+    ],
+    "input_sequence": false,
+    "keywords": [
+      "dedup",
+      "genome",
+      "transform"
+    ],
+    "operation_id": "fetch.dedup_genomes",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "data",
+    "output_modalities": [
+      "organelle_records"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [],
+    "stage": "transform",
+    "title": "Deduplicate organelle genome records"
+  },
+  "fetch.entrez_query": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_entrez_query",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Runs a live Entrez nuccore search term and returns matching organelle records; not reproducible since the underlying database changes over time.",
+    "deterministic": false,
+    "deterministic_reason": "nuccore is a live database; matching records change over time.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": false,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "entrez",
+      "fetch",
+      "ncbi"
+    ],
+    "operation_id": "fetch.entrez_query",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "data",
+    "output_modalities": [
+      "organelle_records"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Query NCBI nuccore for organelle records"
+  },
+  "fetch.gene_records": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_gene_records",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Runs a live NCBI gene-record search and returns matching gene records for either nuclear or organelle genes; not reproducible over time.",
+    "deterministic": false,
+    "deterministic_reason": "NCBI Gene records are updated continuously; identical queries can return different records.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": false,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "fetch",
+      "gene",
+      "ncbi"
+    ],
+    "operation_id": "fetch.gene_records",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "data",
+    "output_modalities": [
+      "gene_records"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Fetch gene records from NCBI"
+  },
+  "fetch.genome_size_candidates": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_genome_size_candidates",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Resolves a species through NCBI Taxonomy and returns ranked nuclear genome-size candidates; the live ranking can shift between calls.",
+    "deterministic": false,
+    "deterministic_reason": "Ranked candidates depend on live NCBI Taxonomy/Datasets records that change over time.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": false,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "fetch",
+      "genome-size",
+      "ncbi"
+    ],
+    "operation_id": "fetch.genome_size_candidates",
+    "organelle_types": [],
+    "output_kind": "data",
+    "output_modalities": [
+      "genome_size_candidates"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Fetch nuclear genome-size candidates"
+  },
+  "fetch.ngdc_gwh": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_ngdc_gwh",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Downloads organelle records from NGDC's Genome Warehouse (CNCB/CGIR), a live database covering both mitochondrial and plastid genomes.",
+    "deterministic": false,
+    "deterministic_reason": "NGDC Genome Warehouse content is updated continuously; identical queries can return different records.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": false,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "fetch",
+      "ngdc",
+      "plastid"
+    ],
+    "operation_id": "fetch.ngdc_gwh",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "data",
+    "output_modalities": [
+      "organelle_records"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Fetch organelle records from NGDC GWH"
+  },
+  "fetch.nuclear_assembly": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_nuclear_assembly",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Downloads a nuclear genome assembly record from NCBI Datasets; not reproducible since new assemblies land and reference picks can change.",
+    "deterministic": false,
+    "deterministic_reason": "NCBI Datasets assembly metadata changes as new assemblies are released and reference picks are updated.",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": false,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "assembly",
+      "fetch",
+      "ncbi"
+    ],
+    "operation_id": "fetch.nuclear_assembly",
+    "organelle_types": [],
+    "output_kind": "data",
+    "output_modalities": [
+      "nuclear_assemblies"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Fetch a nuclear genome assembly"
+  },
+  "fetch.refseq_snapshot": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.fetch._agent_ops:op_refseq_snapshot",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Downloads organelle records from a pinned RefSeq release number, giving a reproducible accession set for the chosen organelle types.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "fetch",
+      "ncbi",
+      "refseq"
+    ],
+    "operation_id": "fetch.refseq_snapshot",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "data",
+    "output_modalities": [
+      "organelle_records"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 5,
+      "retryable_error_codes": [
+        "network.transient",
+        "network.malformed_response"
+      ]
+    },
+    "rewrite": null,
+    "side_effects": [
+      "network",
+      "write_files"
+    ],
+    "stage": "read",
+    "title": "Fetch a pinned RefSeq organelle snapshot"
+  },
+  "io.read_fasta_genome": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.io_genome:read_fasta_genome",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Reads an organelle genome sequence from a FASTA file into a canonical OrganelleGenome, tagged with its organelle type and species.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "fasta",
+      "genome",
+      "io"
+    ],
+    "operation_id": "io.read_fasta_genome",
+    "organelle_types": [],
+    "output_kind": "genome",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files"
+    ],
+    "stage": "read",
+    "title": "Read a FASTA organelle genome"
+  },
+  "io.read_genbank_genome": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.io_genome:read_genbank_genome",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Reads an organelle genome sequence and its existing feature annotations from a GenBank flat file into a canonical OrganelleGenome.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "genbank",
+      "genome",
+      "io"
+    ],
+    "operation_id": "io.read_genbank_genome",
+    "organelle_types": [],
+    "output_kind": "genome",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files"
+    ],
+    "stage": "read",
+    "title": "Read a GenBank organelle genome"
+  },
+  "io.read_long_reads": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.io_reads:read_long_reads",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Reads one long-read library (PacBio HiFi/CLR or ONT) from disk as released sequencing-reads data, tagged with its technology and quality state.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "none",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "fastq",
+      "long-reads",
+      "sequencing"
+    ],
+    "operation_id": "io.read_long_reads",
+    "organelle_types": [],
+    "output_kind": "data",
+    "output_modalities": [
+      "sequencing_reads"
+    ],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files"
+    ],
+    "stage": "read",
+    "title": "Read a long-read sequencing library"
+  },
+  "qc.annotation": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.quality_control.api:annotation",
+    "contract_version": "1.0",
+    "dependencies": [],
+    "description": "Consumes an already-published mitochondrial annotation result and computes quality-control metrics and findings over its gene models.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "result",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "annotation",
+      "assessment",
+      "quality-control"
+    ],
+    "operation_id": "qc.annotation",
+    "organelle_types": [
+      "mitochondrion"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files"
+    ],
+    "stage": "consume",
+    "title": "Assess annotation quality"
+  },
+  "qc.assembly": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.quality_control.api:assembly",
+    "contract_version": "1.5",
+    "dependencies": [
+      {
+        "kind": "python",
+        "locator": "",
+        "name": "pysam",
+        "optional": true,
+        "version_spec": ""
+      },
+      {
+        "kind": "python",
+        "locator": "",
+        "name": "pyhmmer",
+        "optional": false,
+        "version_spec": ""
+      }
+    ],
+    "description": "Consumes an existing assembly result and computes quality-control metrics and findings (completeness, contamination, structure) over it.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "durable",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "result",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "assembly",
+      "assessment",
+      "quality-control"
+    ],
+    "operation_id": "qc.assembly",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files",
+      "subprocess",
+      "network"
+    ],
+    "stage": "consume",
+    "title": "Assess assembly quality"
+  },
+  "qc.write": {
+    "binding": {
+      "argument_mode": "canonical_core",
+      "core_input_parameter": null,
+      "parameters": [],
+      "result_codec": "canonical",
+      "result_key": null
+    },
+    "cacheable": false,
+    "callable_locator": "organelleverse.quality_control.api:write",
+    "contract_version": "1.2",
+    "dependencies": [],
+    "description": "Atomically materializes a non-failed canonical quality-control result to a caller-selected destination.",
+    "deterministic": true,
+    "deterministic_reason": "",
+    "execution_mode": "inline",
+    "fallback": {
+      "allowed": false,
+      "allowed_backends": []
+    },
+    "idempotent": true,
+    "input_kind": "result",
+    "input_modalities": [],
+    "input_sequence": false,
+    "keywords": [
+      "publish",
+      "quality-control",
+      "write"
+    ],
+    "operation_id": "qc.write",
+    "organelle_types": [
+      "mitochondrion",
+      "plastid"
+    ],
+    "output_kind": "result",
+    "output_modalities": [],
+    "references": [],
+    "retry": {
+      "max_attempts": 1,
+      "retryable_error_codes": []
+    },
+    "rewrite": null,
+    "side_effects": [
+      "read_files",
+      "write_files"
+    ],
+    "stage": "consume",
+    "title": "Write a quality-control result"
+  }
+}
