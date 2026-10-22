@@ -4,10 +4,10 @@ Use the project's chosen Python environment (Python 3.11 or newer). Ordinary
 installation from the guide branch is:
 
 ```bash
-uv pip install --python /path/to/project/python "organelleverse @ git+https://github.com/forageseed/organelleverse.git@agent/installed-usage-guide"
+uv pip install --python /path/to/project/python "organelleverse @ https://github.com/forageseed/organelleverse/archive/refs/heads/agent/installed-usage-guide.tar.gz"
 ```
 
-For a reproducible installation, replace the branch with a reviewed commit SHA.
+For a reproducible installation, use `https://github.com/forageseed/organelleverse/archive/<reviewed-commit-sha>.tar.gz`. The archive source does not require a Git executable.
 Use `.venv/bin/python` on Linux/macOS or `.venv/Scripts/python.exe` on Windows if
 that is the project's selected environment. Create a virtual environment with
 `uv venv .venv` only if the project does not already have one. The install includes
@@ -44,7 +44,7 @@ replacing existing rules:
 Replace the branch below with a reviewed commit when sharing an exact build.
 
 > 请在当前项目选定的 Python 3.11+ 环境中，用 uv 普通安装
-> `organelleverse @ git+https://github.com/forageseed/organelleverse.git@agent/installed-usage-guide`，
+> `organelleverse @ https://github.com/forageseed/organelleverse/archive/refs/heads/agent/installed-usage-guide.tar.gz`，
 > 不要使用 editable 安装。先确认已有环境，未有环境才创建项目 `.venv`，保留现有代码、依赖约束和凭据。
 > 安装后使用同一解释器运行 `-m organelleverse.agent_guide` 并读取输出，再运行
 > `-m organelleverse.agent_guide --skill`，将输出保存到你支持的项目 skill 目录
