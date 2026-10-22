@@ -50,6 +50,7 @@ dependencies = [
 [project.scripts]
 organelleverse-environments = "organelleverse.tools.environment_cli:main"
 organelleverse-capability = "organelleverse.tools.capability_cli:main"
+organelleverse-agent = "organelleverse.agent_guide:main"
 
 [project.optional-dependencies]
 orf = ["orfipy>=0.0.4"]

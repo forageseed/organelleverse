@@ -336,3 +336,12 @@ There is no paper yet. Please cite this repository, the version (1.0.0), and the
 ## License
 
 MIT
+
+## Agent usage after installation
+
+The installed Python package includes its own usage guide and a small optional skill.
+Run `python -m organelleverse.agent_guide` (or `organelleverse-agent`) in the
+analysis environment to read the guide; add `--skill` to print the skill.
+Installing a Python package does not automatically register it with an agent host.
+See [agent installation and discovery](docs/agent-usage.md) for ordinary uv
+installation, project skill setup and a message to paste into an agent chat.

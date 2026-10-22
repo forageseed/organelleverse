@@ -329,3 +329,11 @@ ov.visualization.heatmap({"gene1": {"gene2": 0.8}, "gene2": {"gene1": 0.8}})
 ## 许可证
 
 MIT
+
+## 安装后供 Agent 读取的使用指南
+
+Python 安装包内置使用指南和简短 skill。在分析环境中运行
+`python -m organelleverse.agent_guide`（或 `organelleverse-agent`）读取指南，
+加 `--skill` 输出引导 skill。Python 包安装不会自动向任意 Agent 宿主注册技能。
+普通 uv 安装、项目 skill 配置和可粘贴到聊天框的指令见
+[Agent 安装与发现说明](docs/agent-usage.md)。
