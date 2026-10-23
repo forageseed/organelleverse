@@ -25,11 +25,26 @@ withheld.
 To benchmark a withheld kernel, set ``ORGANELLEVERSE_ACCEL_UNVERIFIED`` to a
 comma-separated list of names, or ``all``. That is an explicit, per-process
 decision — never a default.
+
+The crate is found without installing it: when ``organelleverse_rust`` is not
+importable, the directory named by ``ORGANELLEVERSE_NATIVE_DIR`` and then the
+checkout's ``rust/target/release`` are searched for the built library, so a
+mounted build directory or a plain ``cargo build --release`` is picked up
+without ``PYTHONPATH``. Only the kernel's Python/ABI tag and its name decide
+what loads; the equivalence gate above still decides what is bound.
 """
 
 from __future__ import annotations
 
+from organelleverse._layout import checkout_root
+
+import importlib.machinery
+import importlib.util
 import os
+import sys
+from collections.abc import Iterator
+from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 __all__ = [
@@ -79,9 +94,62 @@ def _opted_in() -> frozenset[str]:
     return frozenset(part.strip() for part in raw.split(",") if part.strip())
 
 
+NATIVE_DIR_ENV = "ORGANELLEVERSE_NATIVE_DIR"
+
+
+def _native_directories() -> Iterator[Path]:
+    """Where a built ``organelleverse_rust`` may sit when it is not importable."""
+
+    configured = os.environ.get(NATIVE_DIR_ENV, "").strip()
+    if configured:
+        yield Path(configured)
+    # <checkout>/src/accel/__init__.py -> <checkout>/rust/target/release
+    yield checkout_root() / "rust" / "target" / "release"
+
+
+def _load_from_directory(directory: Path) -> ModuleType | None:
+    """Load ``organelleverse_rust`` from a built library in ``directory``, or None."""
+
+    if not directory.is_dir():
+        return None
+    suffixes = tuple(importlib.machinery.EXTENSION_SUFFIXES)
+    for path in sorted(directory.glob("*organelleverse_rust*")):
+        if not path.name.endswith(suffixes):
+            continue
+        try:
+            loader = importlib.machinery.ExtensionFileLoader("organelleverse_rust", str(path))
+            spec = importlib.util.spec_from_file_location(
+                "organelleverse_rust", str(path), loader=loader
+            )
+            if spec is None:
+                continue
+            module = importlib.util.module_from_spec(spec)
+            loader.exec_module(module)
+        except (ImportError, OSError):
+            continue
+        sys.modules["organelleverse_rust"] = module
+        return module
+    return None
+
+
+def _import_native() -> ModuleType:
+    try:
+        import organelleverse_rust
+
+        return organelleverse_rust
+    except ImportError:
+        pass
+    for directory in _native_directories():
+        module = _load_from_directory(directory)
+        if module is not None:
+            return module
+    raise ImportError("organelleverse_rust is not installed and was not found in "
+                      f"{NATIVE_DIR_ENV} or rust/target/release")
+
+
 _kernels: dict[str, Any]
 try:
-    import organelleverse_rust as _rust
+    _rust = _import_native()
 
     HAS_RUST: bool = True
     _opt_in = _opted_in()

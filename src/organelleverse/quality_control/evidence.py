@@ -32,13 +32,13 @@ from .environment import QcEnvironment, mapper_preset
 from .policy import QC_POLICY_V5
 
 
-def _require_pysam() -> None:
-    """Fail closed if the optional pysam BAM backend is unavailable."""
-    if importlib_util.find_spec("pysam") is None:
+def _require_rubam() -> None:
+    """Fail closed if the optional rubam BAM backend is unavailable."""
+    if importlib_util.find_spec("rubam") is None:
         raise OrganelleDependencyError(
-            code="qc.pysam_missing",
-            message="pysam is required for BAM-based mapping evidence; install with 'pip install organelleverse[qc]'.",
-            details={"package": "pysam", "extra": "qc"},
+            code="qc.rubam_missing",
+            message="rubam is required for BAM-based mapping evidence; install with 'pip install organelleverse[qc]'.",
+            details={"package": "rubam", "extra": "qc"},
             retryable=False,
             suggested_action={"action": "install_extra", "extra": "qc"},
         )
@@ -64,7 +64,7 @@ def collect_mapping_evidence(
 ) -> MappingEvidence:
     """Map every declared library independently and parse deterministic evidence."""
 
-    _require_pysam()
+    _require_rubam()
 
     if threads < 1:
         raise ValueError("threads must be at least 1")
@@ -462,12 +462,12 @@ def _unassessed_kmer(
 
 
 def _write_target_reads(path: Path, bam_paths: Sequence[Path]) -> int:
-    import pysam
+    import rubam
 
     selected = 0
     with path.open("w") as handle:
         for library_index, bam_path in enumerate(bam_paths, start=1):
-            with pysam.AlignmentFile(str(bam_path), "rb") as bam:
+            with rubam.AlignmentFile(str(bam_path), "rb") as bam:
                 for alignment in bam.fetch(until_eof=True):
                     if not _accepted_alignment(alignment):
                         continue
@@ -550,7 +550,7 @@ def _parse_library_bam(
     *,
     bam_artifact_id: str,
 ) -> _ParsedLibrary:
-    import pysam
+    import rubam
 
     references = dict(read_fasta(fasta_path))
     mapped_reads = 0
@@ -565,7 +565,7 @@ def _parse_library_bam(
         sequence_id: [0] * len(sequence) for sequence_id, sequence in references.items()
     }
 
-    with pysam.AlignmentFile(str(bam_path), "rb") as bam:
+    with rubam.AlignmentFile(str(bam_path), "rb") as bam:
         for alignment in bam.fetch(until_eof=True):
             if alignment.is_secondary or alignment.is_supplementary:
                 # Repeat-aware placements feed the any-alignment track only.

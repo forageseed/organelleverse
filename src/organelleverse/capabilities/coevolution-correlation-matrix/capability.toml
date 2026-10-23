@@ -12,6 +12,7 @@ description = "All-by-all ERC correlation (pure data function)."
 keywords = ["analyze", "coevolution", "correlation", "matrix", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution.erc_engine:correlation_matrix"

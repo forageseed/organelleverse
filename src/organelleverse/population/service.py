@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from ..core.result import OrganelleResult
 from ..runtime import managed_run_path
+from ..sequences import as_path
+from ..inputs import Variants
 
 
 def call_variants(
@@ -40,12 +42,13 @@ def call_variants(
 
 
 def prepare_gemma_input(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     phenotype: str | Path,
     executor: Callable[[list[str]], Any] | None = None,
 ) -> OrganelleResult:
     """Plan or run GEMMA input preparation in a managed run directory."""
+    vcf_path = as_path(vcf_path)
     from .population import prepare_gemma_input as _run
 
     return _run(
@@ -57,7 +60,7 @@ def prepare_gemma_input(
 
 
 def cytonuclear_gwas(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     phenotype: str | Path,
     method: str = "gemma",
@@ -65,6 +68,7 @@ def cytonuclear_gwas(
     prepare_input: bool = True,
 ) -> OrganelleResult:
     """Plan or run cytonuclear association in a managed run directory."""
+    vcf_path = as_path(vcf_path)
     from .population import cytonuclear_gwas as _run
 
     return _run(

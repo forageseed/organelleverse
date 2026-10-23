@@ -10,9 +10,10 @@ from uuid import uuid4
 
 from ..core.result import OrganelleResult
 from ..runtime import managed_run_path
+from ..sequences import Sequences
 
 
-def fasta_to_axt(fasta_path: str | Path) -> Path:
+def fasta_to_axt(fasta_path: str | Path | Sequences) -> Path:
     """Convert aligned FASTA to an AXT artifact in managed storage."""
     from .kaks_calculator import fasta_to_axt as _convert
 
@@ -22,7 +23,7 @@ def fasta_to_axt(fasta_path: str | Path) -> Path:
 
 
 def run_kaks_calculator_workflow(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     method: str = "YN",
     genetic_code: int = 1,

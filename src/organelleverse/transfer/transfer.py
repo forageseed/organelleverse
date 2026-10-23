@@ -39,6 +39,8 @@ from ..core.frozen import FrozenMap, thaw_json
 from ..core.genome import OrganelleGenome
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
+from ..sequences import Sequences, as_path
+from ..inputs import ReadAlignments
 
 _SUITE = "transfer"
 _OPERATION_VERSION = "1.0"
@@ -74,7 +76,7 @@ def _provenance(op: str, parameters: Mapping[str, Any], *, method: str) -> Resul
     """Build canonical provenance for one ``transfer`` operation.
 
     ``method`` is the external toolchain that produced the result (``blastn``,
-    ``pysam``, ``minimap2``, ``blastn+pysam+minimap2``, ``organelleverse_kmer``)
+    ``rubam``, ``minimap2``, ``blastn+rubam+minimap2``, ``organelleverse_kmer``)
     and is recorded as the actual backend.
     """
     package_version = _package_version()
@@ -139,8 +141,8 @@ def detect(
 
 
 def detect_mtpt(
-    mito_fasta: str | Path,
-    cp_fasta: str | Path,
+    mito_fasta: str | Path | Sequences,
+    cp_fasta: str | Path | Sequences,
     *,
     k: int = 31,
     min_len: int = 100,
@@ -158,6 +160,8 @@ def detect_mtpt(
     (independently confirmed by blastn on a PMAT master ring) - corroborate a
     zero with ``detect_transfers_blast`` before reading it as absence.
     """
+    mito_fasta = as_path(mito_fasta)
+    cp_fasta = as_path(cp_fasta)
     return _detect_transfer_alignment(
         mito_fasta,
         cp_fasta,
@@ -361,6 +365,8 @@ def _detect_transfer_alignment(
     parameters = {"k": k, "min_len": min_len, "min_identity": min_identity}
     if found is None:
         fallback = _detect_transfer(target_path, source_path, k, min_len, op, organelle)
+        if fallback.status != "ok":
+            return fallback
         return fallback.model_copy(
             update={
                 "flags": (*fallback.flags, "kmer_fallback"),
@@ -800,8 +806,8 @@ def _replace(c: TransferCandidate, **changes) -> TransferCandidate:
 
 
 def detect_transfers_blast(
-    nuclear_fasta: str | Path,
-    organelle_fasta: str | Path,
+    nuclear_fasta: str | Path | Sequences,
+    organelle_fasta: str | Path | Sequences,
     *,
     min_identity: float = 80.0,
     min_length: int = 100,
@@ -816,6 +822,8 @@ def detect_transfers_blast(
     organelle genome. Reports nuclear loci with identity > ``min_identity`` and
     alignment length > ``min_length`` (paper defaults: 80%, 100 bp).
     """
+    nuclear_fasta = as_path(nuclear_fasta)
+    organelle_fasta = as_path(organelle_fasta)
     scope = _scope(organelle)
     result = _detect_transfers_blast_core(
         nuclear_fasta,
@@ -977,7 +985,7 @@ def _union(a: TransferCandidate, b: TransferCandidate) -> TransferCandidate:
 
 def validate_transfers_depth(
     candidates: list[Mapping[str, str | int | float | None]],
-    bam_path: str | Path,
+    bam_path: str | Path | ReadAlignments,
     nuclear_mean_depth: float | None = None,
     organelle_mean_depth: float | None = None,
     *,
@@ -987,8 +995,9 @@ def validate_transfers_depth(
 ) -> OrganelleResult:
     """Validate transfer candidates by read depth (layer 2).
 
-    Measures the mean depth over each candidate with pysam (agrees with
-    ``samtools bedcov``, Pearson 0.9999 on real data) and sets ``depth_supported``:
+    Measures the mean depth over each candidate with rubam (the runtime BAM
+    reader; the pysam reference implementation agrees with ``samtools bedcov``,
+    Pearson 0.9999 on real data) and sets ``depth_supported``:
 
     * ``organelle_mean_depth`` not given (default; the BAM's reference contains the
       organelle genome, so organelle reads settle on it): a real nuclear insert is
@@ -1010,6 +1019,7 @@ def validate_transfers_depth(
     copies, giving it about half the organelle depth); the long-read layer with
     ``organelle_fasta`` does.
     """
+    bam_path = as_path(bam_path)
     scope = _scope(organelle)
     cands = [_to_candidate(c) for c in candidates]
     if not cands:
@@ -1033,8 +1043,8 @@ def validate_transfers_depth(
         return _failed(
             "validate_transfers_depth",
             scope=scope,
-            message="pysam not installed; install with pip install pysam.",
-            code="pysam_missing",
+            message="rubam not installed; install with pip install rubam.",
+            code="rubam_missing",
         )
     n_supported = sum(1 for c in annotated if c.depth_supported)
     return OrganelleResult(
@@ -1072,7 +1082,7 @@ def validate_transfers_depth(
         provenance=_provenance(
             "validate_transfers_depth",
             {"flank": flank, "tolerance": tolerance},
-            method="pysam",
+            method="rubam",
         ),
     )
 
@@ -1088,10 +1098,10 @@ def _validate_depth_core(
 ) -> tuple[list[TransferCandidate], float, float, float]:
     """Depth core: returns (annotated candidates, nuclear_depth, organelle_depth, expected).
 
-    Raises ImportError if pysam is unavailable. This is the chainable core used
+    Raises ImportError if rubam is unavailable. This is the chainable core used
     by the pipeline; candidates flow in and out as ``TransferCandidate`` objects.
     """
-    import pysam
+    import rubam
 
     if nuclear_mean_depth is None:
         nuclear_mean_depth = _bam_mean_depth(bam_path)
@@ -1102,7 +1112,7 @@ def _validate_depth_core(
     hi = expected * (1 + tolerance)
 
     out: list[TransferCandidate] = []
-    with pysam.AlignmentFile(str(bam_path), "rb") as bam:
+    with rubam.AlignmentFile(str(bam_path), "rb") as bam:
         for c in candidates:
             start = max(1, c.nuclear_start - flank)
             end = c.nuclear_end + flank
@@ -1119,11 +1129,11 @@ def _validate_depth_core(
 
 def _bam_mean_depth(bam_path: str | Path) -> float:
     """Cheap genome-wide mean depth via a sparse sample of positions."""
-    import pysam
+    import rubam
 
     total = 0
     n = 0
-    with pysam.AlignmentFile(str(bam_path), "rb") as bam:
+    with rubam.AlignmentFile(str(bam_path), "rb") as bam:
         for ref in bam.references:
             length = bam.get_reference_length(ref)
             if length == 0:
@@ -1147,7 +1157,7 @@ def _region_depth(bam, seqid: str, start: int, end: int) -> float:
         return 0.0
     try:
         col_iter = bam.pileup(seqid, start - 1, end)
-        total = sum(col.n for col in col_iter if start - 1 <= col.reference_pos < end)
+        total = sum(col.nsegments for col in col_iter if start - 1 <= col.reference_pos < end)
     except (ValueError, OSError):
         total = 0
     return total / length
@@ -1159,14 +1169,14 @@ def _region_depth(bam, seqid: str, start: int, end: int) -> float:
 
 
 def validate_transfers_longread(
-    nuclear_fasta: str | Path,
+    nuclear_fasta: str | Path | Sequences,
     candidates: list[Mapping[str, str | int | float | None]],
     hifi_reads: str | Path,
     *,
     flank: int = 20000,
     organelle: str = "mitochondrion",
     minimap2_path: str | Path | None = None,
-    organelle_fasta: str | Path | None = None,
+    organelle_fasta: str | Path | Sequences | None = None,
     min_anchor: int = 200,
     min_mapq: int = 20,
 ) -> OrganelleResult:
@@ -1191,6 +1201,8 @@ def validate_transfers_longread(
     data: 8-376 "linking" reads where 2-10 nuclear reads exist); the result is
     then flagged ``organelle_reads_not_excluded``.
     """
+    nuclear_fasta = as_path(nuclear_fasta)
+    organelle_fasta = as_path(organelle_fasta)
     scope = _scope(organelle)
     exe = str(minimap2_path) if minimap2_path else shutil.which("minimap2")
     if not exe:
@@ -1516,8 +1528,8 @@ def detect_transfers_evidence(
             return _failed(
                 "detect_transfers_evidence",
                 scope=scope,
-                message="pysam not installed.",
-                code="pysam_missing",
+                message="rubam not installed.",
+                code="rubam_missing",
             )
 
     # --- layer 3: long-read linkage ---
@@ -1545,7 +1557,7 @@ def detect_transfers_evidence(
     n_longread = sum(1 for c in candidates if c.longread_linked)
     methods = ["blastn"]
     if bam_path:
-        methods.append("pysam")
+        methods.append("rubam")
     if hifi_reads:
         methods.append("minimap2")
     return OrganelleResult(

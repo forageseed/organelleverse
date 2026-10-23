@@ -12,6 +12,7 @@ description = "Write a static HTML gallery for ERC visualization previews."
 keywords = ["analyze", "erc", "report", "restored", "result", "visualization", "write"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.visualization.suite_plots:write_erc_visualization_report"

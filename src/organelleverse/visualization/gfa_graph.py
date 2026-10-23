@@ -12,6 +12,8 @@ from typing import Any
 
 from ..core.data import OrganelleData
 from ..core.result import OrganelleResult
+from ..sequences import as_path
+from ..inputs import Graph
 from .plot_object import failed_plot_result, plot_result
 
 Runner = Callable[[list[str], dict[str, str]], Any]
@@ -48,7 +50,7 @@ class GfaGraph:
 
 
 def plot_gfa_graph(
-    gfa: str | Path | OrganelleData,
+    gfa: str | Path | OrganelleData | Graph,
     *,
     organelle: str = "mito",
     executable: str | Path | None = None,
@@ -82,6 +84,7 @@ def plot_gfa_graph(
     ``ov.write(plot, output)``. A missing executable returns a failed result
     at compute time.
     """
+    gfa = as_path(gfa)
     if layout != "bandage":
         raise ValueError("layout must be 'bandage'")
     if dpi is not None and dpi <= 0:
@@ -183,8 +186,9 @@ def _render_gfa_graph(
     return out
 
 
-def read_gfa_graph(path: str | Path) -> GfaGraph:
+def read_gfa_graph(path: str | Path | Graph) -> GfaGraph:
     """Parse a GFA file into lightweight metrics records using gfapy."""
+    path = as_path(path)
     import gfapy
 
     gfa = gfapy.Gfa.from_file(str(path))

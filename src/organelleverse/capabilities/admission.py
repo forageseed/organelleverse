@@ -104,6 +104,20 @@ def _reject(
     return AdmissionDecision(admitted=False, diagnostic=diagnostic)
 
 
+def _verification_is_advisory(entry: CapabilityEntry) -> bool:
+    """First-party code is runnable as soon as it is written.
+
+    Verification is an aid for such capabilities, not a gate: a missing, stale
+    or failing record is reported as a diagnostic on an *admitted* entry. Only
+    pure-core native bundles qualify. Bundle-local and plugin code keeps the
+    record requirement because that record carries its execution identity and
+    trust evidence.
+    """
+    return entry.bundle.capability.implementation is ImplementationKind.NATIVE and all(
+        origin.channel == "core" for origin in entry.origins
+    )
+
+
 def evaluate_admission(
     entry: CapabilityEntry,
     *,
@@ -420,6 +434,13 @@ def admit_capabilities(
                         admitted=False,
                         diagnostic=item.schema_diagnostic,
                     )
+            if (
+                not decision.admitted
+                and decision.diagnostic is not None
+                and _verification_is_advisory(item.entry)
+            ):
+                # Keep the verification outcome as an advisory diagnostic.
+                decision = AdmissionDecision(admitted=True, diagnostic=decision.diagnostic)
             decisions[capability_id] = decision
             if decision.admitted:
                 next_admitted.add(capability_id)
@@ -441,7 +462,10 @@ def admit_capabilities(
                 else CapabilityStatus.REJECTED
             )
         )
-        record = item.record
+        # An entry admitted with an advisory diagnostic has no usable record: its
+        # parameter schema is derived from the live implementation on demand.
+        advisory = decision.admitted and decision.diagnostic is not None
+        record = None if advisory else item.record
         entries.append(
             item.entry.model_copy(
                 update={

@@ -1,4 +1,4 @@
-"""Plant organelle assembly, annotation, fetch, and QC."""
+"""Agent-ready plant organelle assembly, annotation, fetch, and QC."""
 
 from __future__ import annotations
 
@@ -30,8 +30,9 @@ if TYPE_CHECKING:
         operations,
         qc,
         report,
+        workbench,
     )
-    from .io import read
+    from .read_facade import read
 
 __version__ = "1.0.0"
 
@@ -99,6 +100,7 @@ _PUBLIC_MODULES = frozenset(
         "transfer",
         "variation",
         "visualization",
+        "workbench",
     }
 )
 
@@ -166,9 +168,10 @@ __all__ = [
     "visualization",
     "viz",
     "write",
+    "workbench",
 ]
 
-_PUBLIC_ATTRIBUTES = {"read": (".io", "read")}
+_PUBLIC_ATTRIBUTES = {"read": (".read_facade", "read")}
 
 
 def __getattr__(name: str) -> object:

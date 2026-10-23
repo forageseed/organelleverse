@@ -30,6 +30,12 @@ checked and simply tends to find nothing.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models.gene import GeneAnnotation
+    from .models.genome import GenomeSequence
+    from .db import DBManager
 
 #: Codons one C-to-U edit away from a terminator, with the terminator produced.
 STOP_GAIN_CODONS = {"CAA": "TAA", "CAG": "TAG", "CGA": "TGA"}

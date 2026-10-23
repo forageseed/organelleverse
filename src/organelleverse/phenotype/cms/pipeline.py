@@ -21,12 +21,13 @@ from ...annotation.research import _predict_orfs
 from ...core.provenance import ResultProvenance
 from ...core.result import Finding, OrganelleResult
 from ...selection.kaks import _CODONS as _STD_CODONS
+from ...sequences import Sequences, as_path
 
 _OPERATION_VERSION = "1.0"
 
 
 def cms(
-    genome_fasta: str | Path,
+    genome_fasta: str | Path | Sequences,
     *,
     min_orf_aa: int = 50,
     tm_window: int = 21,
@@ -38,6 +39,7 @@ def cms(
     (transmembrane hint). No chimerism, homology, or CMS causality is tested. Compute-only;
     persist candidates through an explicit writer (e.g. ``ov.write``).
     """
+    genome_fasta = as_path(genome_fasta)
     seqs = read_fasta(Path(genome_fasta))
     candidates = _screen_candidates(seqs, min_orf_aa, tm_window, tm_threshold)
     candidates.sort(key=lambda c: c["score"], reverse=True)

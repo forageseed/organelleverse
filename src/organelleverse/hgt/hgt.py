@@ -11,6 +11,7 @@ from ..core.frozen import FrozenMap
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
 from .._bio import read_fasta
+from ..sequences import Sequences, as_path
 from .align import (
     HGTAlignment,
     HGTBackendError,
@@ -60,8 +61,8 @@ def _provenance(op: str, parameters: Mapping[str, Any], *, method: str) -> Resul
 
 
 def detect_hgt(
-    donor_fasta: str | Path,
-    recipient_fasta: str | Path,
+    donor_fasta: str | Path | Sequences,
+    recipient_fasta: str | Path | Sequences,
     *,
     min_len: int = 200,
     gc_threshold: float = 0.05,
@@ -80,6 +81,8 @@ def detect_hgt(
     semantics, then flags candidate-fragment GC content that diverges from the
     recipient mean.
     """
+    donor_fasta = as_path(donor_fasta)
+    recipient_fasta = as_path(recipient_fasta)
     parameters = {
         "min_len": min_len,
         "gc_threshold": gc_threshold,

@@ -26,7 +26,8 @@ name = "matplotlib"
 
 [[contract.dependencies]]
 kind = "python"
-name = "biopython"
+name = "Bio"
+locator = "biopython"
 
 [contract.binding]
 argument_mode = "named_parameters"

@@ -63,6 +63,8 @@ def _request_payload(request: AnnotationRequest) -> dict[str, object]:
         "backend": request.backend,
         "threads": request.threads,
         "stages": list(request.stages),
+        **({"allow_partial": True} if request.allow_partial else {}),
+        **({"rotate_to_trnh": True} if request.rotate_to_trnh else {}),
     }
     if request.call_orfs:
         payload.update(
@@ -256,6 +258,22 @@ def _persist_backend_run(
     return annotation_path, run_manifest_id, _existing_auxiliary_paths(run_dir)
 
 
+_STAGE_FEATURE_TYPE = {"pcg": "cds", "trna": "trna", "rrna": "rrna"}
+
+
+def _stages_without_features(
+    report: AnnotationValidationReport, stages: tuple[str, ...]
+) -> tuple[str, ...]:
+    """Requested stages that ran but produced no feature (accepted only under allow_partial)."""
+
+    counts = {name.casefold(): count for name, count in report.feature_counts.items()}
+    return tuple(
+        stage
+        for stage in stages
+        if stage in _STAGE_FEATURE_TYPE and counts.get(_STAGE_FEATURE_TYPE[stage], 0) == 0
+    )
+
+
 def _validation_failure(
     genome: OrganelleGenome,
     report: AnnotationValidationReport,
@@ -302,7 +320,9 @@ def _execute_validate_and_persist(
             )
 
         try:
-            report = validate_document(backend_run.document, request.stages)
+            report = validate_document(
+                backend_run.document, request.stages, allow_partial=request.allow_partial
+            )
         except Exception as error:
             return _error_result(
                 genome,
@@ -312,6 +332,20 @@ def _execute_validate_and_persist(
             )
         if not report.valid:
             return _validation_failure(genome, report)
+        empty_stages = _stages_without_features(report, request.stages) if request.allow_partial else ()
+        if empty_stages:
+            # Recorded in the document so that re-validation (writer, extraction) accepts it the same way.
+            backend_run = replace(
+                backend_run,
+                document=backend_run.document.evolve(
+                    source_metadata=FrozenMap(
+                        {
+                            **dict(backend_run.document.source_metadata),
+                            "stages_without_features": empty_stages,
+                        }
+                    )
+                ),
+            )
 
         if request.call_orfs:
             from .orf_annotation import add_orf_features
@@ -325,7 +359,9 @@ def _execute_validate_and_persist(
                     min_aa=request.orf_min_aa,
                     circular=request.orf_circular,
                 )
-                report = validate_document(document, request.stages)
+                report = validate_document(
+                    document, request.stages, allow_partial=request.allow_partial
+                )
                 if not report.valid:
                     return _validation_failure(genome, report)
                 backend_run = replace(
@@ -465,7 +501,15 @@ def run_annotation(
         else ()
     )
     rejected_count = len(rejected_candidates)
+    empty_value = source_metadata.get("stages_without_features", ())
+    stages_without_features = (
+        tuple(item for item in empty_value if isinstance(item, str))
+        if isinstance(empty_value, tuple)
+        else ()
+    )
     summary = f"Annotated {feature_count} features with {backend_name}."
+    if stages_without_features:
+        summary += f" Partial annotation: no features from {', '.join(stages_without_features)}."
     if rejected_count:
         noun = "candidate" if rejected_count == 1 else "candidates"
         summary += f" {rejected_count} invalid CDS {noun} rejected."
@@ -476,13 +520,17 @@ def run_annotation(
         flags.append("cds_candidates_rejected")
     if missing_core_genes:
         flags.append("missing_core_genes")
+    if stages_without_features:
+        flags.append("partial_annotation")
     orf_metrics = source_metadata.get("orf_candidates") if request.call_orfs else None
     if request.call_orfs:
         flags.append("sequence_only_orf_candidates")
     return OrganelleResult(
         operation_id="annotation.annotate",
         scope=genome.organelle,
-        status="warning" if rejected_count or missing_core_genes else "ok",
+        status=(
+            "warning" if rejected_count or missing_core_genes or stages_without_features else "ok"
+        ),
         summary_text=summary,
         metrics=FrozenMap(
             {
@@ -495,6 +543,11 @@ def run_annotation(
                 "rejected_cds_count": rejected_count,
                 "rejected_cds_candidates": rejected_candidates,
                 "missing_core_genes": missing_core_genes,
+                **(
+                    {"stages_without_features": stages_without_features}
+                    if request.allow_partial
+                    else {}
+                ),
                 **({"orf_candidates": orf_metrics} if request.call_orfs else {}),
             }
         ),

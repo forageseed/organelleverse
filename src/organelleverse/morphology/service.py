@@ -9,11 +9,13 @@ from uuid import uuid4
 
 from ..core.result import OrganelleResult
 from ..runtime import managed_run_path
+from ..sequences import as_path
+from ..inputs import Images
 from .microsam import DEFAULT_EM_ORGANELLE_MODEL
 
 
 def segment(
-    images: str | Path | list[str | Path],
+    images: str | Path | list[str | Path] | Images,
     *,
     executor: Callable[..., Any] | None = None,
     device: str = "auto",
@@ -21,13 +23,15 @@ def segment(
     checkpoint: str | Path | None = None,
     orgseg_root: str | Path | None = None,
     measure_objects: bool = True,
-    intensity_image: str | Path | None = None,
+    intensity_image: str | Path | Images | None = None,
     pixel_size_um: float | None = None,
     backend: str = "auto",
     is_3d_stack: bool = False,
     micro_sam_model_type: str = DEFAULT_EM_ORGANELLE_MODEL,
 ) -> OrganelleResult:
     """Segment images with intermediates in a platform-managed run."""
+    images = as_path(images)
+    intensity_image = as_path(intensity_image)
     from .orgseg import segment as _segment
 
     return _segment(

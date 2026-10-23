@@ -8,7 +8,7 @@ import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from functools import wraps
-from typing import Never, ParamSpec, Protocol, TypeAlias, TypeVar, cast
+from typing import TYPE_CHECKING, Never, ParamSpec, Protocol, TypeAlias, TypeVar, cast
 
 from pydantic import BaseModel, JsonValue, ValidationError
 
@@ -31,9 +31,14 @@ from .schemas import parameter_schema as compose_parameter_schema
 from .signature import OperationSignature, derive_operation_signature
 from .spec import CoreKind, OperationSpec, OperationStage
 
+if TYPE_CHECKING:
+    from .advice import AgentAdvice
+
 CoreObject: TypeAlias = OrganelleGenome | OrganelleData | OrganelleResult
 ParameterDecoder: TypeAlias = Callable[[type[BaseModel], Mapping[str, object]], BaseModel]
-SuggestionValidator: TypeAlias = Callable[[OrganelleResult], None]
+#: Checks suggestions explicitly emitted by an operation and returns its result.
+#: Dynamic candidates are inspected separately, outside the result's identity.
+SuggestionFinalizer: TypeAlias = Callable[[OrganelleResult], OrganelleResult]
 
 _logger = logging.getLogger(__name__)
 
@@ -87,7 +92,7 @@ class BoundOperation:
     signature: OperationSignature
     data_contracts: tuple[DataContract, ...]
     output_data_contracts: tuple[DataContract, ...] = ()
-    suggestion_validator: SuggestionValidator | None = None
+    suggestion_finalizer: SuggestionFinalizer | None = None
     invocation_strategy: InvocationStrategy | None = None
 
     def invoke(
@@ -132,7 +137,7 @@ class BoundOperation:
             values,
             self.data_contracts,
             output_data_contracts=self.output_data_contracts,
-            suggestion_validator=self.suggestion_validator,
+            suggestion_finalizer=self.suggestion_finalizer,
             parameter_decoder=parameter_decoder,
             invocation_strategy=self.invocation_strategy,
         )
@@ -255,9 +260,12 @@ class OperationRegistry:
         )
         return inputs, outputs
 
-    def _suggestion_validator(self, source_spec: OperationSpec) -> SuggestionValidator:
-        def validate_suggestions(result: OrganelleResult) -> None:
-            """Enforce that every suggestion on *result* is followable."""
+    def _suggestion_finalizer(self, source_spec: OperationSpec) -> SuggestionFinalizer:
+        def finalize_suggestions(result: OrganelleResult) -> OrganelleResult:
+            """Enforce that each explicitly emitted suggestion is followable."""
+            # Dynamic candidates belong to the agent response, not the persisted
+            # scientific result. Only suggestions supplied by the operation itself
+            # are part of this result's contract and identity.
             for suggestion in result.suggested_operations:
                 binding = self._bindings.get(suggestion.operation_id)
                 target_spec = binding.spec if binding is not None else None
@@ -283,7 +291,15 @@ class OperationRegistry:
                         },
                     )
                 target_kind = target_spec.input_kind
-                if target_kind not in {CoreKind.NONE, source_spec.output_kind}:
+                bridged = (
+                    bool(suggestion.input_artifact_kind)
+                    and suggestion.input_artifact_kind in target_spec.result_artifact_inputs
+                    and any(
+                        artifact.kind == suggestion.input_artifact_kind
+                        for artifact in result.artifacts
+                    )
+                )
+                if not bridged and target_kind not in {CoreKind.NONE, source_spec.output_kind}:
                     raise OrganelleContractError(
                         code="contract.incompatible_suggested_operation",
                         message=(
@@ -335,8 +351,28 @@ class OperationRegistry:
                             "validation_errors": validation_errors,
                         },
                     )
+            return result
 
-        return validate_suggestions
+        return finalize_suggestions
+
+    def agent_advice(
+        self,
+        result: OrganelleResult,
+        *,
+        metadata: Mapping[str, object] | None = None,
+        parameters: Mapping[str, Mapping[str, object]] | None = None,
+        granted_side_effects: tuple[str, ...] = (),
+    ) -> AgentAdvice:
+        """Inspect next-operation readiness without changing or executing the result."""
+        from .advice import build_agent_advice
+
+        return build_agent_advice(
+            self,
+            result,
+            metadata=metadata,
+            parameters=parameters,
+            granted_side_effects=granted_side_effects,
+        )
 
     def _adopt_capability_binding(self, binding: BoundOperation) -> BoundOperation:
         """Apply the same registry-owned data and suggestion checks as register()."""
@@ -351,7 +387,7 @@ class OperationRegistry:
             spec=spec,
             data_contracts=inputs,
             output_data_contracts=outputs,
-            suggestion_validator=self._suggestion_validator(spec),
+            suggestion_finalizer=self._suggestion_finalizer(spec),
         )
 
     def register(
@@ -377,7 +413,7 @@ class OperationRegistry:
         )
         signature = derive_operation_signature(function, validated_spec)
         implementation = cast(Callable[..., CoreObject], function)
-        validate_suggestions = self._suggestion_validator(validated_spec)
+        finalize_suggestions = self._suggestion_finalizer(validated_spec)
 
         @wraps(function)
         def checked(*args: Parameters.args, **kwargs: Parameters.kwargs) -> Result:
@@ -401,7 +437,7 @@ class OperationRegistry:
                     bound.arguments,
                     resolved_contracts,
                     output_data_contracts=resolved_output_contracts,
-                    suggestion_validator=validate_suggestions,
+                    suggestion_finalizer=finalize_suggestions,
                 ),
             )
 
@@ -413,7 +449,7 @@ class OperationRegistry:
             signature=signature,
             data_contracts=resolved_contracts,
             output_data_contracts=resolved_output_contracts,
-            suggestion_validator=validate_suggestions,
+            suggestion_finalizer=finalize_suggestions,
         )
         self._bindings[validated_spec.operation_id] = binding
         return binding
@@ -660,6 +696,10 @@ class _ReleaseOperationRegistry(OperationRegistry):
         from organelleverse.capabilities.discovery import discover_capabilities
 
         index = discover_capabilities()
+        # The first-party desktop adapter also executes on detached Linux workers.
+        from organelleverse.operations.tools_adapter import index_with_tool_adapter
+
+        index = index_with_tool_adapter(lambda: index)()
         self.attach_capability_source(index.binding_source())
 
     def register(
@@ -683,7 +723,7 @@ def _invoke_checked_python(
     data_contracts: tuple[DataContract, ...],
     *,
     output_data_contracts: tuple[DataContract, ...] = (),
-    suggestion_validator: SuggestionValidator | None = None,
+    suggestion_finalizer: SuggestionFinalizer | None = None,
     parameter_decoder: ParameterDecoder | None = None,
     invocation_strategy: InvocationStrategy | None = None,
 ) -> CoreObject:
@@ -713,9 +753,7 @@ def _invoke_checked_python(
                 )
             element_type = cast("type[BaseModel]", signature.input_type)
             core_input = [
-                _revalidate_core_input(
-                    spec, element_type, cast(CoreObject, element)
-                )
+                _revalidate_core_input(spec, element_type, cast(CoreObject, element))
                 for element in candidate_input
             ]
             for element in core_input:
@@ -757,7 +795,7 @@ def _invoke_checked_python(
         cast(type[BaseModel], signature.output_type),
         result,
         output_data_contracts=output_data_contracts,
-        suggestion_validator=suggestion_validator,
+        suggestion_finalizer=suggestion_finalizer,
     )
 
 
@@ -811,13 +849,13 @@ def _revalidate_core_output(
     value: CoreObject,
     *,
     output_data_contracts: tuple[DataContract, ...] = (),
-    suggestion_validator: SuggestionValidator | None = None,
+    suggestion_finalizer: SuggestionFinalizer | None = None,
 ) -> CoreObject:
     """Re-validate a returned core object against its declared contract.
 
     For DATA output the returned modality must be declared (I1b) and, when a
     resolvable contract is supplied, its payload is validated (I1c). For RESULT
-    output the optional ``suggestion_validator`` enforces that every suggestion
+    output the optional ``suggestion_finalizer`` enforces that every suggestion
     on the returned :class:`OrganelleResult` is followable by an agent: it must
     exist in the invoking registry, its ``input_kind`` must be a member of
     ``{NONE, emitting output_kind}`` (NONE is admitted because the agent calls a
@@ -887,8 +925,8 @@ def _revalidate_core_output(
                             "contract_error_message": error.message,
                         },
                     ) from error
-    if spec.output_kind is CoreKind.RESULT and suggestion_validator is not None:
-        suggestion_validator(cast(OrganelleResult, validated))
+    if spec.output_kind is CoreKind.RESULT and suggestion_finalizer is not None:
+        return suggestion_finalizer(cast(OrganelleResult, validated))
     return validated
 
 

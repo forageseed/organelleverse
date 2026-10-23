@@ -2,7 +2,7 @@
 
 Every QC operation is ``CONSUME`` Result -> Result, idempotent, non-cacheable,
 and prohibits fallback. ``qc.assembly`` declares Python contract dependencies on
-``pysam`` and ``pyhmmer``; minimap2, samtools, and optional meryl belong to a
+``rubam`` and ``pyhmmer``; minimap2, samtools, and optional meryl belong to a
 versioned QC environment manifest rather than mandatory host-executable
 dependencies. ``qc.annotation`` consumes an already-published mitochondrial
 ``annotation.annotate`` Result and declares no host-executable dependency.
@@ -58,7 +58,7 @@ ASSEMBLY_QC_SPEC = OperationSpec(
     organelle_types=("mitochondrion", "plastid"),
     callable_locator="organelleverse.quality_control.api:assembly",
     dependencies=(
-        DependencySpec(kind=DependencyKind.PYTHON, name="pysam"),
+        DependencySpec(kind=DependencyKind.PYTHON, name="rubam"),
         DependencySpec(kind=DependencyKind.PYTHON, name="pyhmmer"),
     ),
     side_effects=(

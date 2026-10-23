@@ -13,7 +13,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Literal
 
+from organelleverse._bam import site_base_counts
+
 from ..core.result import Finding, OrganelleResult
+from ..inputs import ReadAlignments
+from ..sequences import Sequences, as_path
 from .rna_edit import _failed, _provenance
 
 _OPERATION = "quantify_efficiency"
@@ -21,14 +25,14 @@ _VERSION = "1.0"
 
 
 def quantify_known_site_efficiency(
-    bam_path: str | Path,
+    bam_path: str | Path | ReadAlignments,
     sites_tsv: str | Path,
     *,
     scope: Literal["mitochondrion", "plastid"] = "mitochondrion",
     min_mapping_quality: int = 20,
     min_base_quality: int = 20,
     exclude_duplicates: bool = True,
-    reference_fasta: str | Path | None = None,
+    reference_fasta: str | Path | Sequences | None = None,
 ) -> OrganelleResult:
     """Count reference, edited, other and usable reads at known editing sites.
 
@@ -44,6 +48,8 @@ def quantify_known_site_efficiency(
     is the Wilson score interval for a binomial proportion, conditional on the
     informative depth (ref + edited + other A/C/G/T).
     """
+    bam_path = as_path(bam_path)
+    reference_fasta = as_path(reference_fasta)
     params = {
         "bam_path": str(bam_path),
         "sites_tsv": str(sites_tsv),
@@ -59,7 +65,7 @@ def quantify_known_site_efficiency(
             scope="mitochondrion",
             code="rna_editing.invalid_scope",
             message="scope must be 'mitochondrion' or 'plastid'.",
-            backend="pysam",
+            backend="rubam",
         )
     if min_mapping_quality < 0 or min_base_quality < 0:
         return _failed(
@@ -67,7 +73,7 @@ def quantify_known_site_efficiency(
             scope=scope,
             code="rna_editing.invalid_quality_threshold",
             message="Quality thresholds must be non-negative.",
-            backend="pysam",
+            backend="rubam",
         )
     try:
         sites = _read_sites(sites_tsv)
@@ -77,17 +83,17 @@ def quantify_known_site_efficiency(
             scope=scope,
             code="rna_editing.invalid_sites",
             message=f"Could not read known-site TSV: {exc}",
-            backend="pysam",
+            backend="rubam",
         )
     try:
-        import pysam
+        import rubam
     except ImportError:
         return _failed(
             _OPERATION,
             scope=scope,
-            code="rna_editing.pysam_not_installed",
-            message="BAM/CRAM quantification requires pysam; install with `pip install 'organelleverse[qc]'`.",
-            backend="pysam",
+            code="rna_editing.rubam_not_installed",
+            message="BAM/CRAM quantification requires rubam; install with `pip install 'organelleverse[qc]'`.",
+            backend="rubam",
         )
 
     try:
@@ -95,57 +101,29 @@ def quantify_known_site_efficiency(
             {"reference_filename": str(reference_fasta)} if reference_fasta is not None else {}
         )
         counts_by_site: dict[str, Counter[str]] = {site["site_id"]: Counter() for site in sites}
-        with pysam.AlignmentFile(str(bam_path), "r", **open_kwargs) as alignment:
+        with rubam.AlignmentFile(str(bam_path), "rb", **open_kwargs) as alignment:
             for site in sites:
                 contig = site["seqid"]
                 if contig not in alignment.references:
                     raise ValueError(f"BAM/CRAM has no reference sequence {contig!r}")
                 pos = int(site["position"]) - 1
-                for column in alignment.pileup(
-                    contig,
-                    pos,
-                    pos + 1,
-                    truncate=True,
-                    stepper="all",
-                    min_mapping_quality=0,
-                    min_base_quality=0,
-                    max_depth=1_000_000,
-                    ignore_overlaps=False,
-                    ignore_orphans=False,
-                    compute_baq=False,
-                ):
-                    if column.reference_pos != pos:
-                        continue
-                    for pileup_read in column.pileups:
-                        read = pileup_read.alignment
-                        if pileup_read.is_del or pileup_read.is_refskip:
-                            continue
-                        if (
-                            read.is_unmapped
-                            or read.is_secondary
-                            or read.is_supplementary
-                            or read.is_qcfail
-                        ):
-                            continue
-                        if exclude_duplicates and read.is_duplicate:
-                            continue
-                        if read.mapping_quality < min_mapping_quality:
-                            continue
-                        qpos = pileup_read.query_position
-                        if qpos is None or read.query_qualities is None:
-                            continue
-                        if read.query_qualities[qpos] < min_base_quality:
-                            continue
-                        base = read.query_sequence[qpos].upper()
-                        if base in "ACGT":
-                            counts_by_site[site["site_id"]][base] += 1
+                counts_by_site[site["site_id"]].update(
+                    site_base_counts(
+                        alignment,
+                        contig,
+                        pos,
+                        min_mapping_quality=min_mapping_quality,
+                        min_base_quality=min_base_quality,
+                        exclude_duplicates=exclude_duplicates,
+                    )
+                )
     except (OSError, ValueError, KeyError) as exc:
         return _failed(
             _OPERATION,
             scope=scope,
             code="rna_editing.pileup_failed",
             message=f"Could not quantify BAM/CRAM pileup: {exc}",
-            backend="pysam",
+            backend="rubam",
         )
 
     rows: list[dict[str, object]] = []
@@ -189,8 +167,8 @@ def quantify_known_site_efficiency(
         provenance=_provenance(
             _OPERATION,
             parameters=params,
-            backend="pysam",
-            software_versions={"pysam": pysam.__version__},
+            backend="rubam",
+            software_versions={"rubam": rubam.__version__},
         ),
     )
 

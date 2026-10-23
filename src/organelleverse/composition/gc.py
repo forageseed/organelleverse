@@ -14,6 +14,7 @@ from .._bio import read_fasta
 from ..core.frozen import FrozenMap, thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
+from ..sequences import Sequences, as_path
 
 _OPERATION_ID = "composition.gc_content"
 _OPERATION_VERSION = "1.0"
@@ -63,11 +64,12 @@ def _provenance(parameters: dict[str, Any], source: Path) -> ResultProvenance:
 
 
 def gc_content(
-    genome_fasta: str | Path,
+    genome_fasta: str | Path | Sequences,
     *,
     window_size: int = 500,
 ) -> OrganelleResult:
     """Compute global + windowed GC content (and GC skew) from a FASTA."""
+    genome_fasta = as_path(genome_fasta)
     source = Path(genome_fasta)
     parameters = {"window_size": window_size}
     seqs = read_fasta(source)

@@ -3,10 +3,12 @@
 from __future__ import annotations
 from pathlib import Path
 from .._bio import read_fasta
+from ..sequences import Sequences, as_path
 
 
-def compute_gc_content(fasta_path: str | Path, window_size: int = 500) -> dict:
+def compute_gc_content(fasta_path: str | Path | Sequences, window_size: int = 500) -> dict:
     """Compute GC content + GC skew. Returns dict (not OrganelleResult)."""
+    fasta_path = as_path(fasta_path)
     seqs = read_fasta(Path(fasta_path))
     all_seq = "".join(s.upper() for _, s in seqs)
     total = len(all_seq)

@@ -12,6 +12,7 @@ description = "Validate transfer candidates by long-read linkage (layer 3)."
 keywords = ["analyze", "longread", "restored", "result", "transfer", "transfers", "validate"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.transfer.transfer:validate_transfers_longread"

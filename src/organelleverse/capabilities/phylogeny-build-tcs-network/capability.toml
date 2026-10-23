@@ -12,6 +12,7 @@ description = "TCS statistical-parsimony network (Clement, Posada & Crandall 200
 keywords = ["analyze", "build", "network", "phylogeny", "restored", "result", "tcs"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.hapnet:build_tcs_network"

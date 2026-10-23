@@ -71,6 +71,9 @@ class OperationSuggestion(StrictFrozenModel[Literal["operation_suggestion"]]):
     kind: Literal["operation_suggestion"] = "operation_suggestion"
     operation_id: str
     reason_code: str
+    #: Kind of this result's artifact the target's core input is read from;
+    #: empty when the target consumes the result itself or needs no core input.
+    input_artifact_kind: str = ""
     parameter_changes: FrozenMap[FrozenJson] = Field(default_factory=FrozenMap)
 
     @field_validator("parameter_changes", mode="before")

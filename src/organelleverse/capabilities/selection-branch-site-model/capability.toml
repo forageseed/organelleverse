@@ -12,6 +12,7 @@ description = "Plan branch-site codeml inputs without writing user-facing files.
 keywords = ["analyze", "branch", "model", "restored", "result", "selection", "site"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.models:branch_site_model"

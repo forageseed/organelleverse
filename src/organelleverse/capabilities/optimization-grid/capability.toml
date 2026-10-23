@@ -12,6 +12,7 @@ description = "Generate bounded candidate proposals from a closed strategy speci
 keywords = ["graph", "pangenome", "pav", "phylogeny", "report"]
 execution_mode = "inline"
 stage = "consume"
+visibility = "internal"
 input_kind = "result"
 output_kind = "result"
 callable_locator = "organelleverse.optimization.native_strategies:grid"

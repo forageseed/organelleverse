@@ -12,6 +12,7 @@ description = "Validate CDS sequences for codeml analysis."
 keywords = ["analyze", "cds", "restored", "result", "selection", "validate"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.codeml:validate_cds"

@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import Any, Mapping
 from .align import HGTBackendError, run_hgt_alignments
 from .hgt import _build_hgt_metrics
+from ..sequences import Sequences, as_path
 
 
 def compute_hgt(
-    donor_fasta: str | Path,
-    recipient_fasta: str | Path,
+    donor_fasta: str | Path | Sequences,
+    recipient_fasta: str | Path | Sequences,
     min_len: int = 200,
     *,
     min_identity: float = 90.0,
@@ -20,6 +21,8 @@ def compute_hgt(
     phylogeny_evidence: Mapping[str, Any] | str | Path | None = None,
 ) -> dict:
     """Detect HGT candidates with minimap2/mappy-style local alignment."""
+    donor_fasta = as_path(donor_fasta)
+    recipient_fasta = as_path(recipient_fasta)
     try:
         selected_backend, alignments = run_hgt_alignments(
             donor_fasta,

@@ -30,8 +30,79 @@ name = "numpy"
 
 [contract.binding]
 argument_mode = "named_parameters"
-result_codec = "artifact"
+result_codec = "canonical"
 
 [[contract.binding.parameters]]
 name = "reference_gbk"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "variants"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "variant_matrix"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "diversity"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "sv_variants"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "pan_segments"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "pangenome_gfa"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "metadata"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "sample_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "bins"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "window_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "graph_renderer"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "graph_max_blocks"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_ir"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { reference_gbk = "fixtures/basic/input/reference.gb", variants = "fixtures/basic/input/variants.vcf", pangenome_gfa = "fixtures/basic/input/graph.gfa", bins = 30, graph_max_blocks = 12 }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

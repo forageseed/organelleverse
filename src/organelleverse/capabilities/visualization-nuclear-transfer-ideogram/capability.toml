@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Nuclear Transfer Ideogram"
-description = "Prepare a panel-C style NUMT/NUPT chromosome ideogram without writing files."
+description = "Prepare a NUMT/NUPT chromosome ideogram without writing files."
 keywords = ["analyze", "ideogram", "nuclear", "restored", "result", "transfer", "visualization"]
 execution_mode = "inline"
 stage = "analyze"

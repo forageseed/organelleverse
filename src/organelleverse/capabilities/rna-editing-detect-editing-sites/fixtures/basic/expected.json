@@ -216,8 +216,38 @@
     "no_dna_snp_exclusion"
   ],
   "artifacts": [],
-  "provenance": null,
+  "provenance": {
+    "kind": "provenance",
+    "run_id": null,
+    "operation_id": "rna_editing.detect_editing_sites",
+    "operation_version": "1.0",
+    "package_version": "0.1.0",
+    "git_commit": "",
+    "input_object_ids": [],
+    "input_artifact_hashes": [],
+    "parameters_hash": "73ef0713473159c2ada6be691d5cda218e4dbf303dc2a26373fb5fdd577019fb",
+    "callable_locator": null,
+    "requested_backend": "rubam",
+    "actual_backend": "rubam",
+    "attempted_backends": [
+      "rubam"
+    ],
+    "software_versions": {
+      "rubam": "0.3.13"
+    },
+    "model_hashes": {},
+    "database_hashes": {},
+    "argv": [],
+    "random_seed": null,
+    "started_at": null,
+    "finished_at": null,
+    "duration_seconds": null,
+    "run_manifest_id": null,
+    "upstream_run_manifest_ids": [],
+    "path_translations": [],
+    "inline_materializations": []
+  },
   "errors": [],
   "suggested_operations": [],
-  "object_id": "result:sha256:f79cf18fce7cec2b2624b745f4b9a510623b41a6b3b8153fbb6de25349769223"
+  "object_id": "result:sha256:07459938a4d3d7c2727ff35d3adb43832a8560e6ccaf5a14e4c5c915d4918ae2"
 }

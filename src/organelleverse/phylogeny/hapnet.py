@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from .._bio import read_fasta
+from ..sequences import Sequences, as_path, as_records
 from ..core.result import OrganelleResult
 from ..visualization.plot_object import OrganellePlot, plot_result
 from ._results import failed_result, findings, ok_result, provenance
@@ -676,7 +677,7 @@ def _dot_text(haplotypes, freq, edges) -> str:
 
 
 def haplotype_network(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     method: str = "auto",
     connection_limit: int | None = None,
@@ -708,7 +709,7 @@ def haplotype_network(
     :func:`write_haplotype_network` to write ``haplotypes.tsv``,
     ``network.dot``, and ``network.png``.
     """
-    seqs = read_fasta(Path(alignment_fasta))
+    seqs = as_records(alignment_fasta)
     if len(seqs) < 2:
         return failed_result(
             "haplotype_network",
@@ -809,7 +810,7 @@ def haplotype_network(
             "haplotype_network",
             method=method_label,
             parameters={
-                "alignment_fasta": str(alignment_fasta),
+                "alignment_fasta": str(as_path(alignment_fasta)),
                 "method": method,
                 "connection_limit": connection_limit,
                 "confidence": confidence,

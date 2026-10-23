@@ -12,6 +12,7 @@ description = "Extract branch-length vectors from multiple gene trees."
 keywords = ["analyze", "branch", "coevolution", "extract", "lengths", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution.coevolution:extract_branch_lengths"

@@ -18,6 +18,8 @@ the checkout's ``external_tools/table2asn/table2asn``.
 
 from __future__ import annotations
 
+from organelleverse._layout import checkout_root
+
 import json
 import os
 import re
@@ -59,7 +61,7 @@ def find_table2asn() -> str | None:
     found = shutil.which("table2asn")
     if found:
         return found
-    candidate = Path(__file__).resolve().parents[3] / "external_tools" / "table2asn" / "table2asn"
+    candidate = checkout_root() / "external_tools" / "table2asn" / "table2asn"
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return str(candidate)
     return None

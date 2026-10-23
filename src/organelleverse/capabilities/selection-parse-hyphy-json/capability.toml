@@ -12,6 +12,7 @@ description = "Parse the key results of an existing HyPhy BUSTED/aBSREL/RELAX/ME
 keywords = ["datamonkey", "hyphy", "json", "parse", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.hyphy:parse_hyphy_json"

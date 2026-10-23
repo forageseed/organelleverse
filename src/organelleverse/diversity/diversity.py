@@ -24,11 +24,12 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
-from .._bio import read_fasta, read_genbank
+from .._bio import read_genbank
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
 from ..core.frozen import thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
+from ..sequences import Sequences, as_path, as_records
 
 _OPERATION_VERSION = "1.0"
 _SCOPE = "mitochondrion"
@@ -160,7 +161,7 @@ def _harmonic_a(n: int) -> float:
 
 
 def nucleotide_diversity(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     window_size: int = 1000,
     step: int = 500,
@@ -174,11 +175,11 @@ def nucleotide_diversity(
     exactly on gap-free data).
     """
     parameters = {
-        "alignment_fasta": str(alignment_fasta),
+        "alignment_fasta": str(as_path(alignment_fasta)),
         "window_size": window_size,
         "step": step,
     }
-    seqs = [s for _, s in read_fasta(Path(alignment_fasta))]
+    seqs = [s for _, s in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return _failed(
             "nucleotide_diversity",
@@ -232,7 +233,7 @@ def nucleotide_diversity(
 
 
 def sliding_window_diversity(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     window_size: int = 600,
     step: int = 200,
@@ -295,7 +296,7 @@ def sliding_window_diversity(
     With fewer than three samples the diagnostic is unavailable (null).
     """
     parameters = {
-        "alignment_fasta": str(alignment_fasta),
+        "alignment_fasta": str(as_path(alignment_fasta)),
         "window_size": window_size,
         "step": step,
         "gap_mode": gap_mode,
@@ -316,7 +317,7 @@ def sliding_window_diversity(
         raise OrganelleInputError(
             code="diversity.bad_single_sample_drop", message="single_sample_drop must be in (0, 1]."
         )
-    records = read_fasta(Path(alignment_fasta))
+    records = as_records(alignment_fasta)
     orientation = None
     if normalize_orientation:
         if genbank is not None:
@@ -326,7 +327,7 @@ def sliding_window_diversity(
                 "in the normalized reference coordinate system.",
             )
         records, orientation = _normalize_and_align(
-            alignment_fasta, orientation_reference, alignment_method
+            as_path(alignment_fasta), orientation_reference, alignment_method
         )
         if records is None:
             failed = _failed(
@@ -776,7 +777,7 @@ def _label_region(
 
 
 def neutral_tests(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
 ) -> OrganelleResult:
     """Compute the standard neutral-equilibrium tests from an alignment.
 
@@ -784,8 +785,8 @@ def neutral_tests(
     and sample size n. Backend: scikit-allel when available, else the
     textbook formulas (Nei 1987; Watterson 1975; Tajima 1989).
     """
-    parameters = {"alignment_fasta": str(alignment_fasta)}
-    seqs = [s for _, s in read_fasta(Path(alignment_fasta))]
+    parameters = {"alignment_fasta": str(as_path(alignment_fasta))}
+    seqs = [s for _, s in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return _failed(
             "neutral_tests",

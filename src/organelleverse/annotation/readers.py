@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from organelleverse.core.artifacts import ArtifactRef
 from organelleverse.core.genome import OrganelleGenome, OrganelleMetadata
+from organelleverse.io_genome import read_genome as read
 
 ReaderOrganelle = Literal["mito", "chloro", "plastid", "mitochondrion"]
 

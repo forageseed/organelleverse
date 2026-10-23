@@ -22,6 +22,7 @@ from ..core.errors import OrganelleExecutionError
 from ..core.external import run_external
 from ..core.result import OrganelleResult
 from ._results import artifact_for, failed_result, findings, ok_result, provenance
+from ..sequences import Sequences, as_path, as_records
 
 
 def _which(tool: str) -> str | None:
@@ -32,7 +33,7 @@ def _which(tool: str) -> str | None:
 
 
 def align(
-    input_fasta: str | Path,
+    input_fasta: str | Path | Sequences,
     *,
     method: str = "auto",
 ) -> OrganelleResult:
@@ -42,7 +43,7 @@ def align(
     CLI. ``rust`` and ``mafft`` require that specific backend. Backend failure
     is reported with its cause; raw input is never returned as an alignment.
     """
-    params = {"method": method, "input_fasta": str(input_fasta)}
+    params = {"method": method, "input_fasta": str(as_path(input_fasta))}
     if method not in {"auto", "rust", "mafft"}:
         return failed_result(
             "align",
@@ -51,7 +52,7 @@ def align(
             result_provenance=provenance("align", parameters=params),
         )
     try:
-        seqs = read_fasta(Path(input_fasta))
+        seqs = as_records(input_fasta)
     except ValueError as exc:
         if "FASTA contains no records:" not in str(exc):
             raise
@@ -135,6 +136,17 @@ def align(
     )
 
 
+def _not_aligned(op: str, alignment: str | Path | Sequences) -> OrganelleResult | None:
+    """A failed result when the records are not an alignment (their lengths differ)."""
+    if len({len(sequence) for _, sequence in as_records(alignment)}) == 1:
+        return None
+    return failed_result(
+        op,
+        summary_text="The sequences differ in length, so they are not an alignment; run align() first.",
+        code=f"phylogeny.{op}.not_aligned",
+    )
+
+
 def write_alignment(result: OrganelleResult, output_path: str | Path) -> Path:
     """Write an alignment produced by ``align()`` to FASTA."""
     if result.status != "ok" or result.operation_id != "phylogeny.align":
@@ -171,7 +183,7 @@ def _parse_fasta_text(text: str) -> list[tuple[str, str]]:
 
 
 def trim_alignment(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     method: str = "automated1",
     executor: Callable[[list[str]], Any] | None = None,
@@ -195,7 +207,7 @@ def trim_alignment(
 
 
 def run_trim_alignment(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     output_dir: str | Path,
     method: str = "automated1",
@@ -211,12 +223,15 @@ def run_trim_alignment(
 
 
 def _trim_alignment_impl(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     output_dir: str | Path | None = None,
     method: str,
     executor: Callable[[list[str]], Any] | None,
 ) -> OrganelleResult:
+    if (failure := _not_aligned("trim_alignment", alignment_fasta)) is not None:
+        return failure
+    alignment_fasta = as_path(alignment_fasta)
     trimal_bin = _which("trimal")
     found = trimal_bin is not None
     if not found:
@@ -488,7 +503,7 @@ def write_shared_genes(result: OrganelleResult, output_dir: str | Path) -> dict[
 
 
 def build_tree(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     method: str = "iqtree",
     bootstrap: int = 1000,
@@ -533,7 +548,7 @@ def build_tree(
 
 
 def run_build_tree(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     method: str = "iqtree",
     output_dir: str | Path,
@@ -557,7 +572,7 @@ def run_build_tree(
 
 
 def _build_tree_impl(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     method: str,
     output_dir: str | Path | None = None,
@@ -567,6 +582,9 @@ def _build_tree_impl(
     model: str | None,
     executor: Callable[[list[str]], Any] | None,
 ) -> OrganelleResult:
+    if (failure := _not_aligned("build_tree", alignment_fasta)) is not None:
+        return failure
+    alignment_fasta = as_path(alignment_fasta)
     bin_map = {
         "iqtree": "iqtree2",
         "iqtree2": "iqtree2",

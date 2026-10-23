@@ -12,6 +12,7 @@ description = "Align protein sequences (MAFFT subprocess or self-contained)."
 keywords = ["align", "analyze", "protein", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.codeml:align_protein"

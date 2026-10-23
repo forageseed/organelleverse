@@ -47,6 +47,7 @@ from ..core import (
     ResultProvenance,
     ResultScope,
 )
+from ._species import species_resolver
 
 __all__ = [
     "coevolution_network",
@@ -253,9 +254,14 @@ def _rust_erc_kernel(accel: Any) -> Callable[..., list[dict]] | None:
 # ===========================================================================
 
 
-@dataclass
+@dataclass(eq=False)
 class TreeNode:
-    """A minimal phylogenetic tree node."""
+    """A minimal phylogenetic tree node.
+
+    Nodes compare and hash by identity. Reconciliation maps gene nodes onto
+    species nodes and asks "is this the same node", so structural equality
+    (which would also recurse through ``parent``) must not apply.
+    """
 
     name: str = ""
     branch_length: float = 0.0
@@ -354,8 +360,10 @@ def reconcile_trees(
     species_tree_newick : str
         Species tree in Newick format (leaf names are species codes).
     species_map : dict, optional
-        Maps gene-leaf-name -> species-code. If None, species code is extracted
-        as the prefix before ``_``, ``|``, or ``@``.
+        Maps gene-leaf-name -> species-code. Labels not in the map are resolved
+        against the species-tree leaf names (longest species name followed by
+        ``__``/``_``/``|``/``@``), so ``Arabidopsis_thaliana_g1`` is not
+        confused with ``Arabidopsis_lyrata_g1``.
 
     Compute-only: returns the per-internal-node reconciliation rows in
     ``metrics["reconciliation_rows"]`` and writes no user file. Materialize the
@@ -376,14 +384,7 @@ def reconcile_trees(
         )
 
     sp_leaves = {n.name: n for n in species_tree.leaves() if n.name}
-
-    def get_species(leaf_name: str) -> str:
-        if leaf_name in species_map:
-            return species_map[leaf_name]
-        for sep in ("__", "_", "|", "@"):
-            if sep in leaf_name:
-                return leaf_name.split(sep)[0]
-        return leaf_name
+    get_species = species_resolver(sp_leaves, species_map)
 
     # Map gene-tree nodes to species-tree NODE OBJECTS (by id) to preserve
     # internal-node identity even when internal nodes are unnamed.
@@ -524,9 +525,12 @@ def extract_branch_lengths(
     method : "R2T" (root-to-tip, default) | "BXB" (branch-by-branch)
     species_tree : str, optional
         Required for ``method="BXB"``. The BXB output is indexed by species-tree
-        edges, not raw gene-tree node names.
+        edges, not raw gene-tree node names. For ``R2T`` it is optional and only
+        supplies the species names used to resolve leaf labels; without it a
+        label is cut at its first ``__``/``|``/``@`` (or ``_`` if none), which
+        cannot tell two-word species names from ``species_gene`` labels.
     species_map : dict, optional
-        Optional gene-leaf-name -> species-code mapping for BXB (``reconciliation="lca"``).
+        Optional gene-leaf-name -> species-code mapping (R2T and BXB ``lca``).
     reconciliation : "lca" (default) | "dlcpar"
         How gene-tree nodes are mapped onto species-tree edges for BXB.
 
@@ -690,6 +694,14 @@ def extract_branch_lengths(
             ),
         )
 
+    known_species: list[str] = []
+    if species_tree:
+        try:
+            known_species = [n.name for n in parse_newick(species_tree).leaves() if n.name]
+        except Exception:
+            known_species = []
+    get_species = species_resolver(known_species, species_map)
+
     bl_matrix: dict[str, dict[str, float]] = {}
     all_species: set[str] = set()
     for gene_name, newick in gene_trees.items():
@@ -699,8 +711,7 @@ def extract_branch_lengths(
             continue
         row: dict[str, float] = {}
         for leaf in tree.leaves():
-            sp = leaf.name.split("_")[0].split("|")[0].split("@")[0]
-            row[sp] = leaf.get_distance_to_root()
+            row[get_species(leaf.name)] = leaf.get_distance_to_root()
         bl_matrix[gene_name] = row
         all_species.update(row.keys())
 
@@ -732,7 +743,7 @@ def extract_branch_lengths(
 
 
 def rate_covariation(
-    branch_lengths: dict[str, list[float] | dict[str, float]],
+    branch_lengths: Mapping[str, Sequence[float | None] | Mapping[str, float | None]],
     *,
     method: str = "residual",
     transform: str = "sqrt",
@@ -754,6 +765,7 @@ def rate_covariation(
     Parameters
     ----------
     branch_lengths : {gene_name: [branch_length_per_species]} or {gene_name: {branch: value}}
+        Plain dicts or a stage result's frozen ``metrics`` mapping; ``None`` is missing.
     method : "residual" (ERC2, default) | "raw"
     transform : "sqrt" (default) | "log" | "none"
     variance_weight : bool — use WLS with variance-based weights
@@ -914,18 +926,19 @@ def coevolution_network(
     r_threshold: float = 0.5,
     use_fdr: bool = True,
 ) -> OrganelleResult:
-    """Build a coevolution network from correlation results."""
-    nodes: set[str] = set()
-    edges: list[tuple[str, str, float]] = []
-    for p in correlations:
-        include = (use_fdr and p.get("significant")) or (abs(p.get("r", 0)) >= r_threshold)
-        if include:
-            a, b = p["gene_a"], p["gene_b"]
-            nodes.add(a)
-            nodes.add(b)
-            edges.append((a, b, p["r"]))
+    """Build a coevolution network from correlation results.
 
-    communities = _connected_components(list(nodes), [(a, b) for a, b, _ in edges])
+    A pair becomes an edge when ``|r| >= r_threshold`` and, with
+    ``use_fdr=True``, it is also FDR-significant (``significant`` is true).
+    Communities are the connected components, largest first.
+
+    ``metrics`` carries the counts (``nodes``, ``edges``, ``communities``) and
+    the network itself: ``node_ids``, ``edge_list`` (``gene_a``, ``gene_b``,
+    ``r``) and ``community_members``.
+    """
+    nodes, edges, communities = _network_from_pairs(
+        [dict(p) for p in correlations], r_threshold=r_threshold, use_fdr=use_fdr
+    )
     return _ok(
         "coevolution_network",
         artifacts=(),
@@ -933,6 +946,9 @@ def coevolution_network(
             "nodes": len(nodes),
             "edges": len(edges),
             "communities": len(communities),
+            "node_ids": nodes,
+            "edge_list": [{"gene_a": a, "gene_b": b, "r": r} for a, b, r in edges],
+            "community_members": communities,
         },
         findings=(
             _finding("edges", value=len(edges)),
@@ -1002,21 +1018,33 @@ def _species_tree_leaf_count(species_tree_newick: str) -> int:
         return 0
 
 
+def _as_float(value: Any) -> float:
+    """``float(value)`` with ``None`` (a frozen result's missing value) as NaN."""
+    return float("nan") if value is None else float(value)
+
+
 def _coerce_branch_length_vectors(
-    branch_lengths: dict[str, list[float] | dict[str, float]],
+    branch_lengths: Mapping[str, Sequence[float | None] | Mapping[str, float | None]],
 ) -> dict[str, list[float]]:
-    """Coerce list- or branch-keyed matrices into aligned numeric vectors."""
+    """Coerce list- or branch-keyed matrices into aligned numeric vectors.
+
+    Rows may be plain dicts/lists or the frozen mappings of a result's
+    ``metrics`` (a stage's output can be passed straight to the next stage).
+    ``None`` and missing branches are missing data (NaN).
+    """
     if not branch_lengths:
         return {}
     first = next(iter(branch_lengths.values()))
-    if isinstance(first, dict):
-        keys = sorted({k for row in branch_lengths.values() if isinstance(row, dict) for k in row})
+    if isinstance(first, Mapping):
+        keys = sorted(
+            {k for row in branch_lengths.values() if isinstance(row, Mapping) for k in row}
+        )
         return {
-            gene: [float(row.get(k, float("nan"))) for k in keys]
+            gene: [_as_float(row.get(k)) for k in keys]
             for gene, row in branch_lengths.items()
-            if isinstance(row, dict)
+            if isinstance(row, Mapping)
         }
-    return {gene: [float(v) for v in row] for gene, row in branch_lengths.items()}
+    return {gene: [_as_float(v) for v in row] for gene, row in branch_lengths.items()}
 
 
 def _canonical_compartment(raw: Any) -> str | None:
@@ -1266,14 +1294,6 @@ def _correlate(a: list[float], b: list[float], min_overlap: int) -> tuple[float,
     return r, rho, tau, len(pairs)
 
 
-def _kendall_tau(x: list[float], y: list[float]) -> float:
-    """Kendall's tau-b via scipy.stats (kept for backward compat)."""
-    if len(x) < 2:
-        return 0.0
-    t = float(_scipy_stats.kendalltau(x, y)[0])
-    return 0.0 if t != t else t
-
-
 def _rank(values: list[float]) -> list[float]:
     """Compute ranks (average for ties) via scipy.stats.rankdata."""
     return list(_scipy_stats.rankdata(values, method="average"))
@@ -1288,15 +1308,6 @@ def _pearson_pvalue(r: float, n: int) -> float:
     df = n - 2
     t_stat = r * math.sqrt(df / (1.0 - r * r))
     return float(_scipy_stats.t.sf(abs(t_stat), df) * 2)
-
-
-def _regularized_incomplete_beta(x: float, a: float, b: float) -> float:
-    """Deprecated shim — p-values now come from scipy.stats.t."""
-    if x <= 0:
-        return 0.0
-    if x >= 1:
-        return 1.0
-    return float(_scipy_stats.betainc(a, b, x))
 
 
 def _apply_fdr(pairs: list[dict], threshold: float) -> None:
@@ -1352,41 +1363,8 @@ def _connected_components(nodes: list[str], edges: list[tuple[str, str]]) -> lis
 # ===========================================================================
 
 
-def _default_species_of(name: str) -> str:
-    """Extract species code from a leaf name (default: prefix before _/|/@)."""
-    return name.split("_")[0].split("|")[0].split("@")[0]
-
-
-def _branch_length_matrix(
-    gene_trees: dict[str, str],
-    species_of: Callable[[str], str] = _default_species_of,
-) -> tuple[list[str], dict[str, list[float]]]:
-    """Build (species_order, {gene: [R2T per species]}) from gene-tree newicks.
-
-    Each gene tree's leaf root-to-tip distances are collected per species;
-    missing species get 0.0. This is the shared core for
-    ``extract_branch_lengths`` and the ``run_coevolution`` orchestrator.
-    """
-    rows: dict[str, dict[str, float]] = {}
-    all_species: set[str] = set()
-    for gene, newick in gene_trees.items():
-        try:
-            tree = parse_newick(newick)
-        except Exception:
-            continue
-        row: dict[str, float] = {}
-        for leaf in tree.leaves():
-            if leaf.name:
-                row[species_of(leaf.name)] = leaf.get_distance_to_root()
-        rows[gene] = row
-        all_species.update(row)
-    species_order = sorted(all_species)
-    matrix = {g: [row.get(sp, 0.0) for sp in species_order] for g, row in rows.items()}
-    return species_order, matrix
-
-
 def _erc_pairs(
-    branch_lengths: dict[str, list[float] | dict[str, float]],
+    branch_lengths: Mapping[str, Sequence[float | None] | Mapping[str, float | None]],
     *,
     method: str = "residual",
     transform: str = "sqrt",
@@ -1446,18 +1424,33 @@ def _network_from_pairs(
     r_threshold: float = 0.5,
     use_fdr: bool = True,
 ) -> tuple[list[str], list[tuple[str, str, float]], list[list[str]]]:
-    """Return (nodes, edges, communities) from ERC pairs (connected-components)."""
+    """Return (nodes, edges, communities) from ERC pairs (connected-components).
+
+    The single place that decides which pairs are edges: ``|r| >= r_threshold``
+    and, when ``use_fdr``, ``significant``. Pairs without a finite ``r`` are
+    skipped. Nodes are sorted; communities are sorted by size (descending),
+    then by first member, with sorted members, so the output is deterministic.
+    """
     nodes: set[str] = set()
     edges: list[tuple[str, str, float]] = []
     for p in pairs:
-        include = (use_fdr and p.get("significant")) or (abs(p.get("r", 0)) >= r_threshold)
-        if include:
-            a, b = p["gene_a"], p["gene_b"]
-            nodes.add(a)
-            nodes.add(b)
-            edges.append((a, b, p["r"]))
-    communities = _connected_components(list(nodes), [(a, b) for a, b, _ in edges])
-    return sorted(nodes), edges, communities
+        r = p.get("r")
+        if not isinstance(r, (int, float)) or not math.isfinite(r):
+            continue
+        if abs(r) < r_threshold:
+            continue
+        if use_fdr and not p.get("significant"):
+            continue
+        a, b = str(p["gene_a"]), str(p["gene_b"])
+        nodes.add(a)
+        nodes.add(b)
+        edges.append((a, b, float(r)))
+    ordered = sorted(nodes)
+    communities = [
+        sorted(c) for c in _connected_components(ordered, [(a, b) for a, b, _ in edges])
+    ]
+    communities.sort(key=lambda c: (-len(c), c[0]))
+    return ordered, edges, communities
 
 
 def _locate_results(output_dir: str | Path) -> Path | None:
@@ -1679,10 +1672,7 @@ def run_coevolution(
         )
 
     # --- ERCnet branch (method="ercnet") ---
-    # 3. reconcile (collect dup/spec totals, ERCnet convention Species__GENE)
-    def species_of(leaf: str) -> str:
-        return leaf.split("__")[0]
-
+    # 3. reconcile (collect dup/spec totals)
     dup_total = spec_total = 0
     if sp_tree:
         for gt in gene_trees.values():

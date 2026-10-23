@@ -51,6 +51,18 @@ def default_micro_sam_executor(
     decision this executor never fabricates. Consumers measure instance maps
     with ``measure(..., instance_map=True)``.
     """
+    import importlib.util
+    if importlib.util.find_spec("micro_sam") is None:
+        import subprocess
+        from .install import check_backend
+        runtime = check_backend("micro_sam", scan_envs=True)
+        if not runtime["installed"] or not runtime.get("env"):
+            raise RuntimeError("microSAM runtime is not installed")
+        subprocess.run([runtime["path"], str(Path(__file__).resolve()), "--worker", model_type, device, str(out_dir), *image_paths], check=True)
+        outputs = [Path(out_dir) / (Path(path).stem + "_label.png") for path in image_paths]
+        if not all(path.is_file() for path in outputs):
+            raise RuntimeError("microSAM did not produce the requested label maps")
+        return outputs
     import numpy as np
     from micro_sam.instance_segmentation import (  # type: ignore
         AutomaticMaskGenerator,
@@ -70,7 +82,8 @@ def default_micro_sam_executor(
         # (H, W, 3) RGB image would be embedded as H slices. EM input is
         # single-channel anyway: pass 2D (H, W); the library expands
         # channels internally.
-        image = np.array(Image.open(img_path).convert("L"))
+        with Image.open(img_path) as source:
+            image = np.array(source if len(source.getbands()) == 1 else source.convert("L"))
         amg.initialize(image, verbose=False)
         generated = amg.generate()
         if isinstance(generated, np.ndarray):
@@ -85,3 +98,10 @@ def default_micro_sam_executor(
         Image.fromarray(label_map.astype(np.uint16)).save(str(p))
         label_paths.append(p)
     return label_paths
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 6 or sys.argv[1] != "--worker":
+        raise SystemExit("Expected --worker MODEL DEVICE OUTPUT IMAGE...")
+    default_micro_sam_executor(sys.argv[2], sys.argv[3], sys.argv[5:], sys.argv[4])

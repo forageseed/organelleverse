@@ -1,0 +1,29 @@
+LOCUS       NC_057143.1            30000 bp    DNA     circular UNK 01-JAN-1980
+DEFINITION  Citrus maxima mitochondrion, OrganelleVerse fixture 1-30000.
+ACCESSION   NC_057143
+VERSION     NC_057143.1
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  Citrus maxima
+            .
+FEATURES             Location/Qualifiers
+     gene            1026..2549
+                     /gene="atp1"
+                     /locus_tag="K4Z88_mgp01"
+     CDS             1026..2549
+                     /gene="atp1"
+                     /locus_tag="K4Z88_mgp01"
+     gene            19429..21854
+                     /gene="ccmFC"
+                     /locus_tag="K4Z88_mgp02"
+     CDS             join(19429..20199,21156..21854)
+                     /gene="ccmFC"
+                     /locus_tag="K4Z88_mgp02"
+     gene            27505..27578
+                     /gene="trnG-GCC"
+                     /locus_tag="K4Z88_mgt01"
+     tRNA            27505..27578
+                     /gene="trnG-GCC"
+                     /locus_tag="K4Z88_mgt01"
+ORIGIN
+//

@@ -430,7 +430,7 @@ PMAT_ENVIRONMENT = AssemblyEnvironmentSpec(
 )
 
 
-# ovasm is one self-contained binary (github.com/forageseed/ovasm), found by ``_ovasm.resolve_ovasm``: there is
+# ovasm is one self-contained binary (rust/ovasm), found by ``_ovasm.resolve_ovasm``: there is
 # no lock and no prefix. ``CondaPlatformSpec`` only names the executable and its version probe.
 OVASM_ENVIRONMENT = AssemblyEnvironmentSpec(
     backend_id="ovasm",

@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Plot Transfer Tracks"
-description = "Render NUMT/NUPT insertions as dots on linear chromosome tracks (compute-only)."
+description = "Render NUMT/NUPT insertions on linear chromosome tracks (compute-only)."
 keywords = ["analyze", "plot", "restored", "result", "tracks", "transfer", "visualization"]
 execution_mode = "inline"
 stage = "analyze"

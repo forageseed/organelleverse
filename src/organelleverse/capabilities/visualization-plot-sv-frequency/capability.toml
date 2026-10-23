@@ -1,0 +1,117 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_sv_frequency"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot SV Frequency"
+description = "Prepare stacked present/absent bars per group for each structural variant on independent genomes (identical sequences collapsed), with exact (Fisher / Freeman-Halton) or chi-square tests, missing calls excluded from the denominators and Benjamini-Hochberg stars; render with ov.write."
+keywords = ["fisher", "pangenome", "presence-absence", "structural-variation", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.popgen_plots:plot_sv_frequency"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[[contract.dependencies]]
+kind = "python"
+name = "scipy"
+
+[[contract.dependencies]]
+kind = "python"
+name = "Bio"
+locator = "biopython"
+
+[[contract.dependencies]]
+kind = "python"
+name = "vcfpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "svs"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "groups"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gfa"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "units"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collapse_identical"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "group_order"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "test"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_svs"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "sort"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "group_colors"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = {groups = {W1 = "wild", W2 = "wild", W3 = "wild", W4 = "wild", C1 = "crop", C2 = "crop", C3 = "crop", C4 = "crop"}, gfa = "fixtures/basic/input/toy.gfa", reference = "REF", min_length = 100}
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

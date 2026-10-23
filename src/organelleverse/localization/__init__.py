@@ -9,7 +9,11 @@ compute-first design.
 
 from __future__ import annotations
 
+from ..inputs import make_reader
+
 from .localize import localize, predict
 from .localize_core import COMPARTMENTS, LocalizationScores, predict_heuristic
 
-__all__ = ["predict", "localize", "COMPARTMENTS", "LocalizationScores", "predict_heuristic"]
+read = make_reader("localization", "fasta")
+
+__all__ = ["read", "predict", "localize", "COMPARTMENTS", "LocalizationScores", "predict_heuristic"]

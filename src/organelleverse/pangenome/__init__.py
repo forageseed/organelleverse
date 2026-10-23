@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..inputs import make_reader
+
 from .analysis_service import analyze_graph
 from .graph_formats import convert_graph
 from .graph_operations import convert_graph_result, extract_subgraph
@@ -19,7 +21,10 @@ from .tuning_service import recommend_parameters
 
 managed_build_graph = build_graph
 
+read = make_reader("pangenome", "gfa", genome=True)
+
 __all__ = [
+    "read",
     "PAN_BACKEND_INFO",
     "PangenomeProject",
     "PangenomeSample",

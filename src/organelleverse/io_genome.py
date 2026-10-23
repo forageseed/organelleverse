@@ -229,3 +229,127 @@ def _resolved_metadata(
             details={"organelle": organelle, "plastid_type": base.plastid_type.strip()},
         )
     return base.evolve(species=species.strip())
+
+
+_FASTA_SUFFIXES = (".fa", ".fasta", ".fna")
+_GENBANK_SUFFIXES = (".gb", ".gbk", ".genbank")
+
+ReadFormat = Literal["auto", "fasta", "genbank"]
+
+
+def _format_from_suffix(path: str | Path) -> Literal["fasta", "genbank"] | None:
+    name = Path(path).name.lower()
+    if name.endswith(_FASTA_SUFFIXES):
+        return "fasta"
+    if name.endswith(_GENBANK_SUFFIXES):
+        return "genbank"
+    return None
+
+
+def _format_from_content(path: str | Path) -> Literal["fasta", "genbank"] | None:
+    candidate = Path(path)
+    if not candidate.is_file():
+        raise OrganelleInputError(
+            code="input.missing_artifact",
+            message=f"Artifact does not exist: {candidate.name}",
+            details={"basename": candidate.name},
+        )
+    with candidate.open("rb") as handle:
+        prefix = handle.read(8192)
+    try:
+        text = prefix.decode("utf-8").lstrip()
+    except UnicodeDecodeError:
+        return None
+    if text.startswith(">"):
+        return "fasta"
+    if text.startswith("LOCUS"):
+        return "genbank"
+    return None
+
+
+def _sequence_format(path: str | Path, declared: ReadFormat) -> Literal["fasta", "genbank"]:
+    inferred = _format_from_suffix(path)
+    if declared == "auto":
+        if inferred is None:
+            inferred = _format_from_content(path)
+        if inferred is None:
+            raise OrganelleInputError(
+                code="input.unknown_genome_format",
+                message="Input is neither recognizable FASTA nor GenBank",
+                details={"basename": Path(path).name},
+            )
+        return inferred
+    if inferred is not None and inferred != declared:
+        raise OrganelleInputError(
+            code="input.sequence_format_conflict",
+            message="Declared sequence format conflicts with the filename suffix",
+            details={
+                "basename": Path(path).name,
+                "declared_format": declared,
+                "suffix_format": inferred,
+            },
+        )
+    return declared
+
+
+_ORGANELLE_SPELLINGS = {
+    "mito": "mitochondrion",
+    "mitochondrion": "mitochondrion",
+    "chloro": "plastid",
+    "plastid": "plastid",
+}
+
+
+def read_genome(
+    path: str | Path,
+    *,
+    organelle: str | None = None,
+    format: ReadFormat = "auto",
+    species: str = "",
+    accession: str = "",
+    genetic_code: int | None = None,
+    assembly_type: str = "",
+    plastid_type: str = "",
+    source: str = "",
+) -> OrganelleGenome:
+    """Read one FASTA or GenBank file as an organelle genome.
+
+    ``organelle`` is ``"mito"``/``"mitochondrion"`` or ``"chloro"``/``"plastid"``. The
+    format comes from the suffix or the file header unless ``format`` states it.
+    """
+    if format not in {"auto", "fasta", "genbank"}:
+        raise OrganelleInputError(
+            code="input.invalid_read_format",
+            message="format must be 'auto', 'fasta', or 'genbank'",
+            details={"format": format},
+        )
+    if organelle is None:
+        raise OrganelleInputError(
+            code="input.organelle_required",
+            message="organelle is required when reading FASTA or GenBank",
+        )
+    if organelle not in _ORGANELLE_SPELLINGS:
+        raise OrganelleInputError(
+            code="input.invalid_organelle",
+            message="organelle must identify a mitochondrion or plastid",
+            details={"organelle": organelle},
+        )
+    selected_format = _sequence_format(path, format)
+    canonical_organelle = _ORGANELLE_SPELLINGS[organelle]
+    # genetic_code is passed only when stated, so the reader can take it from
+    # the GenBank file or the organelle's standard table instead.
+    metadata = OrganelleMetadata(
+        species=species,
+        accession=accession,
+        assembly_type=assembly_type,
+        plastid_type=plastid_type,
+        source=source,
+        **({} if genetic_code is None else {"genetic_code": genetic_code}),
+    )
+    reader = read_fasta_genome if selected_format == "fasta" else read_genbank_genome
+    return reader(
+        Path(path),
+        organelle=canonical_organelle,  # type: ignore[arg-type]
+        species=species,
+        metadata=metadata,
+    )

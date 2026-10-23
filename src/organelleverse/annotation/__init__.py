@@ -15,7 +15,7 @@ from .models import (
     FeatureQualifier,
     LocationPart,
 )
-from .readers import ReaderOrganelle, read_fasta, read_genbank
+from .readers import ReaderOrganelle, read, read_fasta, read_genbank
 
 if TYPE_CHECKING:
     from .edited_cds import translate_edited_cds, write_edited_cds
@@ -49,6 +49,7 @@ __all__ = [
     "api",
     "extract",
     "find_orfs",
+    "read",
     "read_fasta",
     "read_genbank",
     "translate_edited_cds",
@@ -58,17 +59,3 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
-    from importlib import import_module
-
-    modules = {
-        "translate_edited_cds": ".edited_cds",
-        "write_edited_cds": ".edited_cds",
-        "find_orfs": ".orfs",
-        "write_orfs": ".orfs",
-    }
-    if name not in modules:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    value = getattr(import_module(modules[name], __name__), name)
-    globals()[name] = value
-    return value

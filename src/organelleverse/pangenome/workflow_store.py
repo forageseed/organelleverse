@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -65,18 +66,35 @@ def load(run_id: str) -> dict:
 
 def read_json(run_id: str, name: str) -> dict:
     """Read across the one-way atomic staging-to-publication directory rename."""
-    try:
-        content = (staged_run_path(OPERATION, run_id) / name).read_text()
-    except FileNotFoundError:
-        content = (managed_run_path(OPERATION, run_id) / name).read_text()
-    return json.loads(content)
+    def read() -> str:
+        try:
+            return (staged_run_path(OPERATION, run_id) / name).read_text()
+        except FileNotFoundError:
+            return (managed_run_path(OPERATION, run_id) / name).read_text()
+
+    return json.loads(_retry_sharing_violation(read))
 
 
 def save(directory: Path, record: dict) -> None:
     record["updated_at"] = utc_now().isoformat()
     temporary = directory / "workflow.json.tmp"
     temporary.write_text(json.dumps(record, indent=2, allow_nan=False) + "\n")
-    os.replace(temporary, directory / "workflow.json")
+    _retry_sharing_violation(lambda: os.replace(temporary, directory / "workflow.json"))
+
+
+def _retry_sharing_violation(action, attempts: int = 40, delay: float = 0.025):
+    """Windows refuses to replace a file another handle is reading (WinError 5/32).
+
+    Status readers poll workflow.json while the worker checkpoints it; such a
+    collision lasts milliseconds, so retry briefly instead of failing the run.
+    """
+    for attempt in range(attempts):
+        try:
+            return action()
+        except PermissionError:
+            if os.name != "nt" or attempt == attempts - 1:
+                raise
+            time.sleep(delay)
 
 
 def list_runs() -> list[dict]:
@@ -99,7 +117,7 @@ def capture(directory: Path, paths: list[Path]) -> list[dict]:
         ref = ArtifactRef.from_path(path, kind="pangenome_output", format=path.suffix.lstrip("."))
         outputs.append(
             {
-                "name": str(path.relative_to(directory))
+                "name": path.relative_to(directory).as_posix()
                 if path.is_relative_to(directory)
                 else str(path),
                 "sha256": ref.sha256,
@@ -174,54 +192,3 @@ def public_view(record: dict) -> dict:
         }
     }
     return public
-
-
-def dag_runs():
-    """Project durable native workflow and embedded producer receipts read-only.
-
-    The Result DAG shows recorded provenance; opening/using an artifact still
-    performs the existing checkpoint verification at that operation boundary.
-    """
-    from ..core.result import OrganelleResult
-    from ..results.dag import NativeRun
-
-    runs = []
-    for record in list_runs():
-        run_id = record["run_id"]
-        result = None
-        status = record["status"]
-        if status == "succeeded":
-            try:
-                result = OrganelleResult.model_validate(read_json(run_id, "result.json"))
-            except FileNotFoundError:
-                # The final receipt is written after the atomic publication
-                # rename; the producer remains visible during that interval.
-                status = "publishing"
-        runs.append(NativeRun(run_id, OPERATION, status, record["created_at"], result))
-        names = {stage["name"] for stage in record["stages"] if stage["status"] == "completed"}
-        for stage, filename, key in (
-            ("graph", "build.json", "result"),
-            ("repeat", "recommendation.json", "recommendation_result"),
-        ):
-            path = directory_for(run_id) / filename
-            if stage in names and path.exists():
-                producer = OrganelleResult.model_validate(read_json(run_id, filename)[key])
-                runs.append(
-                    NativeRun(
-                        producer.object_id, producer.operation_id, producer.status, result=producer
-                    )
-                )
-    # Conversion receipts share the native Result/ArtifactRef contract. Their
-    # consumed graph digest links them to the existing workflow or builder.
-    for receipt in sorted((managed_runs_root() / "pangenome.convert_graph").glob("*/result.json")):
-        if receipt.parent.name.startswith(".staging-"):
-            continue
-        conversion = OrganelleResult.model_validate_json(receipt.read_text())
-        if conversion.operation_id != "pangenome.convert_graph":
-            raise ValueError("Native conversion receipt has an unexpected operation")
-        runs.append(
-            NativeRun(
-                conversion.object_id, conversion.operation_id, conversion.status, result=conversion
-            )
-        )
-    return tuple(runs)

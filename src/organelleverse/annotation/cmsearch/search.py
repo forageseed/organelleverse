@@ -54,11 +54,33 @@ def _default_window(model: CovarianceModel) -> int:
     return max(200, int(model.clen * 2.5))
 
 
+# Upper bound of memoised kernel results per model (~a few hundred bytes each).
+_MEMO_MAX = 50_000
+
+
+def rust_cyk_memo(model: CovarianceModel, flat, chunk: str, min_bits: float):
+    """``_rust_cm_cyk(chunk, *flat, min_bits)`` with the result kept on the model.
+
+    The intron-tRNA searches score the same spliced or windowed sequence again and again (about a fifth of the
+    kernel calls of a plastome). ``flat`` must be ``_flatten_model(model)``; the memo lives and dies with the model
+    object, and the kernel's result is an immutable tuple or None, so a repeat returns exactly the first answer.
+    """
+    memo = model.__dict__.setdefault("_cyk_memo", {})
+    key = (chunk, min_bits)
+    try:
+        return memo[key]
+    except KeyError:
+        pass
+    res = _rust_cm_cyk(chunk, *flat, min_bits)
+    if len(memo) < _MEMO_MAX:
+        memo[key] = res
+    return res
+
+
 def _cyk_window(model: CovarianceModel, flat, chunk: str, min_bits: float):
     """Best CYK hit in a window as (start, end, score); Rust kernel if available."""
     if _rust_cm_cyk is not None and flat is not None:
-        types, cfirst, cnum, tf, to, ef, eo = flat
-        res = _rust_cm_cyk(chunk, types, cfirst, cnum, tf, to, ef, eo, min_bits)
+        res = rust_cyk_memo(model, flat, chunk, min_bits)
         if res is None:
             return None
         return res[0], res[1], res[2]

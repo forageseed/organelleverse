@@ -1,18 +1,20 @@
 """Native ovasm assembly adapter.
 
-ovasm (https://github.com/forageseed/ovasm) is one self-contained binary, found by ``_ovasm.resolve_ovasm``: there is
+ovasm (rust/ovasm) is one self-contained binary, found by ``_ovasm.resolve_ovasm``: there is
 no conda environment to create, lock or resolve. :class:`NativeOvasmEnvironment` stands in
 for the environment manager and gives the service the binary and its identity (content hash
 and reported version).
 
 One assembly is several ovasm commands with decisions between them (recruit, correct noisy
 reads, assemble, evidence, linearize, retry at a smaller k, unify). That pipeline is
-``assembly.ovasm_runner.run_ovasm``; the backend
+``desktop.ovasm_runner.run_ovasm``, the function the desktop assembly tools call; the backend
 command runs it in a child Python process (:func:`main`) so that the service starts, times
 out and logs it like any other backend.
 """
 
 from __future__ import annotations
+
+from organelleverse._layout import import_root
 
 import argparse
 import hashlib
@@ -21,7 +23,7 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -36,7 +38,7 @@ from organelleverse.assembly.backends.base import (
 )
 from organelleverse.assembly.environment_specs import AssemblyEnvironmentSpec, normalize_platform
 from organelleverse.assembly.environments import PreparedEnvironment, PreparedExecutable
-from organelleverse.assembly.normalization import normalize_fasta, normalize_gfa
+from organelleverse.assembly.normalization import normalize_fasta, normalize_gfa, validate_fasta_against_gfa
 from organelleverse.core.errors import (
     OrganelleDependencyError,
     OrganelleExecutionError,
@@ -44,6 +46,9 @@ from organelleverse.core.errors import (
 )
 
 __all__ = ["NativeOvasmEnvironment", "OvasmAdapter", "main"]
+
+# Public component evidence was absent from earlier cached output bundles.
+OVASM_REPORT_PROTOCOL_VERSION = "2"
 
 #: The child puts the package root first on its path: the service strips PYTHONPATH from
 #: backend processes, and the pipeline must be the code of the parent, not another install.
@@ -54,9 +59,14 @@ _BOOTSTRAP = (
 
 #: Pipeline files published besides the sequence and the graph: role -> (file, format, type).
 _REPORTS: dict[str, tuple[str, str, str]] = {
+    "assigned_graph": ("assembly.assigned.gfa", "gfa", "text/plain"),
+    "unassigned_graph": ("assembly.unassigned.gfa", "gfa", "text/plain"),
+    "unassigned_sequences": ("unassigned.fasta", "fasta", "text/x-fasta"),
+    "unassigned_report": ("unassigned.json", "json", "application/json"),
     "organelle_graph": ("organelle.gfa", "gfa", "text/plain"),
     "graph_metadata": ("organelle.json", "json", "application/json"),
     "evidence": ("evidence.json", "json", "application/json"),
+    "configuration": ("configuration.json", "json", "application/json"),
     "linearization": ("linearization.json", "json", "application/json"),
     "summary": ("summary.json", "json", "application/json"),
     "assembly_report": ("assembly.json", "json", "application/json"),
@@ -65,6 +75,8 @@ _REPORTS: dict[str, tuple[str, str, str]] = {
     "discovery": ("discover/discover.json", "json", "application/json"),
     "identification": ("discover/identify.json", "json", "application/json"),
     "correction": ("correct/correct.json", "json", "application/json"),
+    "nuclear_coverage": ("nuclear-coverage/coverage-profile.json", "json", "application/json"),
+    "component_filter": ("components.json", "json", "application/json"),
 }
 _REQUIRED_REPORTS = ("organelle_graph", "graph_metadata", "evidence", "linearization", "summary")
 
@@ -88,13 +100,23 @@ def _output_incomplete(message: str, **details: object) -> OrganelleExecutionErr
 class NativeOvasmEnvironment:
     """The ovasm binary as a prepared environment: nothing is created or installed."""
 
+    def __init__(self, parameters: Mapping[str, object] | None = None) -> None:
+        self._multichrom_input_protocol = "2" if parameters and parameters.get("graph_mode") == "multichrom" else None
+        self._coverage_tools = None
+        self._coverage_provenance = None
+        if parameters and parameters.get("graph_min_count") == "auto":
+            from organelleverse.assembly.nuclear_coverage import resolve_tools
+
+            self._coverage_tools = resolve_tools()
+            self._coverage_provenance = self._coverage_tools.provenance()
+
     def _binary(self) -> Path:
         binary = resolve_ovasm()
         if binary is None:
             raise OrganelleDependencyError(
                 code="assembly.environment_unavailable",
-                message="ovasm is not available; install it from https://github.com/forageseed/ovasm "
-                "and put it on PATH or set ORG_VERSE_OVASM_BIN",
+                message="ovasm is not available; build it with `cargo build --release` in "
+                "rust/ovasm or set ORG_VERSE_OVASM_BIN",
                 details={"missing": ["ovasm"]},
             )
         return Path(binary).resolve()
@@ -117,7 +139,12 @@ class NativeOvasmEnvironment:
             "carrier": spec.carrier,
             "platform": platform if platform is not None else normalize_platform(),
             "binary_sha256": digest.hexdigest(),
+            "report_protocol_version": OVASM_REPORT_PROTOCOL_VERSION,
         }
+        if self._coverage_provenance is not None:
+            payload["nuclear_coverage_provider"] = self._coverage_provenance
+        if self._multichrom_input_protocol is not None:
+            payload["multichrom_input_protocol"] = self._multichrom_input_protocol
         return (
             "sha256:"
             + hashlib.sha256(
@@ -150,13 +177,20 @@ class NativeOvasmEnvironment:
                 message=f"{binary} is not ovasm: `--version` printed {reported!r}",
                 details={"executable": str(binary)},
             )
+        executables = [PreparedExecutable(name="ovasm", path=binary)]
+        if self._coverage_tools is not None:
+            executables.extend([
+                PreparedExecutable(name="jellyfish", path=self._coverage_tools.jellyfish),
+                PreparedExecutable(name="Rscript", path=self._coverage_tools.rscript),
+                PreparedExecutable(name="genomescope.R", path=self._coverage_tools.genomescope),
+            ])
         return PreparedEnvironment(
             backend_id=spec.backend_id,
             carrier="native",
             platform=platform if platform is not None else normalize_platform(),
             digest=self.expected_environment_digest(spec, platform=platform),
             prefix=binary.parent,
-            executables=(PreparedExecutable(name="ovasm", path=binary),),
+            executables=tuple(executables),
             version=reported,
             software_version=reported.removeprefix("ovasm ").strip(),
         )
@@ -175,6 +209,8 @@ class _OvasmInputs:
     short_files: tuple[Path, ...]
     seed_role: str | None
     seed: Path | None
+    origins_role: str | None
+    origins: Path | None
 
 
 class OvasmAdapter:
@@ -229,7 +265,9 @@ class OvasmAdapter:
         def local(role: str) -> Path:
             path = Path(context.input_artifacts[role].uri)
             if not path.is_file():
-                raise _unsupported("ovasm read artifact is not a readable local file", uri=str(path))
+                raise _unsupported(
+                    "ovasm read artifact is not a readable local file", uri=str(path)
+                )
             return path
 
         short = payload.short_libraries[0] if payload.short_libraries else None
@@ -257,6 +295,9 @@ class OvasmAdapter:
             short_files=tuple(local(role) for role in hybrid_roles),
             seed_role=seed_role,
             seed=Path(context.input_artifacts[seed_role].uri) if seed_role is not None else None,
+            origins_role=payload.auxiliary.read_origins_artifact,
+            origins=local(payload.auxiliary.read_origins_artifact)
+            if payload.auxiliary.read_origins_artifact is not None else None,
         )
 
     def build_command(self, context: AdapterContext) -> AssemblyCommand:
@@ -282,17 +323,36 @@ class OvasmAdapter:
             str(params["sample"]),
             "--threads",
             str(context.request.threads),
+            "--k-ladder-start",
+            str(params["k_ladder_start"]),
+            "--max-molecules",
+            str(params["max_molecules"]),
         ]
         if params["also_discover"]:
             options.append("--also-discover")
+        if not params.get("fallback", True):
+            options.append("--no-fallback")
+        if params.get("graph_mode", "sparse") == "multichrom":
+            options += ["--graph-mode", "multichrom", "--graph-min-count", str(params["graph_min_count"])]
+            if params["graph_min_count"] == "auto":
+                options += ["--nuclear-ploidy", str(params["nuclear_ploidy"])]
         # a paired library's second file (--mate) or a hybrid run's Illumina files
         more_stable: list[str] = []
         more_resolved: list[str] = []
+        if inputs.origins is not None:
+            read_sha = context.input_artifacts[inputs.reads_role].sha256
+            document = json.loads(inputs.origins.read_text(encoding="utf-8"))
+            if document.get("original_reads_sha256") != read_sha:
+                raise _unsupported("read_origins does not match the canonical original read artifact")
+            more_stable += ["--read-origins", f"role://artifact/{inputs.origins_role}",
+                            "--original-read-artifact-sha256", read_sha]
+            more_resolved += ["--read-origins", str(inputs.origins),
+                              "--original-read-artifact-sha256", read_sha]
         if inputs.mate is not None:
             more_stable += ["--mate", f"role://artifact/{inputs.mate_role}"]
             more_resolved += ["--mate", str(inputs.mate)]
         for flag, short_role, short_file in zip(
-            ("--short-reads", "--short-reads-2"), inputs.short_roles, inputs.short_files
+            ("--short-reads", "--short-reads-2"), inputs.short_roles, inputs.short_files, strict=False
         ):
             more_stable += [flag, f"role://artifact/{short_role}"]
             more_resolved += [flag, str(short_file)]
@@ -301,7 +361,7 @@ class OvasmAdapter:
             sys.executable,
             "-c",
             _BOOTSTRAP,
-            str(Path(__file__).resolve().parents[3]),
+            str(import_root()),
             "--ovasm",
             str(context.environment.require_executable("ovasm")),
             "--reads",
@@ -309,6 +369,11 @@ class OvasmAdapter:
             *options,
             *more_resolved,
         ]
+        if params.get("graph_min_count") == "auto":
+            for flag, name in (("--coverage-jellyfish", "jellyfish"),
+                               ("--coverage-rscript", "Rscript"),
+                               ("--coverage-genomescope", "genomescope.R")):
+                resolved += [flag, str(context.environment.require_executable(name))]
         if seed is not None:
             stable += ["--seed", f"role://artifact/{seed_role}"]
             resolved += ["--seed", str(seed)]
@@ -321,6 +386,10 @@ class OvasmAdapter:
 
     def collect_outputs(self, context: AdapterContext) -> RawAssemblyOutputs:
         root = self._output_root(context)
+        required_reports = set(_REQUIRED_REPORTS)
+        if context.payload.auxiliary.read_origins_artifact is not None:
+            required_reports.update({"assigned_graph", "unassigned_graph",
+                                     "unassigned_sequences", "unassigned_report"})
         summary_path = root / "summary.json"
         if not summary_path.is_file():
             raise _output_incomplete(
@@ -338,6 +407,8 @@ class OvasmAdapter:
                 "unbridged anchors, unsolved components); the graph and evidence are kept "
                 "under backend/ovasm in the run directory",
                 k_tried=summary["k_tried"],
+                status=summary.get("status"),
+                reasons=summary.get("reasons"),
                 unitigs=summary["unitigs"],
                 unsolved_components=summary["unsolved_components"],
                 unbridged_anchors=summary["unbridged_anchors"],
@@ -356,7 +427,7 @@ class OvasmAdapter:
                         role=report_role, path=path, format=file_format, media_type=media_type
                     )
                 )
-            elif report_role in _REQUIRED_REPORTS:
+            elif report_role in required_reports:
                 raise _output_incomplete(f"the ovasm pipeline wrote no {name}", missing=name)
         return RawAssemblyOutputs(
             outputs=tuple(outputs),
@@ -373,7 +444,8 @@ class OvasmAdapter:
         del context
         output_dir.mkdir(parents=True, exist_ok=True)
         stats = normalize_fasta(raw.require("assembly_fasta").path, output_dir / "assembly.fasta")
-        normalize_gfa(raw.require("assembly_graph").path, output_dir / "assembly.gfa")
+        gfa_stats = normalize_gfa(raw.require("assembly_graph").path, output_dir / "assembly.gfa")
+        validate_fasta_against_gfa(stats, gfa_stats)
         outputs = [
             BackendOutput(
                 role="assembly_fasta",
@@ -423,16 +495,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--read-set", required=True, choices=("whole_genome", "target_reads"))
     parser.add_argument("--seed-source", required=True, choices=("builtin", "custom", "discover"))
     parser.add_argument("--seed", type=Path)
+    parser.add_argument("--read-origins", type=Path)
+    parser.add_argument("--original-read-artifact-sha256")
     parser.add_argument("--mate", type=Path, help="second file of a paired Illumina library")
     parser.add_argument("--short-reads", type=Path, help="Illumina file of a hybrid run")
     parser.add_argument("--short-reads-2", type=Path, help="its mate")
     parser.add_argument("--also-discover", action="store_true")
+    parser.add_argument(
+        "--no-fallback",
+        action="store_true",
+        help="run once as requested (no escalation to discovery when the run is not accepted)",
+    )
+    parser.add_argument("--k-ladder-start", choices=("auto", "top"), default="auto")
+    parser.add_argument("--max-molecules", type=int, default=4)
+    parser.add_argument("--graph-mode", choices=("sparse", "multichrom"), default="sparse")
+    parser.add_argument("--graph-min-count")
+    parser.add_argument("--nuclear-ploidy", type=int, default=2)
+    parser.add_argument("--coverage-jellyfish", type=Path)
+    parser.add_argument("--coverage-rscript", type=Path)
+    parser.add_argument("--coverage-genomescope", type=Path)
     parser.add_argument("--sample", required=True)
     parser.add_argument("--threads", required=True, type=int)
     args = parser.parse_args(argv)
 
     os.environ["ORG_VERSE_OVASM_BIN"] = args.ovasm
-    from organelleverse.assembly.ovasm_runner import run_ovasm
+    from organelleverse.assembly.ovasm_fallback import run_ovasm_resilient
 
     params = {
         "strategy": args.read_type,
@@ -440,6 +527,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "seed_source": args.seed_source,
         "seed": str(args.seed) if args.seed is not None else "",
         "also_discover": args.also_discover,
+        "fallback": not args.no_fallback,
+        "k_ladder_start": args.k_ladder_start,
+        "max_molecules": args.max_molecules,
+        "graph_mode": args.graph_mode,
+        "graph_min_count": args.graph_min_count,
+        "nuclear_ploidy": args.nuclear_ploidy,
         "sample": args.sample,
         "threads": args.threads,
     }
@@ -448,8 +541,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.short_reads_2 is not None:
         params["short_reads_2"] = str(args.short_reads_2)
     more = {"mate": args.mate} if args.mate is not None else {}
+    if args.read_origins is not None:
+        more["read_origins"] = args.read_origins
+        more["original_read_artifact_sha256"] = args.original_read_artifact_sha256
+    if args.graph_min_count == "auto":
+        from organelleverse.assembly.nuclear_coverage import CoverageTools
+
+        if args.coverage_jellyfish is not None:
+            more["coverage_tools"] = CoverageTools(
+                args.coverage_jellyfish, args.coverage_rscript, args.coverage_genomescope,
+            )
     try:
-        result = run_ovasm(
+        result = run_ovasm_resilient(
             params,
             organelle=args.organelle,
             reads=args.reads,

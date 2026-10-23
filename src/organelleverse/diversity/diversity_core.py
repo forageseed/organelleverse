@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .._bio import read_fasta
+from ..sequences import Sequences, as_records
 from .diversity import (
     _alignment_length,
     _alignment_stats,
@@ -20,14 +20,14 @@ from .diversity import (
 
 
 def compute_nucleotide_diversity(
-    alignment_fasta: str | Path, window_size: int = 1000, step: int = 500
+    alignment_fasta: str | Path | Sequences, window_size: int = 1000, step: int = 500
 ) -> dict:
     """Compute π from a multi-sequence alignment. Returns dict.
 
     Uses scikit-allel when available, else the pairwise formula
     (differing_pairs / C(n,2)) averaged over comparable ACGT columns.
     """
-    seqs = [s.upper() for _, s in read_fasta(Path(alignment_fasta))]
+    seqs = [s.upper() for _, s in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return {"pi": 0.0, "n_sequences": len(seqs), "windows": []}
     L = _alignment_length(seqs)
@@ -42,9 +42,9 @@ def compute_nucleotide_diversity(
     return {"pi": round(pi, 6), "n_sequences": len(seqs), "windows": windows}
 
 
-def compute_neutral_tests(alignment_fasta: str | Path) -> dict:
+def compute_neutral_tests(alignment_fasta: str | Path | Sequences) -> dict:
     """Compute π, θ_W, Tajima's D, segregating-site count S from an alignment."""
-    seqs = [s.upper() for _, s in read_fasta(Path(alignment_fasta))]
+    seqs = [s.upper() for _, s in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return {
             "pi": 0.0,

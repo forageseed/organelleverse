@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from organelleverse.assembly.contracts import canonical_json_bytes
 from organelleverse.core.artifacts import ArtifactRef
 from organelleverse.core.errors import OrganelleInputError
+from organelleverse.core.frozen import thaw_json
 from organelleverse.core.provenance import ResultProvenance
 from organelleverse.core.result import OrganelleResult
 
@@ -57,6 +58,15 @@ _DIRECTORY_FILES = {
     "marker_profile_assessment": "marker_profile_assessment.csv",
 }
 _BASE_ERROR_TYPES = frozenset({"small_expansion", "small_collapse", "substitution"})
+# Results that carry only metrics (no canonical report artifact): written as one file.
+_METRIC_RESULT_OPERATIONS = frozenset(
+    {
+        "qc.read_statistics",
+        "qc.filter_long_reads",
+        "qc.filter_short_reads",
+        "qc.compare_assembly_to_reference",
+    }
+)
 
 
 def materialize_result(
@@ -69,6 +79,8 @@ def materialize_result(
         from .annotation_writer import materialize_annotation_qc_result
 
         return materialize_annotation_qc_result(result, output)
+    if result.operation_id in _METRIC_RESULT_OPERATIONS:
+        return _materialize_metric_result(result, output)
     report, manifest = _load_source(result)
     destination = Path(output).expanduser().resolve()
     suffix = destination.suffix.lower()
@@ -97,6 +109,57 @@ def materialize_result(
         _remove(temporary)
         raise
     return _written_result(result, destination, suffix)
+
+
+def _materialize_metric_result(result: OrganelleResult, output: str | Path) -> OrganelleResult:
+    """Write a read-QC or reference-comparison Result as one ``.json`` or ``.csv`` file.
+
+    ``.json`` is the canonical Result; ``.csv`` has the columns ``metric,value`` with
+    nested metrics joined by dots (``long_0.reads``, ``comparisons.0.raw.alignment_identity``).
+    """
+    destination = Path(output).expanduser().resolve()
+    suffix = destination.suffix.lower()
+    if suffix not in {".json", ".csv"}:
+        raise OrganelleInputError(
+            code="qc.unsupported_output_suffix",
+            message=f"{result.operation_id} is written to a single .json or .csv file",
+            details={"path": str(destination), "suffix": suffix},
+        )
+    if result.status == "failed":
+        raise OrganelleInputError(
+            code="qc.write_input_contract",
+            message="qc.write does not materialize a failed Result",
+            details={"operation_id": result.operation_id, "status": result.status},
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.parent / f".{destination.name}.tmp-{uuid4().hex}"
+    try:
+        if suffix == ".json":
+            temporary.write_bytes(_model_bytes(result))
+        else:
+            rows = [
+                {"metric": name, "value": value}
+                for name, value in _flatten_metrics(thaw_json(result.metrics))
+            ]
+            _write_csv(rows, temporary)
+        _publish(temporary, destination)
+    except BaseException:
+        _remove(temporary)
+        raise
+    return _written_result(result, destination, suffix, what="read QC")
+
+
+def _flatten_metrics(value: Any, prefix: str = "") -> list[tuple[str, Any]]:
+    if isinstance(value, dict):
+        items = cast(dict[str, Any], value).items()
+    elif isinstance(value, (list, tuple)):
+        items = enumerate(cast(list[Any], value))
+    else:
+        return [(prefix, value)]
+    rows: list[tuple[str, Any]] = []
+    for key, item in items:
+        rows.extend(_flatten_metrics(item, f"{prefix}.{key}" if prefix else str(key)))
+    return rows
 
 
 def _load_source(
@@ -658,6 +721,8 @@ def _written_result(
     source: OrganelleResult,
     destination: Path,
     suffix: str,
+    *,
+    what: str = "assembly QC",
 ) -> OrganelleResult:
     artifacts = (
         (_output_artifact(destination),)
@@ -690,7 +755,7 @@ def _written_result(
         operation_version=_OPERATION_VERSION,
         scope=source.scope,
         status=source.status,
-        summary_text="Materialized assembly QC output.",
+        summary_text=f"Materialized {what} output.",
         metrics=source.metrics,
         findings=source.findings,
         flags=tuple(dict.fromkeys((*source.flags, "qc_materialized"))),

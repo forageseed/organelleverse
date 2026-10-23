@@ -48,6 +48,7 @@ import numpy as np
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
+from ..sequences import Sequences, as_path
 
 #: mVISTA default sliding-window size along the reference, in bp.
 DEFAULT_WINDOW_SIZE = 100
@@ -493,7 +494,7 @@ def _write_window_table(rows: Sequence[dict[str, Any]], output: str | Path) -> P
 
 
 def compute_genome_identity(
-    reference_fasta: str | Path,
+    reference_fasta: str | Path | Sequences,
     query_fastas: Sequence[str | Path],
     *,
     reference_genbank: str | Path | None = None,
@@ -524,6 +525,7 @@ def compute_genome_identity(
     per-block ``segments``, and reference ``features`` rows (empty unless a
     GenBank was given).
     """
+    reference_fasta = as_path(reference_fasta)
     if window_size < 1:
         raise OrganelleInputError(
             code="identity.window_size",

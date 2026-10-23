@@ -12,6 +12,7 @@ description = "Plan clade-model codeml inputs without writing user-facing files.
 keywords = ["analyze", "clade", "model", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.models:clade_model"

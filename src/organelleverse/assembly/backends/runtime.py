@@ -66,7 +66,7 @@ class BackendRuntime:
     adapter_factory: Callable[[], AssemblyAdapter]
     #: Native backends bring their own environment manager (the binary and its identity);
     #: the service then neither resolves providers nor prepares a conda prefix.
-    environment_manager_factory: Callable[[], EnvironmentManager] | None = None
+    environment_manager_factory: Callable[[Mapping[str, object]], EnvironmentManager] | None = None
 
 
 class AssemblyRuntimeRegistry(Mapping[str, BackendRuntime]):

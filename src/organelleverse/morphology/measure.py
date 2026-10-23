@@ -47,6 +47,8 @@ from skimage.feature import peak_local_max
 from skimage.segmentation import watershed
 
 from ..core.errors import OrganelleInputError
+from ..sequences import as_path
+from ..inputs import Images
 
 __all__ = [
     "ORGSEG_CLASSES",
@@ -177,12 +179,19 @@ def _feret_diameter_min(
     return float(widths.min())
 
 
+#: Below this many pixels a histogram Gaussian fit is not meaningful.
+_MIN_GAUSSIAN_FIT_PIXELS = 30
+
+
 def _gaussian_peak(values: np.ndarray) -> float | None:
     """Peak position of a least-squares Gaussian fit to the histogram —
     the OrgSegNet electron-density statistic (Feng et al. 2023, trait 2/3).
-    Falls back to the sample mean when the fit does not converge (e.g. a
-    uniform distribution has no curvature to fit)."""
-    if values.size == 0:
+    Returns None (callers fall back to the sample mean) when the fit does not
+    converge, when there are too few pixels for a histogram fit, or when the
+    fitted peak is not a physical intensity of these pixels (outside their
+    observed range, or a non-positive amplitude/width). Such ill-conditioned
+    fits are also numerically unstable across numpy/scipy builds."""
+    if values.size < _MIN_GAUSSIAN_FIT_PIXELS:
         return None
     try:
         from scipy.optimize import curve_fit
@@ -199,8 +208,11 @@ def _gaussian_peak(values: np.ndarray) -> float | None:
         fitted, _ = curve_fit(
             _gauss, centers, hist.astype(np.float64), p0=[float(hist.max()), mean0, std0], maxfev=2000
         )
-        peak = float(fitted[1])
-        return peak if math.isfinite(peak) else None
+        amplitude, peak, width = (float(value) for value in fitted)
+        low, high = float(values.min()), float(values.max())
+        if not (math.isfinite(peak) and low <= peak <= high and amplitude > 0 and abs(width) > 0):
+            return None
+        return peak
     except (RuntimeError, ValueError):
         return None
 
@@ -466,9 +478,9 @@ def _finalize_spatial(
 
 
 def measure(
-    label_map: str | Path | np.ndarray,
+    label_map: str | Path | np.ndarray | Images,
     *,
-    intensity_image: str | Path | np.ndarray | None = None,
+    intensity_image: str | Path | np.ndarray | Images | None = None,
     pixel_size_um: float | None = None,
     min_area: int = 10,
     watershed_classes: tuple[int, ...] = (2,),
@@ -476,6 +488,7 @@ def measure(
     instance_map: bool = False,
     label_source: str | None = None,
     backend: str = "native",
+    network_metrics: bool = True,
 ) -> dict[str, Any]:
     """Measure per-object morphometrics from a semantic-segmentation label map.
 
@@ -525,6 +538,8 @@ def measure(
         circularity, aspect_ratio, mean_intensity (or None), bbox,
         label_source.
     """
+    label_map = as_path(label_map)
+    intensity_image = as_path(intensity_image)
     if backend not in {"native", "auto", "qupath"}:
         raise OrganelleInputError(
             code="morphology.unknown_measure_backend",
@@ -603,6 +618,7 @@ def measure(
                     background_mean=background_mean,
                 ),
             }
+        first_row = len(per_object)
         _collect_objects(
             instance_labels,
             cls_idx=1,
@@ -617,8 +633,12 @@ def measure(
             counts=counts,
             per_object=per_object,
         )
+        from .mito_metrics import annotate_objects, network_summary
+
+        annotate_objects(per_object[first_row:], instance_labels, pixel_size_um=pixel_size_um, network=network_metrics)
         return {
             "per_object": per_object,
+            "network": network_summary(per_object, pixel_size_um=pixel_size_um) if network_metrics else None,
             "counts": counts,
             "n_total": len(per_object),
             "n_classes_present": sum(1 for v in counts.values() if v > 0),
@@ -644,6 +664,7 @@ def measure(
         else:
             instance_labels = skmeasure.label(mask).astype(np.int32)
 
+        first_row = len(per_object)
         _collect_objects(
             instance_labels,
             cls_idx=cls_idx,
@@ -658,9 +679,15 @@ def measure(
             counts=counts,
             per_object=per_object,
         )
+        from .mito_metrics import annotate_objects
+
+        annotate_objects(per_object[first_row:], instance_labels, pixel_size_um=pixel_size_um, network=network_metrics)
+
+    from .mito_metrics import network_summary
 
     return {
         "per_object": per_object,
+        "network": network_summary(per_object, pixel_size_um=pixel_size_um) if network_metrics else None,
         "counts": counts,
         "n_total": len(per_object),
         "n_classes_present": sum(1 for v in counts.values() if v > 0),
@@ -751,8 +778,8 @@ def summarize(
 
 
 def overlay(
-    image: str | Path | np.ndarray,
-    label_map: str | Path | np.ndarray,
+    image: str | Path | np.ndarray | Images,
+    label_map: str | Path | np.ndarray | Images,
     *,
     alpha: float = 0.5,
     palette: dict[int, tuple[int, int, int]] | None = None,
@@ -776,6 +803,8 @@ def overlay(
         The overlay as a uint8 RGB array (H, W, 3). Compute-only; persist it
         through an explicit writer (e.g. ``ov.write``) if a file is needed.
     """
+    image = as_path(image)
+    label_map = as_path(label_map)
     if palette is None:
         palette = ORGSEG_PALETTE
     img = _load_image(image).astype(np.float64)
@@ -852,6 +881,21 @@ def write_csv(
         "centroid_weighted_x",
         "pixel_size_um",
         "label_source",
+        "length_rect",
+        "width_rect",
+        "length_rect_um",
+        "width_rect_um",
+        "rect_angle_deg",
+        "form_factor",
+        "skeleton_length",
+        "skeleton_length_um",
+        "ends",
+        "junctions",
+        "tubules",
+        "mean_branch_length",
+        "mean_branch_length_um",
+        "max_branch_length",
+        "morphology_class",
     ),
 ) -> Path:
     """Write per-object measurements to a CSV file (one object per row)."""

@@ -13,9 +13,12 @@ import numpy as np
 from Bio import SeqIO
 from Bio.Seq import Seq
 
+from .._bam import alignment_provenance, base_qualities
 from ..core.errors import OrganelleDependencyError, OrganelleInputError, OrganelleParameterError
 from ..core.result import Finding, OrganelleResult
+from ..inputs import ReadAlignments
 from ..rna_seq.quantification import _usable
+from ..sequences import Sequences, as_path
 
 _BASES = "ACGT"
 _COMPLEMENT = str.maketrans("ACGT", "TGCA")
@@ -23,11 +26,11 @@ _LIBRARY = Literal["unstranded", "fr-firststrand", "fr-secondstrand"]
 
 
 def detect_editing_sites(
-    bam_path: str | Path,
-    reference_fasta: str | Path,
+    bam_path: str | Path | ReadAlignments,
+    reference_fasta: str | Path | Sequences,
     *,
     annotation_genbank: str | Path | None = None,
-    dna_bam_path: str | Path | None = None,
+    dna_bam_path: str | Path | ReadAlignments | None = None,
     scope: Literal["mitochondrion", "plastid"] = "mitochondrion",
     library_type: _LIBRARY = "unstranded",
     min_mapping_quality: int = 25,
@@ -60,6 +63,9 @@ def detect_editing_sites(
     ANY nonreference allele fraction >= the DNA threshold excludes it as well.
     See docs/operations/rna-editing-denovo.md for sources and limitations.
     """
+    bam_path = as_path(bam_path)
+    reference_fasta = as_path(reference_fasta)
+    dna_bam_path = as_path(dna_bam_path)
     thresholds = dict(
         min_mapping_quality=min_mapping_quality,
         min_base_quality=min_base_quality,
@@ -100,11 +106,11 @@ def detect_editing_sites(
                 code="rna_editing.invalid_parameter", message=f"{name} must be in (0, 1]."
             )
     try:
-        import pysam
+        import rubam
     except ImportError as exc:
         raise OrganelleDependencyError(
-            code="rna_editing.pysam_not_installed",
-            message="BAM detection requires pysam; install with `pip install 'organelleverse[qc]'`.",
+            code="rna_editing.rubam_not_installed",
+            message="BAM detection requires rubam; install with `pip install 'organelleverse[qc]'`.",
         ) from exc
 
     sites = []
@@ -119,9 +125,9 @@ def detect_editing_sites(
         from contextlib import ExitStack
 
         with ExitStack() as stack:
-            rna = stack.enter_context(pysam.AlignmentFile(str(bam_path), "rb"))
+            rna = stack.enter_context(rubam.AlignmentFile(str(bam_path), "rb"))
             dna = (
-                stack.enter_context(pysam.AlignmentFile(str(dna_bam_path), "rb"))
+                stack.enter_context(rubam.AlignmentFile(str(dna_bam_path), "rb"))
                 if dna_bam_path is not None
                 else None
             )
@@ -260,6 +266,18 @@ def detect_editing_sites(
             Finding(code="rna_editing.candidate_sites", metric="site_count", value=len(sites)),
         ),
         flags=tuple(flags),
+        provenance=alignment_provenance(
+            "rna_editing.detect_editing_sites",
+            {
+                **thresholds,
+                "library_type": library_type,
+                "scope": scope,
+                "bam_path": str(bam_path),
+                "reference_fasta": str(reference_fasta),
+                "dna_bam_path": str(dna_bam_path) if dna_bam_path else None,
+                "annotation_genbank": str(annotation_genbank) if annotation_genbank else None,
+            },
+        ),
     )
 
 
@@ -269,17 +287,18 @@ def _count_alignments(bam, seqid, length, library_type, thresholds):
     lookup = np.full(256, -1, dtype=np.int8)
     lookup[list(b"ACGT")] = np.arange(4)
     trim = thresholds["trim_read_ends"]
-    for read in bam.fetch(seqid):
+    for read in bam.fetch(seqid, 0, bam.get_reference_length(seqid)):
         if not _usable(read, thresholds["min_mapping_quality"], thresholds["exclude_duplicates"]):
             continue
-        if read.query_sequence is None or read.query_qualities is None:
+        quality_values = base_qualities(read)
+        if read.query_sequence is None or quality_values is None:
             continue
         pairs = np.asarray(read.get_aligned_pairs(matches_only=True), dtype=np.int64)
         if not len(pairs):
             continue
         query, reference = pairs.T
         bases = lookup[np.frombuffer(read.query_sequence.upper().encode("ascii"), dtype=np.uint8)]
-        qualities = np.asarray(read.query_qualities)
+        qualities = np.asarray(quality_values, dtype=np.uint8)
         keep = (
             (query >= trim)
             & (query < len(bases) - trim)

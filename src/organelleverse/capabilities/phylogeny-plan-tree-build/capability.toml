@@ -12,6 +12,7 @@ description = "Plan a tree-building command with each tool's real interface. Ret
 keywords = ["analyze", "build", "phylogeny", "plan", "restored", "result", "tree"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.phylo_core:plan_tree_build"

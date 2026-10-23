@@ -182,7 +182,8 @@ def extract_subgraph(
         started_at=started,
         finished_at=utc_now(),
     ).model_copy(update={"operation_version": "1.0"})
-    if text.encode("utf-8") == graph.resolve().read_bytes():
+    # Retain the original bytes for a logical no-op, including CRLF inputs.
+    if text == graph.resolve().read_text(encoding="utf-8"):
         stats = graph_statistics(graph.resolve())
         return OrganelleResult(
             operation_id=operation,
@@ -198,7 +199,7 @@ def extract_subgraph(
     run_id = uuid4().hex
     staging = create_staged_run(operation, run_id)
     output = staging / "subgraph.gfa"
-    output.write_text(text, encoding="utf-8")
+    output.write_bytes(text.encode("utf-8"))
     stats = graph_statistics(output)
     evidence = staging / "selection.json"
     evidence.write_text(

@@ -12,6 +12,7 @@ description = "Master-relative residuals (pure data function)."
 keywords = ["analyze", "coevolution", "matrix", "residual", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution.erc_engine:residual_matrix"

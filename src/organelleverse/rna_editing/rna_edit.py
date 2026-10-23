@@ -3,7 +3,7 @@
 - predict_edits(): scans annotated CDS for known plant-mito RNA editing
   signatures (stop-gain CAA/CAG/CGA -> UAA/UAG/UGA; start-gain ACG -> AUG)
   in canonical target genes.
-- validate_edits(): compares predicted sites against a BAM (uses pysam when
+- validate_edits(): compares predicted sites against a BAM (uses rubam when
   available; otherwise parses a simple pileup TSV).
 """
 
@@ -23,6 +23,8 @@ from ..core.frozen import thaw_json
 from ..core.genome import OrganelleGenome
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
+from ..inputs import ReadAlignments
+from ..sequences import as_path
 
 _OPERATION_VERSION = "1.0"
 
@@ -138,14 +140,15 @@ def predict_edits(
 def validate_edits(
     predicted_sites: list[Mapping[str, str | int | float | bool | None]],
     *,
-    bam_path: str | Path | None = None,
+    bam_path: str | Path | ReadAlignments | None = None,
     pileup_tsv: str | Path | None = None,
 ) -> OrganelleResult:
     """Validate predicted editing sites against RNA-seq evidence.
 
-    Uses pysam (standard tool) when a BAM is given; otherwise parses a simple
+    Uses rubam (standard tool) when a BAM is given; otherwise parses a simple
     pileup TSV (columns: position, ref, depth, T_fraction).
     """
+    bam_path = as_path(bam_path)
     if bam_path is None and pileup_tsv is None:
         return _failed(
             "validate_edits",

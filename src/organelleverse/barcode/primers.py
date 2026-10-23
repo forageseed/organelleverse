@@ -16,9 +16,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .._bio import read_fasta, reverse_complement
+from .._bio import reverse_complement
 from ..core.errors import OrganelleDependencyError
 from ..core.result import ErrorDetail, OrganelleResult
+from ..sequences import Sequences, as_path, as_records
 from ..diversity.diversity import (
     _call_hotspots,
     _columns_between,
@@ -62,7 +63,7 @@ def _load_primer3():
 
 
 def design_marker_primers(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     regions: list[dict[str, int]] | None = None,
     reference_index: int = 0,
@@ -102,7 +103,7 @@ def design_marker_primers(
     count and the number of samples uniquely distinguished.
     """
     parameters = {
-        "alignment_fasta": str(alignment_fasta),
+        "alignment_fasta": str(as_path(alignment_fasta)),
         "regions": regions,
         "reference_index": reference_index,
         "window_size": window_size,
@@ -116,8 +117,8 @@ def design_marker_primers(
         "max_primer_mismatches": max_primer_mismatches,
         "max_candidates": max_candidates,
     }
-    seqs = [s.upper() for _, s in read_fasta(Path(alignment_fasta))]
-    names = [name for name, _ in read_fasta(Path(alignment_fasta))]
+    seqs = [s.upper() for _, s in as_records(alignment_fasta)]
+    names = [name for name, _ in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return OrganelleResult(
             operation_id="barcode.design_marker_primers",

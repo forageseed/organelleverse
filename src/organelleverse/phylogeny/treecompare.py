@@ -15,6 +15,8 @@ from typing import Any
 
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
+from ..sequences import as_path
+from ..inputs import Tree
 from ._results import findings, ok_result, provenance
 
 __all__ = [
@@ -191,13 +193,15 @@ def robinson_foulds(newick_a: str, newick_b: str) -> dict[str, Any]:
     }
 
 
-def compare_trees(tree_a: str | Path, tree_b: str | Path) -> OrganelleResult:
+def compare_trees(tree_a: str | Path | Tree, tree_b: str | Path | Tree) -> OrganelleResult:
     """Compare two tree files (Newick or NEXUS) by unrooted Robinson-Foulds distance.
 
     Conflicting bipartitions are listed with their support labels (bootstrap
     or posterior probability) so poorly supported conflicts can be told apart
     from strongly supported ones.
     """
+    tree_a = as_path(tree_a)
+    tree_b = as_path(tree_b)
     stats = robinson_foulds(read_tree(tree_a), read_tree(tree_b))
     return ok_result(
         "compare_trees",

@@ -39,14 +39,13 @@ valid branch length and is *not* treated as missing (consistent with
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Callable
 
+from ._species import species_resolver
 from .coevolution import (
     TreeNode,
     parse_newick,
-    reconcile_trees,
     _find_lca,
 )
 
@@ -107,7 +106,7 @@ def species_tree_edges(species_tree_newick: str) -> list[str]:
     for node in root.traverse():
         if node.parent is None:
             continue  # root has no incoming edge in ape's $edge (usually)
-        anc = _node_label(node.parent, f"root")
+        anc = _node_label(node.parent, "root")
         desc = _node_label(node, "")
         if not desc:
             # Unnamed leaf/internal — skip (shouldn't happen for labelled sp tree)
@@ -183,8 +182,9 @@ def bxb_lengths_lca(
     edges : list[str]
         Edge keys from ``species_tree_edges()``.
     species_map : dict, optional
-        Maps gene-leaf-name → species code. If None, the prefix before
-        ``__``/``_``/``|``/``@`` is used (ERCnet convention).
+        Maps gene-leaf-name → species code. Labels not in the map are resolved
+        against the species-tree leaf names (longest species name followed by
+        ``__``/``_``/``|``/``@``), so two-word species names are kept whole.
 
     Returns
     -------
@@ -223,13 +223,7 @@ def bxb_lengths_lca(
         if lbl:
             sp_nodes_by_label[lbl] = n
 
-    def get_species(leaf_name: str) -> str:
-        if leaf_name in species_map:
-            return species_map[leaf_name]
-        for sep in ("__", "_", "|", "@"):
-            if sep in leaf_name:
-                return leaf_name.split(sep)[0]
-        return leaf_name
+    get_species = species_resolver((n.name for n in species_tree.leaves()), species_map)
 
     mapping: dict[int, TreeNode | None] = {}
     events: dict[int, str] = {}

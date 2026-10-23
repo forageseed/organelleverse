@@ -17,10 +17,13 @@ File-producing tools use platform-managed run directories for intermediates.
 """
 
 from __future__ import annotations
+
+from ..writer import deprecated_alias
 from pathlib import Path
 from typing import Any
 
 from ..core.result import OrganelleResult
+from ..sequences import read
 from .kaks import kaks
 from .codeml import (
     validate_cds,
@@ -93,10 +96,11 @@ def write(obj: Any, output: str | Path, *, kind: str | None = None, **kwargs: An
     raise ValueError(f"unknown selection write kind: {kind!r}")
 
 
-save = write
+save = deprecated_alias(write, "save")
 
 
 __all__ = [
+    "read",
     # Ka/Ks (pure Python NG86)
     "kaks",
     "write",

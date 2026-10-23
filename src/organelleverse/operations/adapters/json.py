@@ -6,7 +6,7 @@ import json
 from collections.abc import Collection, Mapping, Set
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from organelleverse.core.data import OrganelleData
 from organelleverse.core.errors import (
@@ -33,6 +33,7 @@ class AgentInvocationRequest(BaseModel):
     operation_id: str
     input: dict[str, object] | list[dict[str, object]] | None
     parameters: dict[str, object]
+    advice_context: dict[str, object] = Field(default_factory=dict)
 
 
 CORE_LOADERS: dict[CoreKind, type[CoreObject]] = {
@@ -49,7 +50,10 @@ def invoke_json(
     granted_side_effects: Collection[str | SideEffect],
 ) -> dict[str, object]:
     """Invoke an operation through the Agent JSON transport."""
+    from organelleverse.operations.execution_hooks import ExecutionDelegated
+
     operation_id = str(request.get("operation_id", ""))
+    granted: set[SideEffect] = set()
     try:
         decoded = _decode_request(request)
         spec = registry.describe(decoded.operation_id)
@@ -63,23 +67,43 @@ def invoke_json(
             )
         dependency_report = registry.check_dependencies(decoded.operation_id)
         if not dependency_report.ready:
+            # Missing here, perhaps present on a configured Linux target.
+            routed = _target_for_missing_dependencies()
+            if routed is not None:
+                return _invoke_remotely(request, registry, granted, routed)
             raise OrganelleDependencyError(
                 code="dependency.missing",
                 message="operation dependencies are not ready",
                 details=dependency_report.model_dump(mode="json"),
             )
-        core_input = _decode_input(decoded.input, spec.input_kind, input_sequence=spec.input_sequence)
+        core_input = _decode_input(
+            decoded.input, spec.input_kind, input_sequence=spec.input_sequence
+        )
         binding = registry.require(decoded.operation_id)
         result = binding.invoke_with_parameter_decoder(
             core_input,
             decoded.parameters,
             parameter_decoder=_decode_parameters,
         )
-        return {
+        response: dict[str, object] = {
             "ok": True,
             "operation_id": decoded.operation_id,
             "result": result.model_dump(mode="json"),
         }
+        if isinstance(result, OrganelleResult):
+            try:
+                response["agent_advice"] = registry.agent_advice(
+                    result,
+                    metadata=decoded.advice_context,
+                    granted_side_effects=tuple(effect.value for effect in granted),
+                ).model_dump(mode="json")
+            except OrganelleError as error:
+                # Advice is outside the execution receipt; inspection failure
+                # must not turn a completed operation into a failed invocation.
+                response["agent_advice_error"] = error.as_dict()
+        return response
+    except ExecutionDelegated as routed:
+        return _invoke_remotely(request, registry, granted, routed.selection)
     except OrganelleNeedsInput as error:
         return {
             "ok": False,
@@ -87,6 +111,77 @@ def invoke_json(
             "error": error.as_dict(),
             "needs_input": error.needs_input.model_dump(mode="json"),
         }
+    except OrganelleError as error:
+        return {"ok": False, "operation_id": operation_id, "error": error.as_dict()}
+
+
+def _target_for_missing_dependencies() -> object | None:
+    """Ask an explicitly installed caller hook; the scientific library stays local."""
+    from organelleverse.operations.execution_hooks import ExecutionRequirement, select_execution
+
+    return select_execution(ExecutionRequirement(reason='missing_dependencies'))
+
+
+def _invoke_remotely(
+    request: Mapping[str, object], registry: OperationRegistry, granted: set[SideEffect], target: object,
+) -> dict[str, object]:
+    from organelleverse.operations.execution_hooks import execute_delegated
+
+    try:
+        return execute_delegated(request, registry=registry, granted=granted, selection=target)
+    except OrganelleError as error:
+        return {"ok": False, "operation_id": str(request.get("operation_id", "")), "error": error.as_dict()}
+
+
+class NextInvocationRequest(BaseModel):
+    """A source result plus the metadata and parameters for its next operation."""
+
+    model_config = ConfigDict(extra="forbid")
+    operation_id: str
+    result: dict[str, object]
+    metadata: dict[str, object] = Field(default_factory=dict)
+    parameters: dict[str, object] = Field(default_factory=dict)
+
+
+def invoke_next_json(
+    request: Mapping[str, object],
+    *,
+    registry: OperationRegistry,
+    granted_side_effects: Collection[str | SideEffect],
+) -> dict[str, object]:
+    """Recheck a candidate, convert its input, then use the checked JSON transport."""
+    from ..advice import prepare_next_input
+
+    operation_id = str(request.get("operation_id", ""))
+    try:
+        decoded = NextInvocationRequest.model_validate(request)
+        source = OrganelleResult.model_validate(decoded.result)
+        grants = _decode_grants(granted_side_effects)
+        core_input = prepare_next_input(
+            registry,
+            source,
+            decoded.operation_id,
+            metadata=decoded.metadata,
+            parameters=decoded.parameters,
+            granted_side_effects=tuple(effect.value for effect in grants),
+        )
+        return invoke_json(
+            {
+                "operation_id": decoded.operation_id,
+                "input": core_input.model_dump(mode="json"),
+                "parameters": decoded.parameters,
+                "advice_context": decoded.metadata,
+            },
+            registry=registry,
+            granted_side_effects=grants,
+        )
+    except ValidationError as error:
+        failure = OrganelleParameterError(
+            code="parameter.invalid_next_request",
+            message="Next-operation request or source result is invalid",
+            details={"validation_errors": validation_summaries(error)},
+        )
+        return {"ok": False, "operation_id": operation_id, "error": failure.as_dict()}
     except OrganelleError as error:
         return {"ok": False, "operation_id": operation_id, "error": error.as_dict()}
 

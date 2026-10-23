@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from annotated_types import Ge, Le
 
+from organelleverse.core.data import OrganelleData
 from organelleverse.core.result import OrganelleResult
 
 __all__ = [
@@ -53,8 +54,12 @@ def write(result: OrganelleResult, *, output: Path) -> OrganelleResult:
     return materialize_result(result, output)
 
 
-def read_statistics(reads: Path) -> OrganelleResult:
-    """Summarize plain/gzip FASTQ lengths and base-weighted Phred+33 quality."""
+def read_statistics(reads: Path | OrganelleData) -> OrganelleResult:
+    """Summarize plain/gzip FASTQ lengths and base-weighted Phred+33 quality.
+
+    Accepts one FASTQ path, or the sequencing-read data returned by ``ov.read``
+    (one summary per library).
+    """
     from .reads import read_statistics as run
 
     return run(reads)

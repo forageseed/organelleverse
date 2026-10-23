@@ -40,9 +40,11 @@ _PREFERRED = (
 
 
 def _columns(records: Sequence[dict[str, Any]]) -> list[str]:
+    """Scalar fields only: the nested esummary ``summary`` and
+    ``source_qualifiers`` maps belong in the JSONL export, not in a cell."""
     seen: set[str] = set()
     for record in records:
-        seen.update(record)
+        seen.update(k for k, v in record.items() if not isinstance(v, (dict, list)))
     ordered = [c for c in _PREFERRED if c in seen]
     ordered.extend(sorted(seen - set(ordered)))
     return ordered

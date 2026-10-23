@@ -27,8 +27,8 @@ from typing import Any
 from . import _contract
 from ..core.external import run_external
 from ..core.result import OrganelleResult
-from .._bio import read_fasta
 from ..selection.kaks import _CODONS as STANDARD_CODONS
+from ..sequences import Sequences, as_path, as_records
 
 __all__ = [
     "validate_cds",
@@ -47,7 +47,7 @@ __all__ = [
 
 
 def validate_cds(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     require_start: bool = True,
     allow_internal_stop: bool = False,
@@ -58,7 +58,7 @@ def validate_cds(
     stop codons (optional). Returns per-sequence pass/fail + failure reasons.
     """
     parameters = {"require_start": require_start, "allow_internal_stop": allow_internal_stop}
-    seqs = read_fasta(Path(cds_fasta))
+    seqs = as_records(cds_fasta)
     if not seqs:
         return _contract.failed(
             "validate_cds",
@@ -121,7 +121,7 @@ def validate_cds(
 
 
 def translate_cds(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     strip_stop: bool = True,
 ) -> OrganelleResult:
@@ -131,7 +131,7 @@ def translate_cds(
     ``seq``), as in :func:`align_protein` and :func:`pal2nal`.
     """
     parameters = {"strip_stop": strip_stop}
-    seqs = read_fasta(Path(cds_fasta))
+    seqs = as_records(cds_fasta)
     if not seqs:
         return _contract.failed(
             "translate_cds",
@@ -182,7 +182,7 @@ def _translate(dna: str, strip_stop: bool = True) -> str:
 
 
 def align_protein(
-    protein_fasta: str | Path,
+    protein_fasta: str | Path | Sequences,
     *,
     method: str = "mafft",
     executor: Any = None,
@@ -198,7 +198,7 @@ def align_protein(
     :func:`ov.selection.write`, or the generic :func:`ov.write`.
     """
     parameters = {"method": method}
-    seqs = read_fasta(Path(protein_fasta))
+    seqs = as_records(protein_fasta)
     if not seqs:
         return _contract.failed(
             "align_protein",
@@ -226,7 +226,7 @@ def align_protein(
             # fall through to external MAFFT or ungapped
             if shutil.which("mafft"):
                 try:
-                    aligned = _run_mafft(Path(protein_fasta))
+                    aligned = _run_mafft(Path(as_path(protein_fasta)))
                     used_method = "external-mafft"
                 except Exception:
                     aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
@@ -234,7 +234,7 @@ def align_protein(
                 aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
     elif method == "mafft" and shutil.which("mafft"):
         try:
-            aligned = _run_mafft(Path(protein_fasta))
+            aligned = _run_mafft(Path(as_path(protein_fasta)))
             used_method = "external-mafft"
         except Exception:
             aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
@@ -295,8 +295,8 @@ def _read_fasta_str(text: str) -> list[tuple[str, str]]:
 
 
 def pal2nal(
-    protein_alignment_fasta: str | Path,
-    cds_fasta: str | Path,
+    protein_alignment_fasta: str | Path | Sequences,
+    cds_fasta: str | Path | Sequences,
 ) -> OrganelleResult:
     """Back-align a protein MSA onto CDS sequences to produce a codon alignment.
 
@@ -312,8 +312,8 @@ def pal2nal(
     codon alignment with :func:`_materialize_pal2nal`,
     :func:`ov.selection.write`, or the generic :func:`ov.write`.
     """
-    prot_aln = dict(read_fasta(Path(protein_alignment_fasta)))
-    cds_seqs = dict(read_fasta(Path(cds_fasta)))
+    prot_aln = dict(as_records(protein_alignment_fasta))
+    cds_seqs = dict(as_records(cds_fasta))
 
     if not prot_aln or not cds_seqs:
         return _contract.failed(
@@ -388,7 +388,7 @@ def _back_align(prot_aln: str, cds: str) -> str:
 
 
 def to_paml(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     convert_t_to_u: bool = True,
 ) -> OrganelleResult:
@@ -405,7 +405,7 @@ def to_paml(
     :func:`ov.selection.write`, or the generic :func:`ov.write`.
     """
     parameters = {"convert_t_to_u": convert_t_to_u}
-    seqs = read_fasta(Path(alignment_fasta))
+    seqs = as_records(alignment_fasta)
     if not seqs:
         return _contract.failed(
             "to_paml",
@@ -509,7 +509,7 @@ def _records(result: OrganelleResult) -> Sequence[Mapping[str, Any]]:
 
 
 def prepare_codeml(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     require_start: bool = True,
     use_mafft: bool = True,
@@ -538,7 +538,7 @@ def prepare_codeml(
 
 
 def write_codeml_inputs(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     output_dir: str | Path,
     *,
     require_start: bool = True,
@@ -574,7 +574,7 @@ def write_codeml_inputs(
         )
 
     # filter to passing sequences
-    all_seqs = read_fasta(Path(cds_fasta))
+    all_seqs = as_records(cds_fasta)
     valid_seqs = []
     for name, seq in all_seqs:
         seq_u = seq.upper().replace("U", "T")

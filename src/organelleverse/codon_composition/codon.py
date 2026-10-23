@@ -16,6 +16,7 @@ from typing import Any, cast
 from ..core.frozen import FrozenMap, thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import Finding, OrganelleResult, ResultScope
+from ..sequences import Sequences, as_path
 from .codon_core import compute_amino_acid_composition, compute_codon_usage
 
 _OPERATION_VERSION = "1.0"
@@ -84,7 +85,7 @@ def _provenance(operation_id: str, parameters: dict[str, Any], source: Path) -> 
 
 
 def codon_usage(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     organelle: str = "mito",
     genetic_code: int | str | None = None,
@@ -95,6 +96,7 @@ def codon_usage(
     organelle CDS lands ~45-55 (plastid panel: 47.2). An ENC pinned at
     exactly 61 signals uniform input, not absence of bias.
     """
+    cds_fasta = as_path(cds_fasta)
     metrics = compute_codon_usage(cds_fasta, organelle=organelle, genetic_code=genetic_code)
     enc = metrics["ENC"]
     gc3s = metrics["GC3s"]
@@ -129,13 +131,14 @@ def codon_usage(
 
 
 def amino_acid(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     organelle: str = "mito",
     genetic_code: int | str | None = None,
     include_stop: bool = False,
 ) -> OrganelleResult:
     """Compute amino-acid composition from CDS sequences."""
+    cds_fasta = as_path(cds_fasta)
     metrics = compute_amino_acid_composition(
         cds_fasta,
         organelle=organelle,

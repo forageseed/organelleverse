@@ -12,6 +12,7 @@ description = "Parse a codeml output file for lnL, \u03c9, kappa, and BEB sites.
 keywords = ["analyze", "codeml", "output", "parse", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.models:parse_codeml_output"

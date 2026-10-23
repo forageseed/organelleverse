@@ -12,6 +12,7 @@ description = "Minimum-spanning network: Kruskal greedy join at ascending distan
 keywords = ["analyze", "build", "msn", "phylogeny", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.hapnet:build_msn"

@@ -12,6 +12,7 @@ description = "Prepare codeml-ready metrics without writing user-facing outputs.
 keywords = ["analyze", "codeml", "prepare", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.codeml:prepare_codeml"

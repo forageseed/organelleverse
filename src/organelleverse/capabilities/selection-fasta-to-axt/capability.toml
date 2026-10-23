@@ -12,6 +12,7 @@ description = "Convert aligned FASTA to an AXT artifact in managed storage."
 keywords = ["analyze", "axt", "fasta", "restored", "result", "selection", "to"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.service:fasta_to_axt"

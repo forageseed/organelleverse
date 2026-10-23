@@ -12,6 +12,7 @@ description = "Identify NUMT/NUPT candidates via BLASTN (layer 1)."
 keywords = ["analyze", "blast", "detect", "restored", "result", "transfer", "transfers"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.transfer.transfer:detect_transfers_blast"

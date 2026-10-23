@@ -12,13 +12,36 @@ does not duplicate an otherwise identical Conda prefix.
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import io
 import json
 import logging
 import os
 import shutil
+import socket
+import sys
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
+
+
+def _lock_exclusive(fd: int) -> None:
+    """Exclusive advisory file lock (flock on POSIX; one byte on Windows)."""
+    if sys.platform == "win32":
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+
+def _lock_release(fd: int) -> None:
+    if sys.platform == "win32":
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
 import tarfile
 import tempfile
 import time
@@ -56,6 +79,7 @@ from .environment_specs import (
 )
 from .execution import managed_prefix_environment
 from .manifests import AssemblyComponentIdentity
+from .micromamba import carrier_environment, find_micromamba
 
 __all__ = [
     "EnvironmentManager",
@@ -123,7 +147,7 @@ class _DefaultCarrier:
             str(lock_path),
         ]
         run_external(
-            argv,
+            argv, env=carrier_environment(self._executable),
             code="assembly.environment_unavailable",
             error_class=OrganelleDependencyError,
         )
@@ -164,10 +188,21 @@ class _DefaultDownloader:
                 retryable = not isinstance(error, urllib.error.HTTPError) or (
                     error.code in (408, 429) or 500 <= error.code < 600
                 )
+                # No DNS answer means no network here: retrying only waits.
+                if isinstance(getattr(error, "reason", None), socket.gaierror):
+                    retryable = False
                 if attempt == 3 or not retryable:
+                    offline = isinstance(getattr(error, "reason", None), socket.gaierror)
                     raise OrganelleDependencyError(
                         code="assembly.environment_unavailable",
-                        message="managed download failed; retry the managed installation",
+                        message=(
+                            "managed download failed: this machine has no network (name "
+                            "resolution failed). Select a backend that downloads nothing "
+                            "(method='ovasm' for plant data with one read library), or set "
+                            "ORGANELLEVERSE_CACHE_ROOT to a cache that already holds the database"
+                            if offline
+                            else "managed download failed; retry the managed installation"
+                        ),
                         details={"url": url, "attempts": attempt, "error": str(error)},
                     ) from error
                 logging.getLogger(__name__).warning(
@@ -1337,6 +1372,10 @@ def _locate_carrier() -> str:
         path = shutil.which(candidate)
         if path is not None:
             return path
+    # The user-space copy bootstrapped by the one-click installer (no root).
+    managed = find_micromamba()
+    if managed is not None:
+        return managed
     raise OrganelleDependencyError(
         code="assembly.environment_unavailable",
         message="no supported Conda carrier (micromamba/conda/mamba) is available",
@@ -1352,12 +1391,12 @@ class _advisory_lock:
         lock_path = self._lock_path
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         self._handle = lock_path.open("a+")
-        fcntl.flock(self._handle.fileno(), fcntl.LOCK_EX)
+        _lock_exclusive(self._handle.fileno())
         return self
 
     def __exit__(self, *exc: object) -> None:
         if self._handle is not None:
-            fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+            _lock_release(self._handle.fileno())
             self._handle.close()
 
 

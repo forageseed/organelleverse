@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from ..sequences import Sequences, as_path
 
 
 @dataclass(frozen=True)
@@ -80,8 +81,8 @@ class HGTBackendError(RuntimeError):
 
 
 def run_hgt_alignments(
-    donor_fasta: str | Path,
-    recipient_fasta: str | Path,
+    donor_fasta: str | Path | Sequences,
+    recipient_fasta: str | Path | Sequences,
     *,
     backend: str = "auto",
     min_len: int = 200,
@@ -90,6 +91,8 @@ def run_hgt_alignments(
     minimap2_path: str | Path | None = None,
 ) -> tuple[str, list[HGTAlignment]]:
     """Return filtered donor/recipient alignments from the requested backend."""
+    donor_fasta = as_path(donor_fasta)
+    recipient_fasta = as_path(recipient_fasta)
     selected = backend.lower()
     if selected == "mappy":
         return "mappy", _run_mappy_alignments(
@@ -131,8 +134,8 @@ def run_hgt_alignments(
 
 
 def run_blastn_confirmation(
-    donor_fasta: str | Path,
-    recipient_fasta: str | Path,
+    donor_fasta: str | Path | Sequences,
+    recipient_fasta: str | Path | Sequences,
     *,
     min_len: int = 200,
     min_identity: float = 90.0,
@@ -145,6 +148,8 @@ def run_blastn_confirmation(
     unless ``blastn_path`` is given or ``ORG_VERSE_LOSAT_BIN`` opts out;
     NCBI BLAST+ is the fallback. Both paths produce the same 10-field hits.
     """
+    donor_fasta = as_path(donor_fasta)
+    recipient_fasta = as_path(recipient_fasta)
     from .._losat import resolve_losat, run_losat_blastn
 
     if blastn_path is None:

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 from pathlib import Path
-from .._bio import read_fasta
 from ..core.frozen import thaw_json
+from ..sequences import Sequences, as_records
 from .kaks import _nei_gojobori
 
 
-def compute_kaks(cds_fasta: str | Path) -> dict:
+def compute_kaks(cds_fasta: str | Path | Sequences) -> dict:
     """Compute pairwise Ka/Ks from CDS. Returns dict."""
-    seqs = read_fasta(Path(cds_fasta))
+    seqs = as_records(cds_fasta)
     if len(seqs) < 2:
         return {"Ka": 0.0, "Ks": 0.0, "Ka_Ks": 0.0, "pairs": 0}
     results = []
@@ -31,7 +31,7 @@ def compute_kaks(cds_fasta: str | Path) -> dict:
     }
 
 
-def validate_cds_sequences(cds_fasta: str | Path, require_start: bool = True) -> dict:
+def validate_cds_sequences(cds_fasta: str | Path | Sequences, require_start: bool = True) -> dict:
     """Validate CDS sequences. Returns dict with per-seq results."""
     from .codeml import validate_cds
 

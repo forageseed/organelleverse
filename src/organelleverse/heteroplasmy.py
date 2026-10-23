@@ -11,6 +11,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Literal
 
+from organelleverse._bam import site_base_counts
 from organelleverse.core.provenance import ResultProvenance
 from organelleverse.core.result import ErrorDetail, Finding, OrganelleResult
 
@@ -74,6 +75,9 @@ def quantify_variant_fractions(
 ) -> OrganelleResult:
     """Measure fractions only at supplied sites; TSV: site_id,seqid,position,ref,alt.
     Uses indexed BAM/CRAM, quality-filtered A/C/G/T bases and Wilson 95% intervals.
+    Each passing primary alignment contributes one observation, including overlapping mates.
+    Deletions/skips, missing qualities and non-ACGT bases do not contribute;
+    BAQ, overlap quality adjustment and depth downsampling are not applied.
     Not a variant caller; does not infer structural paths or model mapping bias.
 
     Reads from the other organelle (MTPT/NUPT-like inserts) map onto homologous
@@ -133,7 +137,7 @@ def quantify_variant_fractions(
             scope="mitochondrion",
             code="heteroplasmy.invalid_scope",
             message="scope must be mitochondrion or plastid.",
-            backend="pysam",
+            backend="rubam",
         )
     if min_mapping_quality < 0 or min_base_quality < 0 or min_depth < 1:
         return _failed(
@@ -141,7 +145,7 @@ def quantify_variant_fractions(
             scope=scope,
             code="heteroplasmy.invalid_threshold",
             message="Quality thresholds must be non-negative and min_depth >= 1.",
-            backend="pysam",
+            backend="rubam",
         )
     if not 0 < homology_min_identity <= 100 or homology_min_length < 1:
         return _failed(
@@ -149,7 +153,7 @@ def quantify_variant_fractions(
             scope=scope,
             code="heteroplasmy.invalid_threshold",
             message="homology_min_identity must be in (0, 100] and homology_min_length >= 1.",
-            backend="pysam",
+            backend="rubam",
         )
     if (
         homology_reference_fasta is not None or nuclear_reference_fasta is not None
@@ -163,7 +167,7 @@ def quantify_variant_fractions(
                 "aligned to) against homology_reference_fasta / nuclear_reference_fasta; "
                 "pass reference_fasta."
             ),
-            backend="pysam",
+            backend="rubam",
         )
     try:
         sites = _read_sites(sites_tsv)
@@ -173,17 +177,17 @@ def quantify_variant_fractions(
             scope=scope,
             code="heteroplasmy.invalid_sites",
             message=f"Could not read candidate-site TSV: {exc}",
-            backend="pysam",
+            backend="rubam",
         )
     try:
-        import pysam
+        import rubam
     except ImportError:
         return _failed(
             op,
             scope=scope,
-            code="heteroplasmy.pysam_missing",
+            code="heteroplasmy.rubam_missing",
             message="Install organelleverse[qc] for BAM/CRAM pileups.",
-            backend="pysam",
+            backend="rubam",
         )
     try:
         masked, mask_versions = _masked_intervals(
@@ -195,7 +199,7 @@ def quantify_variant_fractions(
             other="plastid" if scope == "mitochondrion" else "mitochondrion",
         )
     except _MaskError as exc:
-        return _failed(op, scope=scope, code=exc.code, message=str(exc), backend="pysam")
+        return _failed(op, scope=scope, code=exc.code, message=str(exc), backend="rubam")
     homology_mode = "explicit_fasta" if homology_reference_fasta is not None else "off"
     homology_note: str | None = None
     homology_references: int | None = None
@@ -226,7 +230,7 @@ def quantify_variant_fractions(
                 reference_fasta, nuclear_reference_fasta, homology_min_identity, homology_min_length
             )
         except _MaskError as exc:
-            return _failed(op, scope=scope, code=exc.code, message=str(exc), backend="pysam")
+            return _failed(op, scope=scope, code=exc.code, message=str(exc), backend="rubam")
         for contig, items in nuclear_masked.items():
             masked.setdefault(contig, []).extend(items)
             nuclear_interval_count += len(items)
@@ -242,7 +246,7 @@ def quantify_variant_fractions(
     counts = {s["site_id"]: Counter() for s in sites}
     try:
         kw = {"reference_filename": str(reference_fasta)} if reference_fasta is not None else {}
-        with pysam.AlignmentFile(str(bam_path), "r", **kw) as bam:
+        with rubam.AlignmentFile(str(bam_path), "rb", **kw) as bam:
             ref_lengths = dict(zip(bam.references, bam.lengths, strict=True))
             for site in sites:
                 contig, pos = site["seqid"], site["position"] - 1
@@ -252,55 +256,23 @@ def quantify_variant_fractions(
                 if source is not None:
                     masked_sites[site["site_id"]] = source
                     continue
-                for col in bam.pileup(
-                    contig,
-                    pos,
-                    pos + 1,
-                    truncate=True,
-                    stepper="all",
-                    flag_filter=(
-                        pysam.FUNMAP
-                        | pysam.FSECONDARY
-                        | pysam.FQCFAIL
-                        | (pysam.FDUP if exclude_duplicates else 0)
-                    ),
-                    min_mapping_quality=0,
-                    min_base_quality=0,
-                    max_depth=1000000,
-                ):
-                    if col.reference_pos != pos:
-                        continue
-                    for item in col.pileups:
-                        r = item.alignment
-                        if (
-                            item.is_del
-                            or item.is_refskip
-                            or r.is_unmapped
-                            or r.is_secondary
-                            or r.is_supplementary
-                            or r.is_qcfail
-                        ):
-                            continue
-                        if exclude_duplicates and r.is_duplicate:
-                            continue
-                        q = item.query_position
-                        if (
-                            r.mapping_quality < min_mapping_quality
-                            or q is None
-                            or r.query_qualities is None
-                            or r.query_qualities[q] < min_base_quality
-                        ):
-                            continue
-                        b = r.query_sequence[q].upper()
-                        if b in "ACGT":
-                            counts[site["site_id"]][b] += 1
+                counts[site["site_id"]].update(
+                    site_base_counts(
+                        bam,
+                        contig,
+                        pos,
+                        min_mapping_quality=min_mapping_quality,
+                        min_base_quality=min_base_quality,
+                        exclude_duplicates=exclude_duplicates,
+                    )
+                )
     except (OSError, ValueError, KeyError) as exc:
         return _failed(
             op,
             scope=scope,
             code="heteroplasmy.pileup_failed",
             message=f"Could not quantify BAM pileup: {exc}",
-            backend="pysam",
+            backend="rubam",
         )
     rows = []
     for s in sites:
@@ -326,7 +298,7 @@ def quantify_variant_fractions(
         )
     n = sum(row["status"] == "ok" for row in rows)
     n_masked = len(masked_sites)
-    sv = {"pysam": pysam.__version__, **mask_versions}
+    sv = {"rubam": rubam.__version__, **mask_versions}
     total_bp = sum(ref_lengths.values())
     masked_bp = sum(
         _merged_bp(items, ref_lengths.get(contig, 0)) for contig, items in masked.items()
@@ -390,9 +362,7 @@ def quantify_variant_fractions(
             *(("homology_mask_covers_most_of_reference",) if mask_excessive else ()),
             *(("homology_mask_unavailable",) if mask_unavailable else ()),
         ),
-        provenance=_provenance(
-            op, parameters=params, backend="pysam", software_versions=sv
-        ),
+        provenance=_provenance(op, parameters=params, backend="rubam", software_versions=sv),
     )
 
 
@@ -455,7 +425,9 @@ def _masked_intervals(
             for seqid, start, end in _read_bed(bed):
                 intervals.setdefault(seqid, []).append((start, end, "bed"))
         except (OSError, ValueError) as exc:
-            raise _MaskError("heteroplasmy.invalid_mask_bed", f"Could not read mask BED: {exc}") from exc
+            raise _MaskError(
+                "heteroplasmy.invalid_mask_bed", f"Could not read mask BED: {exc}"
+            ) from exc
     if homology_fasta is not None:
         from organelleverse.transfer.transfer import detect_transfers_blast
 

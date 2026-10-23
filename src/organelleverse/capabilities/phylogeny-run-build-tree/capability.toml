@@ -12,6 +12,7 @@ description = "Plan or run tree inference with intermediate files in managed sto
 keywords = ["analyze", "build", "phylogeny", "restored", "result", "run", "tree"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.service:run_build_tree"

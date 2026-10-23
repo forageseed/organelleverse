@@ -18,15 +18,37 @@ detector where an anchor exists.
 
 from __future__ import annotations
 
+import logging
+import os
+import time
 from pathlib import Path
 
 import pyhmmer
 
 from .model import parse_cm
 from .models import CMHit, CovarianceModel
+from .parallel import pmap
 from .search import _resolve_overlaps, cm_search
 
+logger = logging.getLogger(__name__)
+
 _DATA = Path(__file__).resolve().parent.parent / "data" / "models" / "trna"
+
+#: Seconds the covariance-model alignment of one genome may take; unset means no limit.
+#: Windows not started before the deadline are skipped (their tRNAs are missing, said in a warning).
+BUDGET_ENV = "ORGANELLEVERSE_CM_TIME_BUDGET_S"
+
+
+def _deadline() -> float | None:
+    raw = os.environ.get(BUDGET_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        seconds = float(raw)
+    except ValueError:
+        logger.warning("%s=%r is not a number of seconds; no time budget applied", BUDGET_ENV, raw)
+        return None
+    return time.monotonic() + max(0.0, seconds)
 
 
 def default_cm_path() -> Path:
@@ -100,12 +122,28 @@ def find_trnas(
         cm_model = parse_cm(default_cm_path())
 
     windows = _nhmmer_windows(genome, hmm_path, filter_evalue)
-    hits: list[CMHit] = []
-    for s, e in windows:
+    deadline = _deadline()
+    started = time.monotonic()
+    skipped: list[int] = []
+    logger.info(
+        "tRNA search: %d candidate windows to align on %d bp%s",
+        len(windows),
+        L,
+        "" if deadline is None else f" (time budget {deadline - started:.0f} s)",
+    )
+
+    def search_window(window: tuple[int, int]) -> tuple[int, list[CMHit]]:
+        s, e = window
         a = max(0, s - 1 - pad)
+        if deadline is not None and time.monotonic() > deadline:
+            skipped.append(a)
+            return a, []
         b = min(L, e + pad)
-        region = genome[a:b]
-        for h in cm_search(region, cm_model, min_bits=min_bits):
+        return a, cm_search(genome[a:b], cm_model, min_bits=min_bits)
+
+    hits: list[CMHit] = []
+    for a, found in pmap(search_window, windows):  # windows are independent; order kept
+        for h in found:
             hits.append(
                 CMHit(
                     start=a + h.start,
@@ -117,7 +155,21 @@ def find_trnas(
                 )
             )
 
-    if recover_intron_pairs:
+    logger.info(
+        "tRNA search: %d of %d windows aligned in %.1f s",
+        len(windows) - len(skipped),
+        len(windows),
+        time.monotonic() - started,
+    )
+    if skipped:
+        logger.warning(
+            "tRNA search stopped by the %s time budget: %d of %d candidate windows were not "
+            "aligned, so tRNAs in them are missing from the result",
+            BUDGET_ENV,
+            len(skipped),
+            len(windows),
+        )
+    if recover_intron_pairs and not (deadline is not None and time.monotonic() > deadline):
         hits.extend(
             _recover_intron_pairs(
                 genome,
@@ -127,13 +179,14 @@ def find_trnas(
                 min_bits=min_bits,
                 min_intron=min_intron,
                 max_intron=max_intron,
+                deadline=deadline,
             )
         )
     return _resolve_overlaps(hits)
 
 
 def _recover_intron_pairs(
-    genome, windows, mature_hits, cm_model, *, min_bits, min_intron, max_intron
+    genome, windows, mature_hits, cm_model, *, min_bits, min_intron, max_intron, deadline=None
 ):
     from .introns import recover_spliced_trna_from_exon_pair
 
@@ -155,6 +208,9 @@ def _recover_intron_pairs(
                 continue
             if gap > max_intron:
                 break
+            if deadline is not None and time.monotonic() > deadline:
+                logger.warning("intron-tRNA recovery stopped by the %s time budget", BUDGET_ENV)
+                return recovered
             hit = recover_spliced_trna_from_exon_pair(genome, w1, w2, cm_model, min_bits=min_bits)
             if hit is not None:
                 recovered.append(

@@ -17,6 +17,7 @@ from Bio.Seq import reverse_complement
 from .._bio import read_fasta
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
+from ..sequences import Sequences, as_path
 from .compare import _provenance
 from .identity import _anchor_blocks, _require_mappy
 from .orientation import _quadripartite, _segment, _strand
@@ -182,8 +183,8 @@ def _classify(blocks, minimum):
 
 
 def detect_structural_variants(
-    reference_fasta: str | Path,
-    query_fasta: str | Path,
+    reference_fasta: str | Path | Sequences,
+    query_fasta: str | Path | Sequences,
     *,
     preset: str = "asm20",
     min_size: int = 100,
@@ -211,6 +212,8 @@ def detect_structural_variants(
     are reference-relative alignment evidence; repeat-copy orthology and
     historical event counts are not identifiable from these alignments.
     """
+    reference_fasta = as_path(reference_fasta)
+    query_fasta = as_path(query_fasta)
     if (
         preset not in {"asm5", "asm10", "asm20"}
         or min_size < 1

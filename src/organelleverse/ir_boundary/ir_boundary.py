@@ -213,7 +213,14 @@ def write_boundary_svg(
 def _analyze_one(g: OrganelleGenome) -> dict:
     records = parse_genbank(g.annotation.resolve()).records if g.annotation is not None else ()
     name = g.metadata.species or "genome"
-    total_len = sum(len(record.sequence) for record in records)
+    # A genome that carries only a FASTA (what an assembly, ov.read or io.read_fasta_genome gives) has no GenBank
+    # file. It used to be reported as a 0 bp genome with no IR; analyse its sequence instead.
+    fasta_sequence = ""
+    if not records and g.sequence is not None:
+        from ..quality_control.fasta import read_fasta
+
+        fasta_sequence = "".join(sequence for _, sequence in read_fasta(g.sequence.resolve()))
+    total_len = sum(len(record.sequence) for record in records) or len(fasta_sequence)
     ir_regions: list[dict] = []
     genes: list[dict] = []
     for record in records:
@@ -242,7 +249,7 @@ def _analyze_one(g: OrganelleGenome) -> dict:
                     )
     # infer IR coordinates from repeat regions
     ira, irb = _infer_ir_pair(ir_regions, total_len)
-    sequence = "".join(record.sequence for record in records).upper()
+    sequence = "".join(record.sequence for record in records).upper() or fasta_sequence.upper()
     # Modern NCBI plastid records usually carry no repeat_region features (25
     # of the 31 packaged references), and the few that do may annotate small
     # tandem repeats instead of the true IR (Oryza 66 bp). Fall back to

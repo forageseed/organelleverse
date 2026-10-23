@@ -26,6 +26,7 @@ from itertools import combinations
 from typing import Any
 
 from ..core import OrganelleResult
+from ._species import species_resolver
 from .coevolution import (
     TreeNode,
     parse_newick,
@@ -83,11 +84,6 @@ def _edge_list(tree: TreeNode) -> list[tuple[int, int, float]]:
     return edges
 
 
-def _descendant_species_set(node: TreeNode) -> set[str]:
-    """Species names under a node."""
-    return {leaf.name for leaf in node.leaves() if leaf.name}
-
-
 # =========================================================================
 # NaN-safe transform
 # =========================================================================
@@ -121,41 +117,29 @@ def _nan_safe_transform(vec: list[float], method: str) -> list[float]:
 # =========================================================================
 
 
-def _species_token(name: str) -> str:
-    """One normalization for both master and gene-tree leaf names.
-
-    Accepts ``species__gene``, ``species_gene`` and ``species|gene`` label
-    styles. Applying this to only one side (as before) made the descendant
-    set comparison fail for every edge on real two-word species names.
-    """
-    return name.split("__")[0].split("_")[0].split("|")[0]
-
-
 def project_paths(
     gene_trees: dict[str, str],
     species_tree_newick: str,
 ) -> dict[str, list[float]]:
     """Project gene-tree branch lengths onto master-tree edge space (rooted trees).
 
-    Input contract: both trees must be rooted (root-to-node path lengths),
-    and leaf labels are tokenized identically on the two sides
-    (``species__gene`` / ``species_gene`` / ``species|gene`` styles all
-    collapse to the species token) - normalizing one side alone silently
-    voids every edge, which is what happened on real two-word species
-    names. Edges whose clade is absent from a gene tree (topology
-    discordance) are NaN.
+    Input contract: both trees must be rooted (root-to-node path lengths).
+    The master tree's leaf names are the species set; every gene-tree leaf label
+    (``species__gene`` / ``species_gene`` / ``species|gene``) is resolved to one
+    of them by longest-name prefix, so two-word species names and congeners
+    (``Arabidopsis_thaliana`` / ``Arabidopsis_lyrata``) stay distinct. Edges
+    whose clade is absent from a gene tree (topology discordance) are NaN.
     """
     master = parse_newick(species_tree_newick)
     master_edges = _edge_list(master)
+    get_species = species_resolver(leaf.name for leaf in master.leaves())
 
     # Precompute descendant species for each master edge's child node
     edge_species: list[set[str]] = []
     for pid, cid, bl in master_edges:
         for node in master.traverse():
             if id(node) == cid:
-                edge_species.append(
-                    {_species_token(leaf.name) for leaf in node.leaves() if leaf.name}
-                )
+                edge_species.append({get_species(leaf.name) for leaf in node.leaves() if leaf.name})
                 break
         else:
             edge_species.append(set())
@@ -170,7 +154,7 @@ def project_paths(
         gene_leaf_species: dict[int, str] = {}
         for leaf in gtree.leaves():
             if leaf.name:
-                gene_leaf_species[id(leaf)] = _species_token(leaf.name)
+                gene_leaf_species[id(leaf)] = get_species(leaf.name)
 
         row: list[float] = []
         for idx, (pid, cid, bl) in enumerate(master_edges):

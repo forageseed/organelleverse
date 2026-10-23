@@ -22,6 +22,7 @@ from ..runtime import (
     create_staged_run,
     managed_run_path,
     publish_staged_result,
+    remove_managed_entry,
     verify_staged_artifacts,
 )
 from ._contract import OPERATION_VERSION as _OPERATION_VERSION
@@ -196,7 +197,7 @@ def build_graph(
         return published
     finally:
         if staging.exists():
-            shutil.rmtree(staging, ignore_errors=True)
+            remove_managed_entry(staging)
 
 
 def _run_digest(project: PangenomeProject, parameters: dict[str, Any]) -> str:
@@ -378,7 +379,7 @@ def _stage_result(
                 details={"uri": artifact.uri},
             )
         relocated.append(copied.model_copy(update={"uri": f"artifacts/{target_name}"}))
-    shutil.rmtree(workspace)
+    remove_managed_entry(workspace)
     managed_metrics: dict[str, Any] = dict(result.metrics)
     if parameters["method"] == "pggb":
         # The core builder receives the protected value. Preserve the public

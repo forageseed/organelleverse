@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -17,6 +18,7 @@ from pydantic import Field
 from organelleverse.core.base import StrictFrozenModel
 from organelleverse.core.errors import OrganelleDependencyError, OrganelleExecutionError
 from organelleverse.core.external import MESSAGE_TAIL_LINES, tail_lines
+from organelleverse.operations.process_registry import register_process, terminate_tree, unregister_process
 
 _VERSION_ARGUMENTS: dict[str, tuple[str, ...]] = {
     "aragorn": ("-h",),
@@ -183,19 +185,45 @@ class CommandRunner:
 
         started_at = datetime.now(UTC).isoformat()
         started = monotonic()
+        popen: subprocess.Popen[str] | None = None
         try:
-            completed = subprocess.run(
+            popen = subprocess.Popen(
                 argv,
                 cwd=cwd,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=timeout,
-                check=False,
                 shell=False,
+                start_new_session=os.name == "posix",
             )
+        except OSError as error:
+            evidence = self._record(
+                stage=stage,
+                argv=argv,
+                cwd=cwd,
+                started_at=started_at,
+                duration_seconds=monotonic() - started,
+                timeout=timeout,
+                returncode=None,
+                termination="launch_error",
+                stderr=str(error),
+            )
+            raise OrganelleExecutionError(
+                code="backend_execution_failed",
+                message=f"{Path(argv[0]).name} could not start during {stage}: {error}",
+                details=evidence.model_dump(mode="json"),
+            ) from error
+        register_process(popen)
+        try:
+            stdout_text, stderr_text = popen.communicate(timeout=timeout)
         except subprocess.TimeoutExpired as error:
+            terminate_tree(popen)
+            try:
+                popen.communicate(timeout=5)
+            except Exception:
+                pass
             evidence = self._record(
                 stage=stage,
                 argv=argv,
@@ -217,25 +245,10 @@ class CommandRunner:
                 message=message,
                 details=evidence.model_dump(mode="json"),
             ) from error
-        except OSError as error:
-            evidence = self._record(
-                stage=stage,
-                argv=argv,
-                cwd=cwd,
-                started_at=started_at,
-                duration_seconds=monotonic() - started,
-                timeout=timeout,
-                returncode=None,
-                termination="launch_error",
-                stderr=str(error),
-            )
-            raise OrganelleExecutionError(
-                code="backend_execution_failed",
-                message=f"{Path(argv[0]).name} could not start during {stage}: {error}",
-                details=evidence.model_dump(mode="json"),
-            ) from error
+        finally:
+            unregister_process(popen)
 
-        returncode = completed.returncode
+        returncode = popen.returncode
         signal_number = -returncode if returncode < 0 else None
         evidence = self._record(
             stage=stage,
@@ -247,12 +260,12 @@ class CommandRunner:
             returncode=returncode,
             termination="signal" if signal_number is not None else "exit",
             signal_number=signal_number,
-            stdout=completed.stdout,
-            stderr=completed.stderr,
+            stdout=stdout_text,
+            stderr=stderr_text,
         )
         if returncode != 0:
             message = f"{Path(argv[0]).name} failed during {stage}"
-            tail = tail_lines(completed.stderr, MESSAGE_TAIL_LINES)
+            tail = tail_lines(stderr_text, MESSAGE_TAIL_LINES)
             if tail:
                 message = f"{message}: {tail}"
             raise OrganelleExecutionError(
@@ -263,11 +276,31 @@ class CommandRunner:
         return evidence
 
 
+#: Seconds a tool gets to print its version; a cold start of a large binary on a busy
+#: or network filesystem is routinely slower than the old 30 s.
+DEFAULT_PREFLIGHT_TIMEOUT_S = 120
+PREFLIGHT_TIMEOUT_ENV = "ORGANELLEVERSE_PREFLIGHT_TIMEOUT"
+
+
+def _preflight_timeout(explicit: int | None) -> int:
+    if explicit is not None:
+        return explicit
+    raw = os.environ.get(PREFLIGHT_TIMEOUT_ENV, "").strip()
+    if raw:
+        try:
+            value = int(raw)
+        except ValueError:
+            value = 0
+        if value > 0:
+            return value
+    return DEFAULT_PREFLIGHT_TIMEOUT_S
+
+
 def resolve_required_tools(
     names: tuple[str, ...],
     *,
     runner: CommandRunner | None = None,
-    version_timeout: int = 30,
+    version_timeout: int | None = None,
     paths: Mapping[str, str] | None = None,
 ) -> tuple[ResolvedTool, ...]:
     """Resolve every required executable before capturing runtime versions.
@@ -276,6 +309,7 @@ def resolve_required_tools(
     resolved from an explicit location, such as a vendored LOSAT build).
     """
 
+    version_timeout = _preflight_timeout(version_timeout)
     unique_names = tuple(dict.fromkeys(names))
     overrides = dict(paths or {})
     resolved_paths = {name: overrides.get(name) or which(name) for name in unique_names}
@@ -300,7 +334,7 @@ def resolve_required_tools(
         evidence = active_runner.run(
             version_argv,
             stage=f"dependency_preflight:{name}",
-            timeout=version_timeout,
+            timeout=_preflight_timeout(version_timeout),
         )
         _validate_tool_identity(name, evidence)
         version = _version_from_evidence(name, evidence)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from annotated_types import Ge, Le
 
@@ -17,7 +17,41 @@ from .contracts import AssemblyMethod, AssemblyRequest, ReleasedAssemblyBackendP
 from .data_contract import validate_released_assembly_data
 from .environment_contracts import EnvironmentHint, EnvironmentSource
 
-__all__ = ["assemble", "pmat_continue", "pmat_graph_build", "write"]
+__all__ = ["assemble", "pmat_continue", "pmat_graph_build", "reconstruct", "write"]
+
+
+def reconstruct(
+    *,
+    reads: tuple[Path, ...] = (),
+    mitochondrial_reference: Path,
+    plastid_reference: Path,
+    sample: str,
+    output: Path,
+    target_depth: float | None = None,
+    threads: int = 8,
+    timeout_seconds: float | None = None,
+    target_reads: dict[str, tuple[Path, ...]] | None = None,
+) -> dict[str, Any]:
+    """Reconstruct both organelles of one WGS sample against species pan GFAs.
+
+    Uses every source P walk, exact target read intervals/adjacencies and the
+    separate de novo target graph. Returns the structured native report with
+    individual FASTA/GFA paths and unsupported/ambiguous reference intervals.
+    The execution host must be the selected compute target; this entry point
+    does not transfer files or silently move computation to another host.
+    """
+    from organelleverse._ovasm import run_reconstruction
+
+    return run_reconstruction(
+        reads,
+        references={"mitochondrion": mitochondrial_reference, "plastid": plastid_reference},
+        out_dir=output,
+        sample=sample,
+        target_depth=target_depth,
+        threads=threads,
+        timeout_seconds=timeout_seconds,
+        target_reads=target_reads,
+    )
 
 
 class AssemblyEnvironmentHint(OperationParameterModel):

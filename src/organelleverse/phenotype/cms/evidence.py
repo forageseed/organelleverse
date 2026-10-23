@@ -16,6 +16,7 @@ from ...core.errors import OrganelleDependencyError, OrganelleInputError, Organe
 from ...core.external import run_external
 from ...core.frozen import thaw_json
 from ...core.result import OrganelleResult
+from ...sequences import Sequences, as_path
 from .pipeline import _has_tm
 from .resources import cms_protein_fasta, cms_reference_json
 
@@ -37,9 +38,9 @@ def _proteins(path: Path) -> dict[str, str]:
 
 
 def assess_cms_candidates(
-    protein_fasta: Path,
+    protein_fasta: Path | Sequences,
     *,
-    conserved_proteins_fasta: Path,
+    conserved_proteins_fasta: Path | Sequences,
     cms_proteins_fasta: Path | None = None,
     expression_tsv: Path | None = None,
     topology_predictions: Path | None = None,
@@ -64,6 +65,8 @@ def assess_cms_candidates(
     TPM contrasts are descriptive means/ratios, not differential-expression tests.
     Homology never establishes fertility phenotype or CMS causality.
     """
+    protein_fasta = as_path(protein_fasta)
+    conserved_proteins_fasta = as_path(conserved_proteins_fasta)
     for name, value in {
         "min_alignment_aa": min_alignment_aa,
         "tm_window": tm_window,

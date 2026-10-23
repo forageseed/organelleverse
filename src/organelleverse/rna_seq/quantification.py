@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
+from itertools import chain
 from pathlib import Path
 from typing import Literal
 
+from .._bam import alignment_provenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
 
 _SCOPE = Literal["mitochondrion", "plastid"]
@@ -51,16 +53,16 @@ def quantify_splicing_efficiency(
     except (OSError, ValueError) as exc:
         return _failed(operation, f"Could not read intron TSV: {exc}", scope=scope)
     try:
-        import pysam
+        import rubam
     except ImportError:
         return _failed(
-            operation, "BAM/CRAM analysis requires pysam; install organelleverse[qc].", scope=scope
+            operation, "BAM/CRAM analysis requires rubam; install organelleverse[qc].", scope=scope
         )
 
     rows: list[dict[str, object]] = []
     open_kwargs = {"reference_filename": str(reference_fasta)} if reference_fasta else {}
     try:
-        with pysam.AlignmentFile(str(bam_path), "r", **open_kwargs) as bam:
+        with rubam.AlignmentFile(str(bam_path), "rb", **open_kwargs) as bam:
             for intron in introns:
                 if intron["seqid"] not in bam.references:
                     raise ValueError(f"BAM has no reference sequence {intron['seqid']!r}")
@@ -110,6 +112,18 @@ def quantify_splicing_efficiency(
             ),
         ),
         flags=("annotated_introns_only", "alignment_fraction_not_transcript_abundance"),
+        provenance=alignment_provenance(
+            operation,
+            {
+                "bam_path": str(bam_path),
+                "introns_tsv": str(introns_tsv),
+                "scope": scope,
+                "min_mapping_quality": min_mapping_quality,
+                "min_anchor": min_anchor,
+                "exclude_duplicates": exclude_duplicates,
+                "reference_fasta": str(reference_fasta) if reference_fasta else None,
+            },
+        ),
     )
 
 
@@ -143,24 +157,31 @@ def quantify_exon_expression(
     except (OSError, ValueError) as exc:
         return _failed(operation, f"Could not read exon TSV: {exc}", scope=scope)
     try:
-        import pysam
+        import rubam
     except ImportError:
         return _failed(
-            operation, "BAM/CRAM analysis requires pysam; install organelleverse[qc].", scope=scope
+            operation, "BAM/CRAM analysis requires rubam; install organelleverse[qc].", scope=scope
         )
 
     exon_bins = _build_exon_bins(exons)
     read_counts: defaultdict[str, int] = defaultdict(int)
     open_kwargs = {"reference_filename": str(reference_fasta)} if reference_fasta else {}
     try:
-        with pysam.AlignmentFile(str(bam_path), "r", **open_kwargs) as bam:
+        with rubam.AlignmentFile(str(bam_path), "rb", **open_kwargs) as bam:
             if not bam.has_index():
                 raise ValueError("BAM/CRAM must be indexed")
             missing = sorted(set(exon_bins) - set(bam.references))
             if missing:
                 raise ValueError(f"BAM has no reference sequence {missing[0]!r}")
             total_mapped = 0
-            for read in bam.fetch(until_eof=True):
+            # The denominator uses mapped primary reads only. Indexed per-contig
+            # iteration works for both BAM and CRAM; rubam's until_eof path is
+            # currently BAM-only and would misread a CRAM header.
+            reads = chain.from_iterable(
+                bam.fetch(seqid, 0, length)
+                for seqid, length in zip(bam.references, bam.lengths, strict=True)
+            )
+            for read in reads:
                 if not _usable(read, min_mapping_quality, exclude_duplicates):
                     continue
                 total_mapped += 1
@@ -176,9 +197,7 @@ def quantify_exon_expression(
         {
             "gene_id": gene,
             "read_count": read_counts[gene],
-            "cpm": round(read_counts[gene] * 1_000_000 / total_mapped, 6)
-            if total_mapped
-            else None,
+            "cpm": round(read_counts[gene] * 1_000_000 / total_mapped, 6) if total_mapped else None,
         }
         for gene in genes
     ]
@@ -196,6 +215,17 @@ def quantify_exon_expression(
         },
         findings=(Finding(code="rna_seq.genes_quantified", metric="gene_count", value=len(rows)),),
         flags=("annotated_exons_only", "read_counts_not_tpm"),
+        provenance=alignment_provenance(
+            operation,
+            {
+                "bam_path": str(bam_path),
+                "exons_tsv": str(exons_tsv),
+                "scope": scope,
+                "min_mapping_quality": min_mapping_quality,
+                "exclude_duplicates": exclude_duplicates,
+                "reference_fasta": str(reference_fasta) if reference_fasta else None,
+            },
+        ),
     )
 
 
@@ -279,9 +309,7 @@ def _build_exon_bins(
     exons: list[dict[str, str | int]],
 ) -> dict[str, dict[int, list[tuple[int, int, str]]]]:
     """Index exons in fixed genomic bins without retaining any read identifiers."""
-    index: dict[str, dict[int, list[tuple[int, int, str]]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
+    index: dict[str, dict[int, list[tuple[int, int, str]]]] = defaultdict(lambda: defaultdict(list))
     for exon in exons:
         seqid = str(exon["seqid"])
         start0, end0 = int(exon["start"]) - 1, int(exon["end"])
@@ -291,9 +319,7 @@ def _build_exon_bins(
     return {seqid: dict(bins) for seqid, bins in index.items()}
 
 
-def _overlapping_genes(
-    read: object, bins: dict[int, list[tuple[int, int, str]]]
-) -> set[str]:
+def _overlapping_genes(read: object, bins: dict[int, list[tuple[int, int, str]]]) -> set[str]:
     genes: set[str] = set()
     for block_start, block_end in read.get_blocks():
         for bin_number in range(

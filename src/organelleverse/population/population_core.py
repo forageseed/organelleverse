@@ -7,10 +7,12 @@ concrete biallelic SNPs only (a symbolic ALT such as ``*`` is not an allele).
 from __future__ import annotations
 from pathlib import Path
 from .population import _parse_vcf_biallelic, _fst_at_site
+from ..sequences import as_path
+from ..inputs import Variants
 
 
 def compute_fst(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     pop_assignments: dict[str, str],
     estimator: str = "heterozygosity",
 ) -> dict:
@@ -29,6 +31,7 @@ interchangeable, see ``docs/operations/population-fst-estimators.md``.
 ``samples_missing_from_vcf`` lists the ``pop_assignments`` keys absent from the
 VCF: a typo there silently shrinks a population instead of raising. Returns dict.
 """
+    vcf_path = as_path(vcf_path)
     from .population import FST_ESTIMATORS
 
     if estimator not in FST_ESTIMATORS:

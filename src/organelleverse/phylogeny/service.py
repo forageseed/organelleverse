@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from ..core.result import OrganelleResult
 from ..runtime import managed_run_path
+from ..sequences import Sequences, as_path
+from ..inputs import Tree
 from .dating import Calibration, MCMCTreeOptions
 
 
@@ -169,8 +171,8 @@ def run_mrbayes(
 
 
 def date_tree(
-    tree_newick: str | Path,
-    alignment_fasta: str | Path,
+    tree_newick: str | Path | Tree,
+    alignment_fasta: str | Path | Sequences,
     calibrations: list[Calibration],
     *,
     backend: str = "iqtree_lsd2",
@@ -185,6 +187,8 @@ def date_tree(
     dry_run: bool = False,
 ) -> OrganelleResult:
     """Estimate ages with LSD2 or MCMCTree in managed storage."""
+    tree_newick = as_path(tree_newick)
+    alignment_fasta = as_path(alignment_fasta)
     from .dating import date_tree as _run
 
     return _run(

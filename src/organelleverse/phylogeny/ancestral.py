@@ -17,6 +17,8 @@ from scipy.special import logsumexp
 
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
+from ..sequences import as_path
+from ..inputs import Tree
 from ._results import provenance
 
 
@@ -71,7 +73,7 @@ def _messages(tree, observations, states, rate, posterior=True):
 
 
 def reconstruct_ancestral_states(
-    tree_newick: str | Path,
+    tree_newick: str | Path | Tree,
     traits: dict[str, dict[str, str | int | None]],
     *,
     state_space: dict[str, list[str]] | None = None,
@@ -99,6 +101,7 @@ def reconstruct_ancestral_states(
     of changes, or branch-change posterior probabilities. Exact posterior
     ties remain sets and do not produce arbitrarily polarized changes.
     """
+    tree_newick = as_path(tree_newick)
     bounds = rate_bounds if rate_bounds is not None else [1e-6, 1e6]
     if (
         len(bounds) != 2

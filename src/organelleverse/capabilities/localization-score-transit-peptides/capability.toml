@@ -12,6 +12,7 @@ description = "Score mitochondrial (mTP) and chloroplast (cTP) transit peptides.
 keywords = ["analyze", "localization", "peptides", "restored", "result", "score", "transit"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.localization.localize_core:score_transit_peptides"

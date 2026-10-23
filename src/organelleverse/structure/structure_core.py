@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from .._bio import read_fasta
-from .structure import _find_record_repeats, _find_ssrs
+from ..sequences import Sequences, as_path
+from .structure import _find_record_repeats, _find_ssrs, _repeat_size_classes, _ssr_counts_by_unit
 
 
 def compute_multiconf(
-    fasta_path: str | Path, min_repeat_len: int = 50, max_mismatches: int = 0
+    fasta_path: str | Path | Sequences, min_repeat_len: int = 50, max_mismatches: int = 0
 ) -> dict:
     """Detect repeat-mediated multi-configurations. Returns dict.
 
@@ -18,6 +20,7 @@ def compute_multiconf(
     not distinct configurations validated by graph or read evidence.
     ``max_mismatches`` bridges substitutions between exact repeat seeds.
     """
+    fasta_path = as_path(fasta_path)
     seqs = read_fasta(Path(fasta_path))
     repeats = _find_record_repeats(seqs, min_repeat_len, max_mismatches=max_mismatches)
     direct = [r for r in repeats if r["type"] == "direct"]
@@ -30,6 +33,7 @@ def compute_multiconf(
         "inverted_repeat_pairs": inverted_pairs,
         "candidate_configs": predicted,
         "predicted_configs": predicted,
+        "repeat_size_classes": _repeat_size_classes(repeats),
         "repeats": repeats,
         "sequence_count": len(seqs),
         "interpretation": "repeat-pair candidate outcomes, not validated configurations",
@@ -37,13 +41,23 @@ def compute_multiconf(
 
 
 def compute_repeats(
-    fasta_path: str | Path, min_ssr_unit: int = 1, max_ssr_unit: int = 6, min_copy: int = 3
+    fasta_path: str | Path | Sequences,
+    min_ssr_unit: int = 1,
+    max_ssr_unit: int = 6,
+    min_copy: int = 3,
+    unit_thresholds: Mapping[int, int] | None = None,
 ) -> dict:
-    """Detect exact SSRs with MISA's 10/5/4/3/3/3 copy thresholds."""
+    """Detect exact SSRs with MISA's 10/5/4/3/3/3 copy thresholds.
+
+    ``unit_thresholds`` overrides individual units; ``min_copy`` is a floor.
+    """
+    fasta_path = as_path(fasta_path)
     seqs = read_fasta(Path(fasta_path))
     ssrs = [
         {"sequence_id": seq_id, **ssr}
         for seq_id, seq in seqs
-        for ssr in _find_ssrs(seq.upper(), min_ssr_unit, max_ssr_unit, min_copy)
+        for ssr in _find_ssrs(
+            seq.upper(), min_ssr_unit, max_ssr_unit, min_copy, unit_thresholds=unit_thresholds
+        )
     ]
-    return {"ssr_count": len(ssrs), "ssrs": ssrs}
+    return {"ssr_count": len(ssrs), "ssr_by_unit": _ssr_counts_by_unit(ssrs), "ssrs": ssrs}

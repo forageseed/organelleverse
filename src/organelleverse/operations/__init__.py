@@ -1,8 +1,12 @@
 from collections.abc import Mapping
 
+from organelleverse.core.result import OrganelleResult
+
+from .advice import AgentAdvice, NextOperationAdvice
 from .data_contracts import DataContract, DataContractRegistry
 from .decorator import operation
 from .dependencies import DependencyCheck, DependencyReport, DependencyState
+from .operation_search import OperationHit, search
 from .registry import BoundOperation, CoreObject, OperationRegistry, registry
 from .spec import (
     ArgumentMode,
@@ -23,6 +27,7 @@ from .spec import (
 )
 
 __all__ = [
+    "AgentAdvice",
     "ArgumentMode",
     "BoundOperation",
     "CoreKind",
@@ -36,6 +41,8 @@ __all__ = [
     "DependencyState",
     "ExecutionMode",
     "FallbackPolicy",
+    "NextOperationAdvice",
+    "OperationHit",
     "OperationRegistry",
     "OperationSpec",
     "OperationStage",
@@ -46,6 +53,7 @@ __all__ = [
     "ResultCodec",
     "RetryPolicy",
     "SideEffect",
+    "agent_advice",
     "check_dependencies",
     "describe",
     "invocation_schema",
@@ -54,7 +62,24 @@ __all__ = [
     "operation",
     "parameter_schema",
     "registry",
+    "search",
 ]
+
+
+def agent_advice(
+    result: OrganelleResult,
+    *,
+    metadata: Mapping[str, object] | None = None,
+    parameters: Mapping[str, Mapping[str, object]] | None = None,
+    granted_side_effects: tuple[str, ...] = (),
+) -> AgentAdvice:
+    """Inspect live next-operation conditions without modifying a scientific result."""
+    return registry.agent_advice(
+        result,
+        metadata=metadata,
+        parameters=parameters,
+        granted_side_effects=granted_side_effects,
+    )
 
 
 def list(
