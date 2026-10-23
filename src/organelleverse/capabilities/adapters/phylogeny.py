@@ -251,7 +251,10 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(),
     ),
     "phylogeny.build_msn": NamedParameterOverride(
-        parameters=(ParameterOverride(name="haplotypes", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="haplotypes", codec=ParameterCodec.JSON),
+            ParameterOverride(name='connection_limit', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="msn_network",
         side_effects=(),
@@ -260,13 +263,20 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="haplotypes", codec=ParameterCodec.JSON),
             ParameterOverride(name="members", codec=ParameterCodec.JSON),
+            ParameterOverride(name='connection_limit', codec=ParameterCodec.JSON),
+            ParameterOverride(name='infer_intermediates', codec=ParameterCodec.JSON),
+            ParameterOverride(name='collapse_degree2', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="tcs_network",
         side_effects=(),
     ),
     "phylogeny.build_mjn": NamedParameterOverride(
-        parameters=(ParameterOverride(name="haplotypes", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="haplotypes", codec=ParameterCodec.JSON),
+            ParameterOverride(name='epsilon', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_iterations', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="mjn_network",
         side_effects=(),
@@ -278,25 +288,40 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(name="members", codec=ParameterCodec.JSON),
             ParameterOverride(name="freq", codec=ParameterCodec.JSON),
             ParameterOverride(name="edges", codec=ParameterCodec.JSON),
+            ParameterOverride(name='freq_by_pop', codec=ParameterCodec.JSON),
+            ParameterOverride(name='title', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.ARTIFACT,
         result_key=None,
         side_effects=(SideEffect.WRITE_FILES,),
     ),
     "phylogeny.align": NamedParameterOverride(
-        parameters=(ParameterOverride(name="input_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="input_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.SUBPROCESS),
     ),
     "phylogeny.trim_alignment": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(),
     ),
     "phylogeny.build_tree": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='bootstrap', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seed', codec=ParameterCodec.JSON),
+            ParameterOverride(name='threads', codec=ParameterCodec.JSON),
+            ParameterOverride(name='model', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(),
@@ -308,13 +333,22 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(SideEffect.READ_FILES, SideEffect.SUBPROCESS),
     ),
     "phylogeny.plan_tree_build": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='bootstrap', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seed', codec=ParameterCodec.JSON),
+            ParameterOverride(name='threads', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="tree_build_plan",
         side_effects=(),
     ),
     "phylogeny.collapse_haplotypes": NamedParameterOverride(
-        parameters=(ParameterOverride(name="seqs", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="seqs", codec=ParameterCodec.JSON),
+            ParameterOverride(name='population_map', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="haplotype_collapse",
         side_effects=(),
@@ -329,19 +363,35 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(),
     ),
     "phylogeny.tcs_connection_limit": NamedParameterOverride(
-        parameters=(ParameterOverride(name="n_haplotypes", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="n_haplotypes", codec=ParameterCodec.JSON),
+            ParameterOverride(name='sequence_length', codec=ParameterCodec.JSON),
+            ParameterOverride(name='confidence', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="tcs_connection_limit",
         side_effects=(),
     ),
     "phylogeny.haplotype_network": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='connection_limit', codec=ParameterCodec.JSON),
+            ParameterOverride(name='confidence', codec=ParameterCodec.JSON),
+            ParameterOverride(name='epsilon', codec=ParameterCodec.JSON),
+            ParameterOverride(name='population_map', codec=ParameterCodec.JSON),
+            ParameterOverride(name='title', codec=ParameterCodec.JSON),
+            ParameterOverride(name='backend', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "phylogeny.extract_shared_genes": NamedParameterOverride(
-        parameters=(ParameterOverride(name="genbank_paths", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="genbank_paths", codec=ParameterCodec.PATH),
+            ParameterOverride(name='feature_type', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
@@ -349,6 +399,11 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "phylogeny.run_build_tree": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='bootstrap', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seed', codec=ParameterCodec.JSON),
+            ParameterOverride(name='threads', codec=ParameterCodec.JSON),
+            ParameterOverride(name='model', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -357,6 +412,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "phylogeny.run_trim_alignment": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,

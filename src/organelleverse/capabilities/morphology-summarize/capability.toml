@@ -31,3 +31,7 @@ result_key = "morphology_summary"
 [[contract.binding.parameters]]
 name = "per_object"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "by_class"
+codec = "json"

@@ -29,3 +29,19 @@ result_key = "training_snippet"
 name = "data_root"
 codec = "directory"
 path_role = "input"
+
+[[contract.binding.parameters]]
+name = "config"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "checkpoint"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_iters"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "batch_size"
+codec = "json"

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 from ..sequences import Sequences, as_records
 from .diversity import (
     _alignment_length,
@@ -19,6 +21,7 @@ from .diversity import (
 )
 
 
+@validated_public('diversity.compute_nucleotide_diversity')
 def compute_nucleotide_diversity(
     alignment_fasta: str | Path | Sequences, window_size: int = 1000, step: int = 500
 ) -> dict:
@@ -42,6 +45,7 @@ def compute_nucleotide_diversity(
     return {"pi": round(pi, 6), "n_sequences": len(seqs), "windows": windows}
 
 
+@validated_public('diversity.compute_neutral_tests')
 def compute_neutral_tests(alignment_fasta: str | Path | Sequences) -> dict:
     """Compute π, θ_W, Tajima's D, segregating-site count S from an alignment."""
     seqs = [s.upper() for _, s in as_records(alignment_fasta)]

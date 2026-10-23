@@ -10,6 +10,8 @@ from pathlib import Path
 from statistics import mean
 from tempfile import TemporaryDirectory
 
+from organelleverse._public_validation import validated_public
+
 from ..._bio import read_fasta, write_fasta
 from ...core.artifacts import ArtifactRef
 from ...core.errors import OrganelleDependencyError, OrganelleInputError, OrganelleParameterError
@@ -37,6 +39,7 @@ def _proteins(path: Path) -> dict[str, str]:
     return proteins
 
 
+@validated_public('phenotype.assess_cms_candidates')
 def assess_cms_candidates(
     protein_fasta: Path | Sequences,
     *,
@@ -363,6 +366,7 @@ def _expression(path, queries):
     return result
 
 
+@validated_public('phenotype.write_cms_evidence')
 def write_cms_evidence(result: OrganelleResult, *, output: str | Path) -> OrganelleResult:
     """Export full evidence JSON and a TSV retaining separate evidence axes."""
     if result.operation_id not in {

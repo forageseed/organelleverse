@@ -28,3 +28,11 @@ result_key = "mjn_network"
 [[contract.binding.parameters]]
 name = "haplotypes"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "epsilon"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_iterations"
+codec = "json"

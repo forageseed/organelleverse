@@ -28,3 +28,11 @@ result_key = "signal_peptide"
 [[contract.binding.parameters]]
 name = "seq"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "minscore"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organism"
+codec = "json"

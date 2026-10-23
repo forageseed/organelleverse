@@ -28,3 +28,11 @@ result_key = "correlation_matrix"
 [[contract.binding.parameters]]
 name = "residuals"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_overlap"
+codec = "json"

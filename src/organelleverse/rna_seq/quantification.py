@@ -8,12 +8,15 @@ from itertools import chain
 from pathlib import Path
 from typing import Literal
 
+from organelleverse._public_validation import validated_public
+
 from .._bam import alignment_provenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
 
 _SCOPE = Literal["mitochondrion", "plastid"]
 
 
+@validated_public('rna_seq.quantify_splicing_efficiency')
 def quantify_splicing_efficiency(
     bam_path: str | Path,
     introns_tsv: str | Path,
@@ -127,6 +130,7 @@ def quantify_splicing_efficiency(
     )
 
 
+@validated_public('rna_seq.quantify_exon_expression')
 def quantify_exon_expression(
     bam_path: str | Path,
     exons_tsv: str | Path,

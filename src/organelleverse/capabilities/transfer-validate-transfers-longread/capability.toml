@@ -36,3 +36,23 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "hifi_reads"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "flank"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_anchor"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_mapq"
+codec = "json"

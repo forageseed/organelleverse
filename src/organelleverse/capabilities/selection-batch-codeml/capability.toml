@@ -27,3 +27,11 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "jobs"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "n_workers"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "timeout"
+codec = "json"

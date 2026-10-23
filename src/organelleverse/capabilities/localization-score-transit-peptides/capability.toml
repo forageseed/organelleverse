@@ -28,3 +28,7 @@ result_key = "transit_peptides"
 [[contract.binding.parameters]]
 name = "seq"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "window"
+codec = "json"

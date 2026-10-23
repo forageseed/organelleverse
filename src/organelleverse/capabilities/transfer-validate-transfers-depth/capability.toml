@@ -32,3 +32,23 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "bam_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "nuclear_mean_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle_mean_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "flank"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "tolerance"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"

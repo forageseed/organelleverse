@@ -150,25 +150,43 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "codon_composition.amino_acid": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='organelle', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genetic_code', codec=ParameterCodec.JSON),
+            ParameterOverride(name='include_stop', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "codon_composition.codon_usage": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='organelle', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genetic_code', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "codon_composition.compute_amino_acid_composition": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='organelle', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genetic_code', codec=ParameterCodec.JSON),
+            ParameterOverride(name='include_stop', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="amino_acid_composition",
         side_effects=(SideEffect.READ_FILES,),
     ),
     "codon_composition.compute_codon_usage": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='organelle', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genetic_code', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="codon_usage",
         side_effects=(SideEffect.READ_FILES,),

@@ -29,6 +29,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError
 from ..inputs import Tree
 from ..sequences import as_path
@@ -354,6 +356,7 @@ def _match(names: Sequence[str], wanted: Mapping[str, Any]) -> tuple[dict[str, A
 # ── plot_phylo_tree ───────────────────────────────────────────────────────────
 
 
+@validated_public('visualization.plot_phylo_tree')
 def plot_phylo_tree(
     tree: str | Path | Tree,
     *,
@@ -1096,6 +1099,7 @@ def _untangle(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> int:
     return best[0]
 
 
+@validated_public('visualization.plot_tree_conflict')
 def plot_tree_conflict(
     trees: Sequence[str | Path | Tree],
     *,

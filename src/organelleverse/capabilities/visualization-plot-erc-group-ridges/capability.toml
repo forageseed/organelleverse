@@ -30,3 +30,19 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "pairs"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "group_order"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "r_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"

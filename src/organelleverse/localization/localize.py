@@ -36,6 +36,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..core.frozen import FrozenMap
 from ..core.provenance import ResultProvenance
@@ -333,6 +335,7 @@ def _run_external(
         return False, str(exc)
 
 
+@validated_public('localization.predict', python_only=('executor',))
 def predict(
     fasta: str | Path | Sequences,
     *,

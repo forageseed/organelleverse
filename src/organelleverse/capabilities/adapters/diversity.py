@@ -108,13 +108,22 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
                 ("alignment_method", ParameterCodec.JSON),
                 ("single_sample_drop", ParameterCodec.JSON),
             )
+        ) + (
+            ParameterOverride(name='pi_threshold', codec=ParameterCodec.JSON),
+            ParameterOverride(name='top_fraction', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genbank', codec=ParameterCodec.PATH),
+            ParameterOverride(name='reference_index', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.SUBPROCESS, SideEffect.WRITE_FILES),
     ),
     "diversity.nucleotide_diversity": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+            ParameterOverride(name='step', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
@@ -126,7 +135,11 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(SideEffect.READ_FILES,),
     ),
     "diversity.compute_nucleotide_diversity": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+            ParameterOverride(name='step', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="diversity_metrics",
         side_effects=(SideEffect.READ_FILES,),

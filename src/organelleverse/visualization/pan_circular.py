@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from organelleverse._public_validation import validated_public
 
 from ..core.errors import OrganelleDependencyError, OrganelleInputError, OrganelleParameterError
 from .plot_object import OrganellePlot, plot_result
@@ -83,6 +84,7 @@ _INK = "#1F2933"
 _MUTED = "#5B6573"
 
 
+@validated_public('visualization.plot_pan_circular', python_only=('bandage_runner',))
 def plot_pan_circular(
     reference_gbk: str | Path,
     *,

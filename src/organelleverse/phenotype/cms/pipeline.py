@@ -15,6 +15,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..._bio import read_fasta
 from ..._sequtil import reverse_complement
 from ...annotation.research import _predict_orfs
@@ -26,6 +28,7 @@ from ...sequences import Sequences, as_path
 _OPERATION_VERSION = "1.0"
 
 
+@validated_public('phenotype.cms')
 def cms(
     genome_fasta: str | Path | Sequences,
     *,

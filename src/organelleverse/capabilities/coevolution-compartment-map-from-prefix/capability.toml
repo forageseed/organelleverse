@@ -32,3 +32,7 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "prefix_rules"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "default"
+codec = "json"

@@ -100,6 +100,38 @@ codec = "json"
 name = "dpi"
 codec = "json"
 
+[[contract.binding.parameters]]
+name = "max_heatmap_rows"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_limit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "outer_method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "graph_overview_blocks"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "bandage_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "bandage_color_by"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "figsize"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "write_intermediates"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

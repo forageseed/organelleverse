@@ -31,3 +31,7 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "species_tree_newick"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_map"
+codec = "json"

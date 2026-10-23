@@ -30,3 +30,11 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "editing_sites"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "top_n"
+codec = "json"

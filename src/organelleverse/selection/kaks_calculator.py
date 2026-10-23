@@ -38,9 +38,11 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
-from . import _contract
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
 from ..sequences import Sequences, as_path, as_records
+from . import _contract
 
 __all__ = [
     "SUPPORTED_METHODS",
@@ -81,6 +83,7 @@ _KAKS_INFO = {
 }
 
 
+@validated_public('selection.check_kaks_calculator')
 def check_kaks_calculator() -> dict[str, Any]:
     """Check if KaKs_Calculator is installed (PATH + all conda envs)."""
     from ..assembly.install import _list_conda_envs
@@ -229,6 +232,7 @@ def run_kaks_calculator(
 # =========================================================================
 
 
+@validated_public('selection.parse_kaks_output')
 def parse_kaks_output(output_file: str | Path) -> list[dict[str, Any]]:
     """Parse KaKs_Calculator output TSV.
 
@@ -267,6 +271,7 @@ def parse_kaks_output(output_file: str | Path) -> list[dict[str, Any]]:
 # =========================================================================
 
 
+@validated_public('selection.kaks_calculator')
 def kaks_calculator(
     cds_fasta: str | Path | Sequences,
     *,

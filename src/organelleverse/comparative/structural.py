@@ -13,6 +13,7 @@ from collections import Counter
 from pathlib import Path
 
 from Bio.Seq import reverse_complement
+from organelleverse._public_validation import validated_public
 
 from .._bio import read_fasta
 from ..core.errors import OrganelleInputError
@@ -182,6 +183,7 @@ def _classify(blocks, minimum):
     ), sorted(backbone)
 
 
+@validated_public('comparative.detect_structural_variants')
 def detect_structural_variants(
     reference_fasta: str | Path | Sequences,
     query_fasta: str | Path | Sequences,

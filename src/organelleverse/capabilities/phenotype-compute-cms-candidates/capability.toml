@@ -30,3 +30,11 @@ result_key = "cms_candidates"
 [[contract.binding.parameters]]
 name = "fasta_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_orf_aa"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "tm_threshold"
+codec = "json"

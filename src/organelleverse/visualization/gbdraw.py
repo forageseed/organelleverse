@@ -16,6 +16,8 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.data import OrganelleData
 from ..core.genome import OrganelleGenome
 from ..core.result import OrganelleResult
@@ -35,6 +37,7 @@ _OUTPUT_SUFFIX = {
 }
 
 
+@validated_public('visualization.plot_gbdraw', python_only=('runner',))
 def plot_gbdraw(
     inputs: (PathInput | Sequence[PathInput] | OrganelleGenome | OrganelleData),
     *,
@@ -514,6 +517,7 @@ def _render_gbdraw(
     return existing_outputs[0]
 
 
+@validated_public('visualization.plot_gene_structure')
 def plot_gene_structure(
     inputs: (PathInput | Sequence[PathInput] | OrganelleGenome | OrganelleData),
     *,
@@ -542,6 +546,7 @@ def plot_gene_structure(
     )
 
 
+@validated_public('visualization.plot_collinearity')
 def plot_collinearity(
     inputs: (PathInput | Sequence[PathInput] | OrganelleGenome | OrganelleData),
     *,

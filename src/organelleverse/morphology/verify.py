@@ -39,9 +39,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from organelleverse._public_validation import validated_public
+
 from ..core import ErrorDetail, Finding, OrganelleResult
-from ..sequences import as_path
 from ..inputs import Images
+from ..sequences import as_path
 from ._contract import (
     MORPHOLOGY_OPERATION_VERSION,
     MORPHOLOGY_SCOPE,
@@ -253,6 +255,7 @@ def summarize_verdicts(verdicts: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {"model_id": next(iter(models), None), "n": len(verdicts), "counts": counts}
 
 
+@validated_public('morphology.verify', python_only=('client',))
 def verify(
     label_map: str | Path | Images,
     image: str | Path | Images,

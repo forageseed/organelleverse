@@ -28,3 +28,7 @@ result_key = "haplotype_collapse"
 [[contract.binding.parameters]]
 name = "seqs"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "population_map"
+codec = "json"

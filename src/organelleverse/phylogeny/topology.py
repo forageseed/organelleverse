@@ -9,6 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from Bio import Phylo
+from organelleverse._public_validation import validated_public
 
 from ..core.external import run_external
 from ..core.result import OrganelleResult
@@ -57,6 +58,7 @@ def _parse_user_tree_table(report: Path) -> list[dict[str, object]]:
     return rows
 
 
+@validated_public('phylogeny.test_topologies')
 def test_topologies(
     alignment_fasta: str | Path,
     candidate_trees: str | Path,

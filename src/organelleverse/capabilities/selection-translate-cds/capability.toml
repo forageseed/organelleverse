@@ -28,3 +28,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "strip_stop"
+codec = "json"

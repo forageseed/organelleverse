@@ -430,10 +430,20 @@ def test_package_exports_a_default_registry() -> None:
 
 
 def test_all_release_bindings_remain_in_process_with_exact_function_identity() -> None:
-    bindings = tuple(registry.require(spec.operation_id) for spec in registry.list())
+    from tests.capabilities.release_bundles import release_operation_ids
+
+    # Admitted first-party capabilities (advisory verification) and the
+    # tools.adapter plugin extend discovery; the 20 canonical release bindings
+    # retain their original identities.
+    release = release_operation_ids()
+    bindings = tuple(
+        registry.require(spec.operation_id)
+        for spec in registry.list()
+        if spec.operation_id in release
+    )
     function_ids = {binding.spec.operation_id: binding.function for binding in bindings}
 
-    assert len(bindings) == 20
+    assert set(function_ids) == release
     assert all(binding.invocation_strategy is None for binding in bindings)
     assert all(
         registry.require(operation_id).function is function

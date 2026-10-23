@@ -27,3 +27,31 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "alignment_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "connection_limit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "confidence"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "epsilon"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "population_map"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"

@@ -114,3 +114,14 @@ When sharing results, record the installed OV version, input identifiers,
 parameters, actual tool versions, output paths and material limitations. Report
 package installation, dependency readiness, execution and scientific acceptance
 as distinct observations.
+
+## Native Python validation
+
+Registered public scientific functions validate native Python calls through the
+same checked invocation boundary as `ov.operations.invoke`. Invalid scientific
+arguments raise `OrganelleParameterError` before execution. Read `help(function)`
+for native types and defaults, and `ov.operations.parameter_schema(operation_id)`
+for JSON fields. Executors, transports and rich Python data retain their native
+interfaces. The installed `organelleverse.operations.python_only` module records
+every argument intentionally excluded from JSON, with a reason. A successful
+plan is still not evidence that a backend ran.

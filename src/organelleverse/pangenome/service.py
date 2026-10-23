@@ -13,6 +13,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
 from ..core.errors import OrganelleInputError
 from ..core.genome import OrganelleGenome
@@ -42,6 +44,7 @@ from .tuning import (
 _OPERATION_ID = "pangenome.build_graph"
 
 
+@validated_public('pangenome.build_graph')
 def build_graph(
     genomes: list[OrganelleGenome],
     *,

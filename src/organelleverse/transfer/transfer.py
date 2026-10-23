@@ -30,6 +30,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
 from ..annotation.genbank import parse_genbank
@@ -39,8 +41,8 @@ from ..core.frozen import FrozenMap, thaw_json
 from ..core.genome import OrganelleGenome
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
-from ..sequences import Sequences, as_path
 from ..inputs import ReadAlignments
+from ..sequences import Sequences, as_path
 
 _SUITE = "transfer"
 _OPERATION_VERSION = "1.0"
@@ -140,6 +142,7 @@ def detect(
     )
 
 
+@validated_public('transfer.detect_mtpt')
 def detect_mtpt(
     mito_fasta: str | Path | Sequences,
     cp_fasta: str | Path | Sequences,
@@ -805,6 +808,7 @@ def _replace(c: TransferCandidate, **changes) -> TransferCandidate:
     return _r(c, **changes)
 
 
+@validated_public('transfer.detect_transfers_blast')
 def detect_transfers_blast(
     nuclear_fasta: str | Path | Sequences,
     organelle_fasta: str | Path | Sequences,
@@ -983,6 +987,7 @@ def _union(a: TransferCandidate, b: TransferCandidate) -> TransferCandidate:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('transfer.validate_transfers_depth')
 def validate_transfers_depth(
     candidates: list[Mapping[str, str | int | float | None]],
     bam_path: str | Path | ReadAlignments,
@@ -1168,6 +1173,7 @@ def _region_depth(bam, seqid: str, start: int, end: int) -> float:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('transfer.validate_transfers_longread')
 def validate_transfers_longread(
     nuclear_fasta: str | Path | Sequences,
     candidates: list[Mapping[str, str | int | float | None]],
@@ -1391,6 +1397,7 @@ def _validate_longread_core(
 # ---------------------------------------------------------------------------
 
 
+@validated_public('transfer.detect_transfers_evidence')
 def detect_transfers_evidence(
     nuclear_fasta: str | Path | OrganelleData,
     organelle_fasta: str | Path | OrganelleGenome | OrganelleData | None = None,

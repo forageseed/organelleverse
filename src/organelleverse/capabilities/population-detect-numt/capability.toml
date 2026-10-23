@@ -31,3 +31,15 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "mito_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "k"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_len"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"

@@ -215,13 +215,20 @@ class NamedParameterOverride:
 OVERRIDES: dict[str, NamedParameterOverride] = {
     # Zero-out batch: jobs rows are {ctl_path, work_dir, label?}, all str.
     "selection.batch_codeml": NamedParameterOverride(
-        parameters=(ParameterOverride(name="jobs", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="jobs", codec=ParameterCodec.JSON),
+            ParameterOverride(name='n_workers', codec=ParameterCodec.JSON),
+            ParameterOverride(name='timeout', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.WRITE_FILES, SideEffect.SUBPROCESS),
     ),
     "selection.align_protein": NamedParameterOverride(
-        parameters=(ParameterOverride(name="protein_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="protein_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.SUBPROCESS),
@@ -231,6 +238,9 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(name="alignment", codec=ParameterCodec.PATH),
             ParameterOverride(name="tree", codec=ParameterCodec.PATH),
             ParameterOverride(name="run", codec=ParameterCodec.JSON),
+            ParameterOverride(name='foreground_labels', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seqfile', codec=ParameterCodec.JSON),
+            ParameterOverride(name='treefile', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -241,6 +251,9 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(name="alignment", codec=ParameterCodec.PATH),
             ParameterOverride(name="tree", codec=ParameterCodec.PATH),
             ParameterOverride(name="run", codec=ParameterCodec.JSON),
+            ParameterOverride(name='foreground_labels', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seqfile', codec=ParameterCodec.JSON),
+            ParameterOverride(name='treefile', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -251,6 +264,10 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(name="alignment", codec=ParameterCodec.PATH),
             ParameterOverride(name="tree", codec=ParameterCodec.PATH),
             ParameterOverride(name="run", codec=ParameterCodec.JSON),
+            ParameterOverride(name='clade1_labels', codec=ParameterCodec.JSON),
+            ParameterOverride(name='clade2_labels', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seqfile', codec=ParameterCodec.JSON),
+            ParameterOverride(name='treefile', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -261,6 +278,9 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(name="alignment", codec=ParameterCodec.PATH),
             ParameterOverride(name="tree", codec=ParameterCodec.PATH),
             ParameterOverride(name="run", codec=ParameterCodec.JSON),
+            ParameterOverride(name='models', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seqfile', codec=ParameterCodec.JSON),
+            ParameterOverride(name='treefile', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -291,13 +311,20 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(SideEffect.READ_FILES, SideEffect.WRITE_FILES),
     ),
     "selection.kaks": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_pairs_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_pairs_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='jukes_cantor', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "selection.kaks_calculator": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genetic_code', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.SUBPROCESS),
@@ -334,31 +361,48 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(SideEffect.READ_FILES,),
     ),
     "selection.prepare_codeml": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='require_start', codec=ParameterCodec.JSON),
+            ParameterOverride(name='use_mafft', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.SUBPROCESS),
     ),
     "selection.to_paml": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='convert_t_to_u', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "selection.translate_cds": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='strip_stop', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "selection.validate_cds": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='require_start', codec=ParameterCodec.JSON),
+            ParameterOverride(name='allow_internal_stop', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "selection.validate_cds_sequences": NamedParameterOverride(
-        parameters=(ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='require_start', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="cds_validation",
         side_effects=(SideEffect.READ_FILES,),
@@ -429,6 +473,8 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "selection.run_kaks_calculator_workflow": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="cds_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='genetic_code', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -437,6 +483,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "selection.run_codeml": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="ctl_path", codec=ParameterCodec.PATH),
+            ParameterOverride(name='timeout', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="codeml_run",

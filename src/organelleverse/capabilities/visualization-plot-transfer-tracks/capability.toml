@@ -30,3 +30,59 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "candidates"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "nuclear_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "chromosome_lengths"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "color_by"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "transfer_label"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "centromeres"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "chromosome_order"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_density"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "density_window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_top"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_chromosome_fraction"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "panel_label"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"

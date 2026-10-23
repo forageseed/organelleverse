@@ -40,6 +40,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
 from ..core.data import OrganelleData
 from ..core.errors import OrganelleExecutionError, OrganelleParameterError
@@ -187,6 +189,7 @@ def _download_url(record: dict[str, Any], fmt: str) -> str:
     return f"{GWH_PLANTS}/{record['folder']}/{record['accession']}.{_SUFFIX[fmt]}"
 
 
+@validated_public('fetch.ngdc_gwh', python_only=('transport',))
 def fetch_ngdc(
     *,
     organelle: Organelle,

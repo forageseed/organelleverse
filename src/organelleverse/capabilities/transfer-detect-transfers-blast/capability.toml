@@ -32,3 +32,19 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "organelle_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "evalue"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"

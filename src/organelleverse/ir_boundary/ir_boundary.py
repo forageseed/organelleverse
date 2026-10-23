@@ -17,6 +17,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..annotation.genbank import parse_genbank
 from ..core.artifacts import ArtifactRef
 from ..core.errors import OrganelleInputError
@@ -64,6 +66,7 @@ def _provenance(
     )
 
 
+@validated_public('ir_boundary.ir_boundary')
 def ir_boundary(
     genomes: list[OrganelleGenome],
 ) -> OrganelleResult:

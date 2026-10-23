@@ -73,6 +73,26 @@ codec = "json"
 name = "width"
 codec = "json"
 
+[[contract.binding.parameters]]
+name = "ladderize"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "support_thresholds"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "tip_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "italic"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

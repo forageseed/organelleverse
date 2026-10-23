@@ -10,10 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.data import OrganelleData
 from ..core.result import OrganelleResult
-from ..sequences import as_path
 from ..inputs import Graph
+from ..sequences import as_path
 from .plot_object import failed_plot_result, plot_result
 
 Runner = Callable[[list[str], dict[str, str]], Any]
@@ -49,6 +51,7 @@ class GfaGraph:
     paths: tuple[str, ...] = ()
 
 
+@validated_public('visualization.plot_gfa_graph', python_only=('runner',))
 def plot_gfa_graph(
     gfa: str | Path | OrganelleData | Graph,
     *,

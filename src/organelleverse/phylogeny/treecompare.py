@@ -13,10 +13,12 @@ import re
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
-from ..sequences import as_path
 from ..inputs import Tree
+from ..sequences import as_path
 from ._results import findings, ok_result, provenance
 
 __all__ = [
@@ -193,6 +195,7 @@ def robinson_foulds(newick_a: str, newick_b: str) -> dict[str, Any]:
     }
 
 
+@validated_public('phylogeny.compare_trees')
 def compare_trees(tree_a: str | Path | Tree, tree_b: str | Path | Tree) -> OrganelleResult:
     """Compare two tree files (Newick or NEXUS) by unrooted Robinson-Foulds distance.
 

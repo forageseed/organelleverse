@@ -36,6 +36,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError, OrganelleParameterError
 from . import popgen_data as data
 from . import popgen_render
@@ -187,6 +189,7 @@ def _peak_label(start: int, end: int, features: list[tuple[int, int, str]]) -> s
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_fst_scan')
 def plot_fst_scan(
     vcf: str | Path | None = None,
     *,
@@ -323,6 +326,7 @@ def _highlights(highlight, windows, key, cut) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_pi_ratio')
 def plot_pi_ratio(
     groups: Mapping[str, str],
     *,
@@ -481,6 +485,7 @@ def _metrics_of(result: Any, kind: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_sv_schematic')
 def plot_sv_schematic(
     gfa: str | Path | None = None,
     *,
@@ -559,6 +564,7 @@ def plot_sv_schematic(
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_sv_frequency')
 def plot_sv_frequency(
     svs: Sequence[Mapping[str, str | int | Mapping[str, bool | None] | Mapping[str, float] | None]] | None = None,
     *,
@@ -761,6 +767,7 @@ def _sv_test(
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_presence_tracks')
 def plot_presence_tracks(
     coverage: Mapping[str, Any] | None = None,
     *,

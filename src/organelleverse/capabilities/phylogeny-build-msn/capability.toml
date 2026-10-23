@@ -28,3 +28,7 @@ result_key = "msn_network"
 [[contract.binding.parameters]]
 name = "haplotypes"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "connection_limit"
+codec = "json"

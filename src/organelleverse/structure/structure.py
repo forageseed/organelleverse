@@ -21,6 +21,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
 from ..annotation.genbank import parse_genbank
@@ -30,8 +32,8 @@ from ..core.frozen import thaw_json
 from ..core.genome import OrganelleGenome
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
-from ..sequences import Sequences, as_path
 from ..inputs import Graph
+from ..sequences import Sequences, as_path
 
 _OPERATION_VERSION = "1.0"
 
@@ -101,6 +103,7 @@ def _provenance(
     )
 
 
+@validated_public('structure.multiconf')
 def multiconf(
     genome_fasta: str | Path | Sequences,
     *,
@@ -181,6 +184,7 @@ def multiconf(
     )
 
 
+@validated_public('structure.introns')
 def introns(genome: OrganelleGenome) -> OrganelleResult:
     """Analyze explicitly annotated intron features (GenBank ``intron`` only).
 
@@ -247,6 +251,7 @@ def introns(genome: OrganelleGenome) -> OrganelleResult:
     )
 
 
+@validated_public('structure.repeats')
 def repeats(
     genome_fasta: str | Path | Sequences,
     *,
@@ -480,6 +485,7 @@ def _find_ssrs(
 # ---------------------------------------------------------------------------
 
 
+@validated_public('structure.resolve_configs')
 def resolve_configs(
     genome_fasta: str | Path | Sequences,
     *,

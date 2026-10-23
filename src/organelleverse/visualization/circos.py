@@ -33,6 +33,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError, OrganelleParameterError
 from ..core.frozen import thaw_json
 from ..core.result import OrganelleResult
@@ -130,6 +132,7 @@ _RIBBON_ALPHA = 0.6
 # ── public entry point ───────────────────────────────────────────────────────
 
 
+@validated_public('visualization.plot_transfer_circos')
 def plot_transfer_circos(
     transfers: Sequence[
         Mapping[

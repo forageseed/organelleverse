@@ -31,6 +31,14 @@ result_key = "codon_usage"
 name = "cds_fasta"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genetic_code"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

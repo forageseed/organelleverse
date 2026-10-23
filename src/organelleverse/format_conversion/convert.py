@@ -12,6 +12,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..annotation.genbank import parse_genbank
 from ..annotation.models import AnnotationDocument
 from ..core.frozen import FrozenMap, thaw_json
@@ -59,6 +61,7 @@ def _provenance(genome: OrganelleGenome, parameters: dict[str, Any]) -> ResultPr
     )
 
 
+@validated_public('format_conversion.convert')
 def convert(
     genome: OrganelleGenome,
     *,

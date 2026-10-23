@@ -1,10 +1,15 @@
 """Typed cores for barcode (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
+
+from organelleverse._public_validation import validated_public
+
 from ..sequences import Sequences, as_records
 
 
+@validated_public('barcode.compute_barcode_candidates')
 def compute_barcode_candidates(
     alignment_fasta: str | Path | Sequences, min_window: int = 100, min_p_variability: float = 0.05
 ) -> dict:
@@ -29,6 +34,7 @@ def compute_barcode_candidates(
     return {"candidates": candidates, "n_sequences": len(seqs), "alignment_length": L}
 
 
+@validated_public('barcode.compute_jaccard_identity')
 def compute_jaccard_identity(
     query_fasta: str | Path | Sequences, reference_fasta: str | Path | Sequences, k: int = 31
 ) -> dict:

@@ -28,3 +28,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "alignment_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"

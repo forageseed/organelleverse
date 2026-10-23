@@ -47,7 +47,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 _LEDGER = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CAPABILITIES = PROJECT_ROOT / "src" / "organelleverse" / "capabilities"
+_CAPABILITIES = PROJECT_ROOT / "src" / "capabilities"
 
 WRITER_PREFIXES = ("write_", "save_")
 UI_NAMES = {"build_app", "serve"}

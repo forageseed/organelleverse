@@ -35,6 +35,10 @@ codec = "path"
 name = "reference_fasta"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "k"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

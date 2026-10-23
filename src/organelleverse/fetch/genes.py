@@ -22,6 +22,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
+from organelleverse._public_validation import validated_public
+
 from ..core.data import OrganelleData
 from ..core.errors import OrganelleParameterError
 from ._http import Transport, default_transport
@@ -72,6 +74,7 @@ def build_gene_term(
     return f"{term} AND {scope_clause}"
 
 
+@validated_public('fetch.gene_records', python_only=('transport',))
 def fetch_genes(
     *,
     gene: str,

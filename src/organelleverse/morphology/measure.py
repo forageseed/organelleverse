@@ -41,14 +41,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from organelleverse._public_validation import validated_public
 from scipy import ndimage as ndi
 from skimage import measure as skmeasure
 from skimage.feature import peak_local_max
 from skimage.segmentation import watershed
 
 from ..core.errors import OrganelleInputError
-from ..sequences import as_path
 from ..inputs import Images
+from ..sequences import as_path
 
 __all__ = [
     "ORGSEG_CLASSES",
@@ -477,6 +478,7 @@ def _finalize_spatial(
     }
 
 
+@validated_public('morphology.measure')
 def measure(
     label_map: str | Path | np.ndarray | Images,
     *,
@@ -703,6 +705,7 @@ def measure(
     }
 
 
+@validated_public('morphology.summarize')
 def summarize(
     per_object: list[Mapping[str, str | int | float | bool | None]]
     | Mapping[str, list[Mapping[str, str | int | float | bool | None]]],
@@ -777,6 +780,7 @@ def summarize(
     return result
 
 
+@validated_public('morphology.overlay')
 def overlay(
     image: str | Path | np.ndarray | Images,
     label_map: str | Path | np.ndarray | Images,

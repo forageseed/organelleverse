@@ -45,6 +45,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core import ArtifactRef, ErrorDetail, Finding, OrganelleResult
 from ._contract import (
     MORPHOLOGY_OPERATION_VERSION,
@@ -65,6 +67,7 @@ DEFAULT_CHECKPOINT = "OrgSegNet_iter_Version1.pth"
 ZENODO_URL = "https://zenodo.org/records/8419877"
 
 
+@validated_public('morphology.validate_dataset')
 def validate_dataset(data_root: str | Path) -> dict[str, Any]:
     """Validate an OrgSegNet fine-tune dataset directory layout.
 
@@ -131,6 +134,7 @@ def validate_dataset(data_root: str | Path) -> dict[str, Any]:
     }
 
 
+@validated_public('morphology.training_code_snippet')
 def training_code_snippet(
     data_root: str | Path,
     *,

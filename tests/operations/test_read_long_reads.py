@@ -50,7 +50,9 @@ def reads(tmp_path: Path) -> Path:
 
 
 def test_operation_is_registered_with_a_closed_three_parameter_schema() -> None:
-    assert len(op.list()) == 20
+    from tests.capabilities.release_bundles import release_operation_ids
+
+    assert release_operation_ids() <= {spec.operation_id for spec in op.list()}
     schema = op.parameter_schema("io.read_long_reads")
     expected = ["quality_state", "reads", "technology"]
     assert sorted(_mapping(schema["properties"])) == expected

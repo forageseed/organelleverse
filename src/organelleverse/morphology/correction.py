@@ -26,9 +26,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core import ErrorDetail, Finding, OrganelleResult
-from ..sequences import as_path
 from ..inputs import Images
+from ..sequences import as_path
 from ._contract import (
     MORPHOLOGY_OPERATION_VERSION,
     MORPHOLOGY_SCOPE,
@@ -84,6 +86,7 @@ def _failed(
     )
 
 
+@validated_public('morphology.correct')
 def correct(
     original_label_map: str | Path | Images,
     corrected_label_map: str | Path | Images,

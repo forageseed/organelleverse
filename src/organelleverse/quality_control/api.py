@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from annotated_types import Ge, Le
-
+from organelleverse._public_validation import validated_public
 from organelleverse.core.data import OrganelleData
 from organelleverse.core.result import OrganelleResult
 
@@ -21,6 +21,7 @@ __all__ = [
 ]
 
 
+@validated_public('qc.annotation')
 def annotation(result: OrganelleResult) -> OrganelleResult:
     """Audit one canonical annotation Result."""
 
@@ -29,6 +30,7 @@ def annotation(result: OrganelleResult) -> OrganelleResult:
     return run_annotation_qc(result)
 
 
+@validated_public('qc.assembly')
 def assembly(
     result: OrganelleResult,
     *,
@@ -46,6 +48,7 @@ def assembly(
     )
 
 
+@validated_public('qc.write')
 def write(result: OrganelleResult, *, output: Path) -> OrganelleResult:
     """Materialize a canonical QC Result to a user-facing bundle or file."""
 
@@ -54,6 +57,7 @@ def write(result: OrganelleResult, *, output: Path) -> OrganelleResult:
     return materialize_result(result, output)
 
 
+@validated_public('qc.read_statistics')
 def read_statistics(reads: Path | OrganelleData) -> OrganelleResult:
     """Summarize plain/gzip FASTQ lengths and base-weighted Phred+33 quality.
 
@@ -65,6 +69,7 @@ def read_statistics(reads: Path | OrganelleData) -> OrganelleResult:
     return run(reads)
 
 
+@validated_public('qc.filter_long_reads')
 def filter_long_reads(
     reads: Path,
     *,
@@ -80,6 +85,7 @@ def filter_long_reads(
     )
 
 
+@validated_public('qc.filter_short_reads')
 def filter_short_reads(
     reads: Path,
     *,
@@ -104,6 +110,7 @@ def filter_short_reads(
     )
 
 
+@validated_public('qc.compare_assembly_to_reference')
 def compare_assembly_to_reference(
     input_fasta: Path,
     reference_fasta: Path,

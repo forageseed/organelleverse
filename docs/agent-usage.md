@@ -41,18 +41,18 @@ replacing existing rules:
 
 ## Message to paste into an agent chat
 
-Replace the branch below with a reviewed commit when sharing an exact build.
+This message uses the maintained installation branch. Replace its archive URL
+with a reviewed commit archive when sharing a fixed build.
 
-> 请在当前项目选定的 Python 3.11+ 环境中，用 uv 普通安装
-> `organelleverse @ https://github.com/forageseed/organelleverse/archive/refs/heads/agent/installed-usage-guide.tar.gz`，
-> 不要使用 editable 安装。先确认已有环境，未有环境才创建项目 `.venv`，保留现有代码、依赖约束和凭据。
-> 安装后使用同一解释器运行 `-m organelleverse.agent_guide` 并读取输出，再运行
-> `-m organelleverse.agent_guide --skill`，将输出保存到你支持的项目 skill 目录
-> （支持时使用 `.agents/skills/organelleverse/SKILL.md`）；已有同名文件先核对，不直接覆盖。
-> 若你读取项目 `AGENTS.md`，在保留原规则的前提下补充一条使用 OV 前读取该指南的提示。
-> 核对实际导入路径和 skill 文件；宿主需要时刷新技能目录。之后遇到相关分析任务，按指南和
-> 实际 API 自主选择合适功能，检查依赖、结果状态与证据限制，遵守我的计算和下载要求。
-> 如果安装或入口检查失败，报告具体原因，不声称已配置成功。
+> 请在当前项目的 Python 3.11+ 环境里，用 uv 普通安装
+> `organelleverse @ https://github.com/forageseed/organelleverse/archive/refs/heads/agent/installed-usage-guide.tar.gz`。
+> 安装后在同一环境运行 `python -m organelleverse.agent_guide` 并读完指南，按你支持的方式启用包内 skill，保留已有配置。
+> 之后根据我的科研需求按需选用 OV，遵守项目的计算和下载规则；安装或检查失败时说明原因。
+
+The receiving agent should use the installed guide to discover functions and
+inspect their help and contracts as needed. Public scientific Python calls and
+registered calls share validation; native injection interfaces remain available.
+An installed package alone cannot make every host automatically read its skill.
 
 ## Maintainer verification
 

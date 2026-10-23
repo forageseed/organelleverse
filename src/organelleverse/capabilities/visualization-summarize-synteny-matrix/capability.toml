@@ -28,3 +28,11 @@ result_key = "synteny_summary"
 [[contract.binding.parameters]]
 name = "blocks"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genome_lengths"
+codec = "json"

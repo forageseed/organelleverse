@@ -47,7 +47,7 @@ def test_bundle_declares_input_sequence() -> None:
 
     bundle = parse_capability_bundle(
         Path(__file__).resolve().parents[2]
-        / "src" / "organelleverse" / "capabilities"
+        / "src" / "capabilities"
         / "comparative-compare-genes"
         / "capability.toml"
     )

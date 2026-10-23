@@ -26,3 +26,11 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "correlations"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "r_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "use_fdr"
+codec = "json"

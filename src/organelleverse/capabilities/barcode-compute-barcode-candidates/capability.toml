@@ -31,6 +31,14 @@ result_key = "barcode_candidates"
 name = "alignment_fasta"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "min_window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_p_variability"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

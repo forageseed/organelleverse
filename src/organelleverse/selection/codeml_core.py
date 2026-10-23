@@ -1,12 +1,17 @@
 """Typed cores for selection/CodeML (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
+
+from organelleverse._public_validation import validated_public
+
 from ..core.frozen import thaw_json
 from ..sequences import Sequences, as_records
 from .kaks import _nei_gojobori
 
 
+@validated_public('selection.compute_kaks')
 def compute_kaks(cds_fasta: str | Path | Sequences) -> dict:
     """Compute pairwise Ka/Ks from CDS. Returns dict."""
     seqs = as_records(cds_fasta)
@@ -31,6 +36,7 @@ def compute_kaks(cds_fasta: str | Path | Sequences) -> dict:
     }
 
 
+@validated_public('selection.validate_cds_sequences')
 def validate_cds_sequences(cds_fasta: str | Path | Sequences, require_start: bool = True) -> dict:
     """Validate CDS sequences. Returns dict with per-seq results."""
     from .codeml import validate_cds

@@ -65,6 +65,14 @@ codec = "json"
 name = "width"
 codec = "json"
 
+[[contract.binding.parameters]]
+name = "italic"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

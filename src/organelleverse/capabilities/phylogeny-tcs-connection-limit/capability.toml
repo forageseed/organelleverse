@@ -28,3 +28,11 @@ result_key = "tcs_connection_limit"
 [[contract.binding.parameters]]
 name = "n_haplotypes"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "sequence_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "confidence"
+codec = "json"

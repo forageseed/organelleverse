@@ -27,3 +27,19 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "genome_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "gfa_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_repeat_len"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_mismatches"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"

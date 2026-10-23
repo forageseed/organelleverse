@@ -27,3 +27,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "input_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"

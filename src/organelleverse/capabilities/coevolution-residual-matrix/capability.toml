@@ -28,3 +28,11 @@ result_key = "residual_matrix"
 [[contract.binding.parameters]]
 name = "path_matrix"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "transform"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "trim_prop"
+codec = "json"

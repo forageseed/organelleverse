@@ -24,11 +24,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from . import _contract
+from organelleverse._public_validation import validated_public
+
 from ..core.external import run_external
 from ..core.result import OrganelleResult
 from ..selection.kaks import _CODONS as STANDARD_CODONS
 from ..sequences import Sequences, as_path, as_records
+from . import _contract
 
 __all__ = [
     "validate_cds",
@@ -46,6 +48,7 @@ __all__ = [
 # =========================================================================
 
 
+@validated_public('selection.validate_cds')
 def validate_cds(
     cds_fasta: str | Path | Sequences,
     *,
@@ -120,6 +123,7 @@ def validate_cds(
 # =========================================================================
 
 
+@validated_public('selection.translate_cds')
 def translate_cds(
     cds_fasta: str | Path | Sequences,
     *,
@@ -181,6 +185,7 @@ def _translate(dna: str, strip_stop: bool = True) -> str:
 # =========================================================================
 
 
+@validated_public('selection.align_protein', python_only=('executor',))
 def align_protein(
     protein_fasta: str | Path | Sequences,
     *,
@@ -294,6 +299,7 @@ def _read_fasta_str(text: str) -> list[tuple[str, str]]:
 # =========================================================================
 
 
+@validated_public('selection.pal2nal')
 def pal2nal(
     protein_alignment_fasta: str | Path | Sequences,
     cds_fasta: str | Path | Sequences,
@@ -387,6 +393,7 @@ def _back_align(prot_aln: str, cds: str) -> str:
 # =========================================================================
 
 
+@validated_public('selection.to_paml')
 def to_paml(
     alignment_fasta: str | Path | Sequences,
     *,
@@ -508,6 +515,7 @@ def _records(result: OrganelleResult) -> Sequence[Mapping[str, Any]]:
 # =========================================================================
 
 
+@validated_public('selection.prepare_codeml')
 def prepare_codeml(
     cds_fasta: str | Path | Sequences,
     *,

@@ -39,12 +39,14 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
-from ..core.provenance import ResultProvenance
 from ..core.frozen import FrozenMap
+from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
-from ..sequences import Sequences, as_path
 from ..inputs import Variants
+from ..sequences import Sequences, as_path
 
 _OPERATION_VERSION = "1.0"
 _SCOPE = "mitochondrion"
@@ -272,6 +274,7 @@ def call_variants(
     )
 
 
+@validated_public('population.fst_scan')
 def fst_scan(
     vcf_path: str | Path | Variants,
     *,
@@ -402,6 +405,7 @@ def fst_scan(
     )
 
 
+@validated_public('population.detect_numt')
 def detect_numt(
     nuclear_fasta: str | Path | Sequences,
     mito_fasta: str | Path | Sequences,

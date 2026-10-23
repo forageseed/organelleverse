@@ -7,13 +7,16 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
+from ..inputs import Images
 from ..runtime import managed_run_path
 from ..sequences import as_path
-from ..inputs import Images
 from .microsam import DEFAULT_EM_ORGANELLE_MODEL
 
 
+@validated_public('morphology.segment', python_only=('executor',))
 def segment(
     images: str | Path | list[str | Path] | Images,
     *,
@@ -51,6 +54,7 @@ def segment(
     )
 
 
+@validated_public('morphology.train', python_only=('executor',))
 def train(
     data_root: str | Path,
     *,

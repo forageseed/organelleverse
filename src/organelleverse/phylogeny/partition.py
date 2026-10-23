@@ -33,6 +33,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
 from ..core.external import run_external
 from ..core.result import OrganelleResult
@@ -456,6 +458,7 @@ _BASE_MODELS: dict[str, tuple[int, bool, bool]] = {
 }
 
 
+@validated_public('phylogeny.iqtree_to_mrbayes_model')
 def iqtree_to_mrbayes_model(model: str) -> dict[str, Any]:
     """Map one IQ-TREE DNA model string to MrBayes ``lset``/``prset`` settings.
 

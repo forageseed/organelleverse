@@ -5,11 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..sequences import Sequences, as_path
 from .structure import _find_record_repeats, _find_ssrs, _repeat_size_classes, _ssr_counts_by_unit
 
 
+@validated_public('structure.compute_multiconf')
 def compute_multiconf(
     fasta_path: str | Path | Sequences, min_repeat_len: int = 50, max_mismatches: int = 0
 ) -> dict:
@@ -40,6 +43,7 @@ def compute_multiconf(
     }
 
 
+@validated_public('structure.compute_repeats')
 def compute_repeats(
     fasta_path: str | Path | Sequences,
     min_ssr_unit: int = 1,

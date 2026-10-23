@@ -34,3 +34,35 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "y"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "xlabel"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ylabel"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "highlight_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"

@@ -10,8 +10,7 @@ from dataclasses import dataclass, replace
 from functools import wraps
 from typing import TYPE_CHECKING, Never, ParamSpec, Protocol, TypeAlias, TypeVar, cast
 
-from pydantic import BaseModel, JsonValue, ValidationError
-
+from organelleverse._public_validation import unchecked_public
 from organelleverse.core.data import OrganelleData
 from organelleverse.core.errors import (
     OrganelleContractError,
@@ -21,6 +20,7 @@ from organelleverse.core.errors import (
 from organelleverse.core.frozen import thaw_json
 from organelleverse.core.genome import OrganelleGenome
 from organelleverse.core.result import OrganelleResult
+from pydantic import BaseModel, JsonValue, ValidationError
 
 from ._validation import validation_summaries, validation_summary
 from .data_contracts import BUILTIN_DATA_CONTRACTS, DataContract, DataContractRegistry
@@ -412,7 +412,7 @@ class OperationRegistry:
             data_contracts,
         )
         signature = derive_operation_signature(function, validated_spec)
-        implementation = cast(Callable[..., CoreObject], function)
+        implementation = cast(Callable[..., CoreObject], unchecked_public(function))
         finalize_suggestions = self._suggestion_finalizer(validated_spec)
 
         @wraps(function)
@@ -726,6 +726,7 @@ def _invoke_checked_python(
     suggestion_finalizer: SuggestionFinalizer | None = None,
     parameter_decoder: ParameterDecoder | None = None,
     invocation_strategy: InvocationStrategy | None = None,
+    python_result_validator: Callable[[object], object] | None = None,
 ) -> CoreObject:
     values = dict(bound_arguments)
     core_input: CoreObject | None = None
@@ -785,6 +786,8 @@ def _invoke_checked_python(
         )
     else:
         result = invocation_strategy.invoke(core_input, parameters)
+    if python_result_validator is not None:
+        return cast(CoreObject, python_result_validator(result))
     if type(result) is not signature.output_type:
         raise OrganelleContractError(
             code="contract.operation_output_type_mismatch",

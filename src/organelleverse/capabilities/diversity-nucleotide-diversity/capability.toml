@@ -36,6 +36,14 @@ result_codec = "canonical"
 name = "alignment_fasta"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "window_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "step"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

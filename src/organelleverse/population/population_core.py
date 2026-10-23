@@ -5,12 +5,17 @@ concrete biallelic SNPs only (a symbolic ALT such as ``*`` is not an allele).
 """
 
 from __future__ import annotations
+
 from pathlib import Path
-from .population import _parse_vcf_biallelic, _fst_at_site
-from ..sequences import as_path
+
+from organelleverse._public_validation import validated_public
+
 from ..inputs import Variants
+from ..sequences import as_path
+from .population import _fst_at_site, _parse_vcf_biallelic
 
 
+@validated_public('population.compute_fst')
 def compute_fst(
     vcf_path: str | Path | Variants,
     pop_assignments: dict[str, str],

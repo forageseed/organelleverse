@@ -31,3 +31,27 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "blocks"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "groups"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genome_lengths"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "direct_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "inverted_color"
+codec = "json"

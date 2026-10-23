@@ -56,6 +56,30 @@ codec = "json"
 name = "max_candidates"
 codec = "json"
 
+[[contract.binding.parameters]]
+name = "regions"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reference_index"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gap_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "pi_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "top_fraction"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "primer_num_return"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

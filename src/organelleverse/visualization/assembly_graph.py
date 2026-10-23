@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from organelleverse._public_validation import validated_public
 
 from ..core.data import OrganelleData
 from ..core.errors import OrganelleParameterError
@@ -94,6 +95,7 @@ _READ_NAMES = {"hifi": "HiFi", "ont": "ONT", "clr": "PacBio CLR"}
 
 
 
+@validated_public('visualization.plot_assembly_graph')
 def plot_assembly_graph(
     gfa: str | Path | OrganelleData,
     *,

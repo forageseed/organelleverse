@@ -1,12 +1,21 @@
 """Typed cores for composition (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
+from typing import Annotated
+
+from annotated_types import Ge
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..sequences import Sequences, as_path
 
 
-def compute_gc_content(fasta_path: str | Path | Sequences, window_size: int = 500) -> dict:
+@validated_public('composition.compute_gc_content')
+def compute_gc_content(
+    fasta_path: str | Path | Sequences, window_size: Annotated[int, Ge(1)] = 500
+) -> dict:
     """Compute GC content + GC skew. Returns dict (not OrganelleResult)."""
     fasta_path = as_path(fasta_path)
     seqs = read_fasta(Path(fasta_path))

@@ -38,6 +38,8 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError, OrganelleParameterError
 from ..core.frozen import thaw_json
 from .features import annotation_rows
@@ -255,6 +257,7 @@ def _gene_blocks(genbank_paths, seqids: set[str]):
     return blocks
 
 
+@validated_public('visualization.plot_depth_profile')
 def plot_depth_profile(
     depth: DepthSummary,
     *,
@@ -783,6 +786,7 @@ def _variant_table(data):
     return sites, data["fractions"]
 
 
+@validated_public('visualization.plot_variant_frequencies')
 def plot_variant_frequencies(
     variants: VariantSummary,
     *,
@@ -1034,6 +1038,7 @@ def _render_variant_frequencies(path: Path, spec: Mapping[str, Any]) -> Path:
 # ── 3. site x sample recurrence heatmap ─────────────────────────────────────────
 
 
+@validated_public('visualization.plot_variant_site_heatmap')
 def plot_variant_site_heatmap(
     variants: VariantSummary,
     *,

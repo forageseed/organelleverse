@@ -28,3 +28,11 @@ result_key = "transmembrane"
 [[contract.binding.parameters]]
 name = "seq"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threshold"
+codec = "json"

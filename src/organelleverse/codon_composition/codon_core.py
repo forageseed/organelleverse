@@ -12,6 +12,8 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import get_codon_table, get_codon_table_info, read_fasta
 from ..sequences import Sequences, as_path
 
@@ -42,6 +44,7 @@ _GENETIC_CODE_ALIASES = {
 }
 
 
+@validated_public('codon_composition.compute_codon_usage')
 def compute_codon_usage(
     cds_fasta: str | Path | Sequences,
     *,
@@ -72,6 +75,7 @@ def compute_codon_usage(
     }
 
 
+@validated_public('codon_composition.compute_amino_acid_composition')
 def compute_amino_acid_composition(
     cds_fasta: str | Path | Sequences,
     *,

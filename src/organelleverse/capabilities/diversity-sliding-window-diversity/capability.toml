@@ -56,6 +56,22 @@ codec = "json"
 name = "single_sample_drop"
 codec = "json"
 
+[[contract.binding.parameters]]
+name = "pi_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "top_fraction"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genbank"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference_index"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

@@ -17,6 +17,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..core.frozen import thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
@@ -95,6 +97,7 @@ def _result_metrics(result: OrganelleResult | Mapping[str, Any]) -> dict[str, An
     return dict(result)
 
 
+@validated_public('variation.snp')
 def snp(
     alignment_fasta: str | Path | Sequences,
     *,
@@ -184,6 +187,7 @@ def snp(
     )
 
 
+@validated_public('variation.snp_density')
 def snp_density(
     alignment_fasta: str | Path | Sequences,
     *,

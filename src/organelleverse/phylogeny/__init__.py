@@ -8,6 +8,7 @@ diagnostics. Tool runs use managed storage; figures are written explicitly.
 from __future__ import annotations
 
 from .ancestral import gene_presence_traits, reconstruct_ancestral_states
+from .astral import run_astral
 from .dating import Calibration, MCMCTreeOptions
 from .hapnet import (
     build_mjn,
@@ -70,6 +71,7 @@ __all__ = [
     "reconstruct_ancestral_states",
     "render_network",
     "robinson_foulds",
+    "run_astral",
     "run_build_tree",
     "run_mrbayes",
     "run_trim_alignment",

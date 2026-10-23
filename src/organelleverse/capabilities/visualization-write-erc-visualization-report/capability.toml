@@ -33,3 +33,7 @@ codec = "json"
 name = "output_html"
 codec = "path"
 path_role = "output"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"

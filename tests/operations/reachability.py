@@ -24,7 +24,7 @@ import organelleverse.operations as op
 from organelleverse.operations import CoreKind, OperationSpec
 from organelleverse.operations.registry import registry
 
-_SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "organelleverse"
+_SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 _BASELINE_DIR = Path(__file__).resolve().parent / "reachability_baseline"
 _INTENT_KEYS = frozenset({"tracked_by", "first_recorded", "derived"})
 

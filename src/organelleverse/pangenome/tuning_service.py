@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import Annotated, Any, NoReturn, cast
 
+from organelleverse._public_validation import validated_public
 from pydantic import Field
 
 from .._bio import read_fasta, write_fasta
@@ -49,6 +50,7 @@ _POLICY_VERSION = "sample-mash-plastid-floor.v3"
 _run_command = run_command
 
 
+@validated_public('pangenome.recommend_parameters')
 def recommend_parameters(
     genomes: list[OrganelleGenome],
     *,

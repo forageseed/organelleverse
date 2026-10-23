@@ -32,3 +32,7 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "pop_assignments"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "estimator"
+codec = "json"

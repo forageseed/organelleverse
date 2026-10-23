@@ -28,3 +28,7 @@ result_key = "gene_class"
 [[contract.binding.parameters]]
 name = "name"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"

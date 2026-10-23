@@ -12,13 +12,14 @@ from pathlib import Path
 
 import numpy as np
 from Bio import Phylo, SeqIO
+from organelleverse._public_validation import validated_public
 from scipy.optimize import minimize_scalar
 from scipy.special import logsumexp
 
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
-from ..sequences import as_path
 from ..inputs import Tree
+from ..sequences import as_path
 from ._results import provenance
 
 
@@ -72,6 +73,7 @@ def _messages(tree, observations, states, rate, posterior=True):
     return likelihood, probabilities
 
 
+@validated_public('phylogeny.reconstruct_ancestral_states')
 def reconstruct_ancestral_states(
     tree_newick: str | Path | Tree,
     traits: dict[str, dict[str, str | int | None]],
@@ -253,6 +255,7 @@ def reconstruct_ancestral_states(
     )
 
 
+@validated_public('phylogeny.gene_presence_traits')
 def gene_presence_traits(
     genbank_paths: list[str | Path],
     genes: list[str],

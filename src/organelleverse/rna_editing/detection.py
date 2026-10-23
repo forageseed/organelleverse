@@ -12,6 +12,7 @@ from typing import Literal
 import numpy as np
 from Bio import SeqIO
 from Bio.Seq import Seq
+from organelleverse._public_validation import validated_public
 
 from .._bam import alignment_provenance, base_qualities
 from ..core.errors import OrganelleDependencyError, OrganelleInputError, OrganelleParameterError
@@ -25,6 +26,7 @@ _COMPLEMENT = str.maketrans("ACGT", "TGCA")
 _LIBRARY = Literal["unstranded", "fr-firststrand", "fr-secondstrand"]
 
 
+@validated_public('rna_editing.detect_editing_sites')
 def detect_editing_sites(
     bam_path: str | Path | ReadAlignments,
     reference_fasta: str | Path | Sequences,

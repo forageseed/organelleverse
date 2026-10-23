@@ -7,12 +7,15 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
+from ..inputs import Variants
 from ..runtime import managed_run_path
 from ..sequences import as_path
-from ..inputs import Variants
 
 
+@validated_public('population.call_variants', python_only=('executor',))
 def call_variants(
     bam_dir: str | Path,
     *,
@@ -41,6 +44,7 @@ def call_variants(
     )
 
 
+@validated_public('population.prepare_gemma_input', python_only=('executor',))
 def prepare_gemma_input(
     vcf_path: str | Path | Variants,
     *,
@@ -59,6 +63,7 @@ def prepare_gemma_input(
     )
 
 
+@validated_public('population.cytonuclear_gwas', python_only=('executor',))
 def cytonuclear_gwas(
     vcf_path: str | Path | Variants,
     *,

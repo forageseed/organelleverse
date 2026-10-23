@@ -47,3 +47,7 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "exclude_duplicates"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "reference_fasta"
+codec = "path"

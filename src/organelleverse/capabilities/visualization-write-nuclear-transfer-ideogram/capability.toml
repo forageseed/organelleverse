@@ -33,3 +33,11 @@ codec = "legacy_result"
 name = "output"
 codec = "path"
 path_role = "output"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"

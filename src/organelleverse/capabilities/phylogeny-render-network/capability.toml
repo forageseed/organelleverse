@@ -44,3 +44,11 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "edges"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "freq_by_pop"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"

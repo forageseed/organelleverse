@@ -32,6 +32,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 __all__ = [
     "GenomeCluster",
     "dedup_genomes",
@@ -145,6 +147,7 @@ def select_representative(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return max(records, key=quality_rank)
 
 
+@validated_public('fetch.dedup_genomes')
 def dedup_genomes(records: Sequence[dict[str, Any]]) -> list[GenomeCluster]:
     """Cluster records that describe the same genome, and pick a representative.
 

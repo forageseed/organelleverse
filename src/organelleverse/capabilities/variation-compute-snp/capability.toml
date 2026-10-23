@@ -31,6 +31,10 @@ result_key = "snp_metrics"
 name = "alignment_fasta"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "reference_index"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

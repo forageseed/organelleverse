@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from annotated_types import Ge, Le
-
+from organelleverse._public_validation import validated_public
 from organelleverse.core.genome import OrganelleGenome
 from organelleverse.core.result import OrganelleResult
 from organelleverse.runtime import managed_runs_root
@@ -49,6 +49,7 @@ def materialize_result(result: OrganelleResult, output: Path) -> OrganelleResult
     return materialize(result, output=output)
 
 
+@validated_public('annotation.annotate')
 def annotate(
     genome: OrganelleGenome,
     *,
@@ -99,6 +100,7 @@ def annotate(
     )
 
 
+@validated_public('annotation.extract')
 def extract(
     genome: OrganelleGenome,
     *,
@@ -120,6 +122,7 @@ def extract(
     )
 
 
+@validated_public('annotation.write')
 def write(result: OrganelleResult, *, output: Path) -> OrganelleResult:
     """Atomically materialize a non-failed canonical annotation result."""
 

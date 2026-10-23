@@ -7,6 +7,7 @@ from .data_contracts import DataContract, DataContractRegistry
 from .decorator import operation
 from .dependencies import DependencyCheck, DependencyReport, DependencyState
 from .operation_search import OperationHit, search
+from .public_api import PUBLIC_FUNCTIONS, public_function, resolve_public_function
 from .registry import BoundOperation, CoreObject, OperationRegistry, registry
 from .spec import (
     ArgumentMode,
@@ -46,6 +47,7 @@ __all__ = [
     "OperationRegistry",
     "OperationSpec",
     "OperationStage",
+    "PUBLIC_FUNCTIONS",
     "ParameterBindingSpec",
     "ParameterCodec",
     "ParameterSource",
@@ -61,7 +63,9 @@ __all__ = [
     "list",
     "operation",
     "parameter_schema",
+    "public_function",
     "registry",
+    "resolve_public_function",
     "search",
 ]
 

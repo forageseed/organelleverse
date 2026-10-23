@@ -25,17 +25,19 @@ import random
 from itertools import combinations
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core import OrganelleResult
 from ._species import species_resolver
 from .coevolution import (
     TreeNode,
-    parse_newick,
     _failed,
     _finding,
     _is_missing,
     _ok,
     _provenance,
     _rank,
+    parse_newick,
 )
 
 __all__ = [
@@ -117,6 +119,7 @@ def _nan_safe_transform(vec: list[float], method: str) -> list[float]:
 # =========================================================================
 
 
+@validated_public('coevolution.project_paths')
 def project_paths(
     gene_trees: dict[str, str],
     species_tree_newick: str,
@@ -186,6 +189,7 @@ def project_paths(
 # =========================================================================
 
 
+@validated_public('coevolution.residual_matrix')
 def residual_matrix(
     path_matrix: dict[str, list[float]],
     *,
@@ -245,6 +249,7 @@ def residual_matrix(
 # =========================================================================
 
 
+@validated_public('coevolution.correlation_matrix')
 def correlation_matrix(
     residuals: dict[str, list[float]],
     *,
@@ -320,6 +325,7 @@ def _kendall_tau_simple(x: list[float], y: list[float]) -> float:
 # =========================================================================
 
 
+@validated_public('coevolution.fisher')
 def fisher(
     cor: dict[str, dict[str, float]],
     count: dict[str, dict[str, int]],
@@ -339,6 +345,7 @@ def fisher(
 # =========================================================================
 
 
+@validated_public('coevolution.perm_test')
 def perm_test(
     gene_set: list[str],
     cor: dict[str, dict[str, float]],
@@ -393,6 +400,7 @@ def perm_test(
 # =========================================================================
 
 
+@validated_public('coevolution.run_erc')
 def run_erc(
     gene_trees: dict[str, str],
     species_tree_newick: str,

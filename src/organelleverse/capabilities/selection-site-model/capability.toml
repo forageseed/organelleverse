@@ -36,3 +36,15 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "run"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "models"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seqfile"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "treefile"
+codec = "json"

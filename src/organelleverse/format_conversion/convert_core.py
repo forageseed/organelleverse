@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
+from organelleverse._public_validation import validated_public
+
 from ..annotation.genbank import parse_genbank
 from ..annotation.models import AnnotationDocument, AnnotationFeature
 
@@ -71,12 +73,14 @@ def document_to_gff3(document: AnnotationDocument) -> list[str]:
     return lines
 
 
+@validated_public('format_conversion.convert_genbank_to_gff3')
 def convert_genbank_to_gff3(genbank_path: str) -> list[str]:
     """Convert GenBank features to GFF3 lines. Returns list of strings."""
 
     return document_to_gff3(parse_genbank(genbank_path))
 
 
+@validated_public('format_conversion.convert_genbank_to_fasta')
 def convert_genbank_to_fasta(genbank_path: str) -> list[tuple[str, str]]:
     """Extract sequences from GenBank as FASTA pairs. Returns list."""
 

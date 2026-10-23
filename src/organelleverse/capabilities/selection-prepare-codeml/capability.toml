@@ -28,3 +28,11 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "require_start"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "use_mafft"
+codec = "json"

@@ -27,3 +27,7 @@ result_codec = "canonical"
 name = "orthofinder_dir"
 codec = "directory"
 path_role = "input"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, TypeAlias, TypeGuard, cast
 
 import matplotlib
+from organelleverse._public_validation import validated_public
 
 matplotlib.use("Agg", force=True)
 import itertools
@@ -136,6 +137,7 @@ _AA_NAMES = {
 }
 
 
+@validated_public('visualization.plot_qc_dashboard')
 def plot_qc_dashboard(
     metrics: Mapping[str, str | int | float | bool | None | list[str]],
     *,
@@ -339,6 +341,7 @@ def _render_qc_dashboard(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_track_density')
 def plot_track_density(
     tracks: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -474,6 +477,7 @@ def _render_track_density(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_matrix_heatmap')
 def plot_matrix_heatmap(
     matrix: Sequence[Sequence[int | float]],
     *,
@@ -693,6 +697,7 @@ _LGA_SYNTENY_GROUP_CYCLE = (_PALETTE[2], _PALETTE[3], _PALETTE[1], _PALETTE[4], 
 _LGA_SYNTENY_FRAME = "#9AA3AD"
 
 
+@validated_public('visualization.plot_synteny_matrix')
 def plot_synteny_matrix(
     blocks: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]]]],
     *,
@@ -895,6 +900,7 @@ def _render_synteny_matrix(
     return _save(fig, out)
 
 
+@validated_public('visualization.summarize_synteny_matrix')
 def summarize_synteny_matrix(
     blocks: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]]],
     *,
@@ -921,6 +927,7 @@ def summarize_synteny_matrix(
     }
 
 
+@validated_public('visualization.plot_network')
 def plot_network(
     nodes: Sequence[Mapping[str, str | int | float | bool | None]],
     edges: Sequence[Mapping[str, str | int | float | bool | None]],
@@ -1088,6 +1095,7 @@ def _render_network(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_selection_summary')
 def plot_selection_summary(
     records: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -1227,6 +1235,7 @@ def _render_selection_summary(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_transfer_schematic')
 def plot_transfer_schematic(
     events: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -1385,6 +1394,7 @@ def _render_transfer_schematic(
     return _save(fig, out)
 
 
+@validated_public('visualization.ideogram')
 def ideogram(
     karyotype: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, int | float],
     *,
@@ -1455,6 +1465,7 @@ def ideogram(
     )
 
 
+@validated_public('visualization.write_ideogram')
 def write_ideogram(
     result: OrganelleResult | Mapping[str, Any],
     output: str | Path,
@@ -1482,6 +1493,7 @@ def write_ideogram(
     )
 
 
+@validated_public('visualization.nuclear_transfer_ideogram')
 def nuclear_transfer_ideogram(
     chromosomes: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, int | float],
     fragments: (
@@ -1610,6 +1622,7 @@ def nuclear_transfer_ideogram(
     )
 
 
+@validated_public('visualization.write_nuclear_transfer_ideogram')
 def write_nuclear_transfer_ideogram(
     result: OrganelleResult | Mapping[str, Any],
     output: str | Path,
@@ -1694,6 +1707,7 @@ def _ideogram_options(metrics: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+@validated_public('visualization.save_plot')
 def save_plot(
     plot: OrganelleResult | Mapping[str, Any],
     output: str | Path,
@@ -2069,6 +2083,7 @@ def _transfer_ideogram_fragment(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+@validated_public('visualization.plot_transfer_tracks')
 def plot_transfer_tracks(
     candidates: Sequence[Mapping[str, str | int | float | bool | None]],
     nuclear_fasta: str | Path | None = None,
@@ -2213,6 +2228,7 @@ def _format_bp(length: int) -> str:
     return f"{length} bp"
 
 
+@validated_public('visualization.plot_splicing_schematic')
 def plot_splicing_schematic(
     genes: Sequence[Mapping[str, str | list[Mapping[str, int | float]]]],
     *,
@@ -2387,6 +2403,7 @@ def _render_splicing_schematic(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_localization_bars')
 def plot_localization_bars(
     predictions: Sequence[Mapping[str, str | Mapping[str, int | float]]],
     *,
@@ -2547,6 +2564,7 @@ def _render_localization_bars(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_rscu_usage')
 def plot_rscu_usage(
     rscu_rows: Sequence[Mapping[str, Any]] | Mapping[str, Any] | str | Path,
     *,
@@ -2743,6 +2761,7 @@ def _render_rscu_usage(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_rna_editing_summary')
 def plot_rna_editing_summary(
     editing_sites: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -2896,6 +2915,7 @@ def _erc_axes_size_pt(ax: Any, *, bare: bool = False) -> tuple[float, float]:
     return pos.width * fig_w * 72.0, pos.height * fig_h * 72.0
 
 
+@validated_public('visualization.plot_erc_pair_scatter')
 def plot_erc_pair_scatter(
     points: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -2994,6 +3014,7 @@ def _render_erc_pair_scatter(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_distribution')
 def plot_erc_distribution(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -3130,6 +3151,7 @@ def _render_erc_distribution(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_group_ridges')
 def plot_erc_group_ridges(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -3260,6 +3282,7 @@ def _render_erc_group_ridges(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_network')
 def plot_erc_network(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -3537,6 +3560,7 @@ def _render_erc_network(
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_significance')
 def plot_erc_significance(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -3884,6 +3908,7 @@ def _render_erc_significance(
     return _save(fig, out)
 
 
+@validated_public('visualization.write_erc_visualization_report')
 def write_erc_visualization_report(
     figures: Sequence[Mapping[str, str]],
     output_html: str | Path,
@@ -3931,6 +3956,7 @@ def write_erc_visualization_report(
     return out
 
 
+@validated_public('visualization.write_visualization_preview_report')
 def write_visualization_preview_report(
     figures: Sequence[Mapping[str, str]],
     output_html: str | Path,
@@ -5158,6 +5184,7 @@ def _window_category(
     return "noncoding"
 
 
+@validated_public('visualization.plot_genome_identity')
 def plot_genome_identity(
     windows: Sequence[Mapping[str, str | int | float | bool | None]],
     features: Sequence[Mapping[str, str | int | float | bool | None]] = (),

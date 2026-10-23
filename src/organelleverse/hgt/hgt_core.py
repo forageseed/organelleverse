@@ -1,13 +1,18 @@
 """Typed cores for HGT (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any, Mapping
+
+from organelleverse._public_validation import validated_public
+
+from ..sequences import Sequences, as_path
 from .align import HGTBackendError, run_hgt_alignments
 from .hgt import _build_hgt_metrics
-from ..sequences import Sequences, as_path
 
 
+@validated_public('hgt.compute_hgt')
 def compute_hgt(
     donor_fasta: str | Path | Sequences,
     recipient_fasta: str | Path | Sequences,

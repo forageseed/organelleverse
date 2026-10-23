@@ -27,6 +27,8 @@ from itertools import permutations
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import get_codon_table
 from ..core.result import OrganelleResult
 from ..sequences import Sequences, as_records
@@ -37,6 +39,7 @@ _CODONS: dict[str, str] = get_codon_table(1)  # NCBI table 1 (standard)
 _STOP_CODONS = {"TAA", "TAG", "TGA"}
 
 
+@validated_public('selection.kaks')
 def kaks(
     cds_pairs_fasta: str | Path | Sequences,
     *,

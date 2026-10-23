@@ -6,6 +6,8 @@ import json
 from typing import Literal
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
@@ -68,6 +70,7 @@ def _graph_input(result: OrganelleResult, formats: set[str]) -> ArtifactRef:
     return graph
 
 
+@validated_public('pangenome.convert_graph_result')
 def convert_graph_result(
     result: OrganelleResult, *, target_format: Literal["gfa", "og", "vg"], threads: int = 1
 ) -> OrganelleResult:
@@ -105,6 +108,7 @@ def convert_graph_result(
     )
 
 
+@validated_public('pangenome.extract_subgraph')
 def extract_subgraph(
     result: OrganelleResult,
     *,

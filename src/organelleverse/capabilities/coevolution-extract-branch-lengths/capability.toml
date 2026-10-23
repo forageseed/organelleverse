@@ -27,3 +27,28 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "gene_trees"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_tree"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_map"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reconciliation"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dlcpar_dir"
+codec = "directory"
+path_role = "input"
+
+[[contract.binding.parameters]]
+name = "bxb_normalization"
+codec = "json"

@@ -28,6 +28,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
 from scipy import stats as _scipy_stats
 
 from ..core.result import OrganelleResult
@@ -115,6 +116,7 @@ def write_ctl_file(
 # =========================================================================
 
 
+@validated_public('selection.branch_model')
 def branch_model(
     *,
     alignment: str | Path,
@@ -237,6 +239,7 @@ def write_branch_model(
 # =========================================================================
 
 
+@validated_public('selection.site_model')
 def site_model(
     *,
     alignment: str | Path,
@@ -348,6 +351,7 @@ def write_site_model(
 # =========================================================================
 
 
+@validated_public('selection.branch_site_model')
 def branch_site_model(
     *,
     alignment: str | Path,
@@ -474,6 +478,7 @@ def write_branch_site_model(
 # =========================================================================
 
 
+@validated_public('selection.clade_model')
 def clade_model(
     *,
     alignment: str | Path,
@@ -677,6 +682,7 @@ def run_codeml(ctl_path: str | Path, work_dir: str | Path, *, timeout: float | N
     return parse_codeml_output(out_path)
 
 
+@validated_public('selection.parse_codeml_output')
 def parse_codeml_output(out_path: str | Path) -> dict[str, Any]:
     """Parse a codeml output file for lnL, ω, kappa, and BEB sites.
 
@@ -751,6 +757,7 @@ def parse_codeml_output(out_path: str | Path) -> dict[str, Any]:
     return result
 
 
+@validated_public('selection.likelihood_ratio_test')
 def likelihood_ratio_test(lnL_null: float, lnL_alt: float, df: int) -> dict[str, float]:
     """Likelihood ratio test: 2*(lnL_alt - lnL_null) ~ χ²(df).
 
@@ -868,6 +875,7 @@ def _clade_summary(metrics: dict) -> str:
 # =========================================================================
 
 
+@validated_public('selection.batch_codeml')
 def batch_codeml(
     jobs: list[Mapping[str, str]],
     *,

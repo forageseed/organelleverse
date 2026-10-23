@@ -26,6 +26,8 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .plot_object import OrganellePlot
 from .style import FONT_PT, publication_style, width_inches
 
@@ -137,6 +139,7 @@ def legend_rows(organelle: str) -> tuple[tuple[str, str], ...]:
 _ORGANELLE_SUBTITLE = {"mito": "mitochondrial genome", "plastid": "plastid genome"}
 
 
+@validated_public('visualization.classify_gene')
 def classify_gene(name: str, organelle: str = "mito") -> str:
     """Classify a gene name into an OGDraw functional category.
 
@@ -155,6 +158,7 @@ def classify_gene(name: str, organelle: str = "mito") -> str:
     return "other"
 
 
+@validated_public('visualization.spread_labels')
 def spread_labels(
     gene_mids: list[float],
     genome_length: float,
@@ -1036,6 +1040,7 @@ def two_ring_label_pt(parsed, unit_in: float, font_pt: float = _FONT_LABEL) -> f
     return max(FONT_PT["min"], font_pt * min(fits))
 
 
+@validated_public('visualization.plot_ogdraw_map')
 def plot_ogdraw_map(
     genbank_path: Sequence[str | Path],
     *,

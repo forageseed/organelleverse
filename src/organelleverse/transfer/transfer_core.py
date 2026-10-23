@@ -20,6 +20,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
 from ..sequences import Sequences, as_path
@@ -259,6 +261,7 @@ def _aligned_rows(target: Path, source: Path, evalue: float):
     return None
 
 
+@validated_public('transfer.compute_transfer')
 def compute_transfer(
     target_fasta: str | Path | Sequences,
     source_fasta: str | Path | Sequences,

@@ -56,6 +56,70 @@ codec = "json"
 name = "dpi"
 codec = "json"
 
+[[contract.binding.parameters]]
+name = "plastid"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "display_names"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "style"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "color_by"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_conformations"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_insets"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ribbon_min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "flank"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "anchor"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_spanning_reads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mtpt_min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mtpt_min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "layout_seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

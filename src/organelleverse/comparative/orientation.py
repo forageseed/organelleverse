@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from Bio.Seq import reverse_complement
+from organelleverse._public_validation import validated_public
 
 from .._bio import read_fasta
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
@@ -68,6 +69,7 @@ def _read_plastomes(path):
     return records
 
 
+@validated_public('comparative.normalize_plastome_orientation')
 def normalize_plastome_orientation(
     input_fasta: str | Path | Sequences,
     *,

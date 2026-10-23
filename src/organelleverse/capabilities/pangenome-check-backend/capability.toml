@@ -29,3 +29,7 @@ result_key = "backend_status"
 [[contract.binding.parameters]]
 name = "name"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "scan_envs"
+codec = "json"

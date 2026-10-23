@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from annotated_types import Ge, Le
-
+from organelleverse._public_validation import validated_public
 from organelleverse.core.artifacts import ArtifactRef
 from organelleverse.core.data import OrganelleData
 from organelleverse.core.errors import OrganelleInputError
@@ -65,6 +65,7 @@ class AssemblyEnvironmentHint(OperationParameterModel):
 PmatGraphEnvironmentHint = AssemblyEnvironmentHint
 
 
+@validated_public('assembly.assemble')
 def assemble(
     data: OrganelleData,
     *,
@@ -103,6 +104,7 @@ def assemble(
     return execute_assembly(request)
 
 
+@validated_public('assembly.write')
 def write(result: OrganelleResult, *, output: Path) -> OrganelleResult:
     """Promote a managed assembly Result to a user-selected destination."""
 
@@ -197,6 +199,7 @@ def _scope_organelle(result: OrganelleResult) -> Literal["mitochondrion", "plast
     )
 
 
+@validated_public('assembly.pmat_graph_build')
 def pmat_graph_build(
     data: OrganelleData,
     *,

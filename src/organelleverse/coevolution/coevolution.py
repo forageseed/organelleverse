@@ -37,6 +37,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
 from scipy import stats as _scipy_stats
 
 from ..core import (
@@ -341,6 +342,7 @@ def _parse_newick_recursive(s: str, pos: int) -> tuple[TreeNode, int]:
 # ===========================================================================
 
 
+@validated_public('coevolution.reconcile_trees')
 def reconcile_trees(
     gene_tree_newick: str,
     species_tree_newick: str,
@@ -507,6 +509,7 @@ def _find_lca(root: TreeNode, target_leaves: list[TreeNode]) -> TreeNode | None:
 # ===========================================================================
 
 
+@validated_public('coevolution.extract_branch_lengths')
 def extract_branch_lengths(
     gene_trees: dict[str, str],
     *,
@@ -742,6 +745,7 @@ def extract_branch_lengths(
 # ===========================================================================
 
 
+@validated_public('coevolution.rate_covariation')
 def rate_covariation(
     branch_lengths: Mapping[str, Sequence[float | None] | Mapping[str, float | None]],
     *,
@@ -920,6 +924,7 @@ def rate_covariation(
 # ===========================================================================
 
 
+@validated_public('coevolution.coevolution_network')
 def coevolution_network(
     correlations: list[Mapping[str, str | int | float | bool | None]],
     *,
@@ -970,6 +975,7 @@ def coevolution_network(
 # ===========================================================================
 
 
+@validated_public('coevolution.phylogenomics', python_only=('executor',))
 def phylogenomics(
     orthofinder_dir: str | Path,
     *,
@@ -1101,6 +1107,7 @@ def _pair_allowed(
     return {got_a, got_b} == {want_a, want_b}
 
 
+@validated_public('coevolution.compartment_map_from_prefix')
 def compartment_map_from_prefix(
     genes: list[str],
     prefix_rules: dict[str, str],

@@ -26,3 +26,27 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "branch_lengths"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "transform"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "variance_weight"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_overlap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "fdr_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "restrict"
+codec = "json"

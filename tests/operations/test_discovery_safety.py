@@ -27,8 +27,6 @@ from organelleverse.operations import (
 )
 
 
-
-
 def test_operations_import_is_lightweight(tmp_path: Path) -> None:
     script = """
 import builtins
@@ -76,7 +74,13 @@ print(json.dumps({
         env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2] / "src")},
     )
 
-    assert json.loads(completed.stdout) == {
+    result = json.loads(completed.stdout)
+    # Listing also returns the other admitted first-party capabilities and
+    # tools.adapter (advisory verification); the release surface must be there.
+    from tests.capabilities.release_bundles import release_operation_ids
+
+    assert release_operation_ids() <= set(result.pop("operation_ids"))
+    assert result == {
         "described": "annotation.annotate",
         "loaded": [],
         "assembly_service_loaded": False,
@@ -84,35 +88,13 @@ print(json.dumps({
         "qc_annotation_service_loaded": False,
         "qc_writer_loaded": False,
         "invocation_operation_id": "annotation.annotate",
-        "operation_ids": [
-            "annotation.annotate",
-            "annotation.extract",
-            "annotation.write",
-            "assembly.assemble",
-            "assembly.pmat_graph_build",
-            "assembly.write",
-            "fetch.accession_list",
-            "fetch.dedup_genomes",
-            "fetch.entrez_query",
-            "fetch.gene_records",
-            "fetch.genome_size_candidates",
-            "fetch.ngdc_gwh",
-            "fetch.nuclear_assembly",
-            "fetch.refseq_snapshot",
-            "io.read_fasta_genome",
-            "io.read_genbank_genome",
-            "io.read_long_reads",
-            "qc.annotation",
-            "qc.assembly",
-            "qc.write",
-        ],
         "research_loaded": False,
         "schema_backend": ["auto", "mitochondrion", "plastome"],
     }
 
 
 def test_registry_has_no_module_scope_capabilities_import() -> None:
-    operations_root = Path(__file__).resolve().parents[2] / "src" / "organelleverse" / "operations"
+    operations_root = Path(__file__).resolve().parents[2] / "src" / "operations"
     path = operations_root / "registry.py"
     offenders: list[str] = []
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -155,6 +137,7 @@ sources = {
     "LongReadLibrary": "organelleverse.assembly.contracts",
     "ShortReadLibrary": "organelleverse.assembly.contracts",
     "assemble": "organelleverse.assembly.api",
+    "ovasm": "organelleverse.assembly.ovasm_api",
     "check_all_backends": "organelleverse.assembly.install",
     "check_backend": "organelleverse.assembly.install",
     "classify_profile": "organelleverse.assembly.routing",
@@ -162,6 +145,8 @@ sources = {
     "install_backend": "organelleverse.assembly.install",
     "pmat_continue": "organelleverse.assembly.api",
     "pmat_graph_build": "organelleverse.assembly.api",
+    "reconstruct": "organelleverse.assembly.api",
+    "read": "organelleverse.io_reads",
     "resolve_backend": "organelleverse.assembly.routing",
     "write": "organelleverse.assembly.api",
 }
@@ -201,6 +186,7 @@ print(json.dumps({
         "LongReadLibrary",
         "ShortReadLibrary",
         "assemble",
+        "ovasm",
         "check_all_backends",
         "check_backend",
         "classify_profile",
@@ -208,6 +194,8 @@ print(json.dumps({
         "install_backend",
         "pmat_continue",
         "pmat_graph_build",
+        "reconstruct",
+        "read",
         "resolve_backend",
         "write",
     ]
@@ -329,7 +317,9 @@ print(json.dumps({
     # Resolving every short alias must not register a second OperationSpec
     # or a second Registry ID: the catalog is exactly what it was before.
     assert result["after_operation_ids"] == result["before_operation_ids"]
-    assert len(result["after_operation_ids"]) == 20
+    from tests.capabilities.release_bundles import release_operation_ids
+
+    assert release_operation_ids() <= set(result["after_operation_ids"])
 
 
 def test_root_facade_lazily_exposes_operations_in_a_clean_process(
@@ -426,9 +416,13 @@ def test_lazy_release_catalog_failure_is_atomic_and_retryable(
         _ReleaseOperationRegistry,  # pyright: ignore[reportPrivateUsage]
     )
 
-    # Isolate the capability source: the 16 bundle-migrated release operations
-    # are admitted only with verification records, which an empty home denies.
+    # Isolate the catalog under test. First-party verification is advisory, so
+    # an empty home no longer hides the core bundles; detach the capability
+    # source instead.
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "empty-home"))
+    monkeypatch.setattr(
+        _ReleaseOperationRegistry, "_attach_default_capability_source", lambda self: None
+    )
     attempts = 0
 
     def load(target: OperationRegistry) -> None:
@@ -458,6 +452,9 @@ def test_default_registry_reserves_release_ids_before_external_registration(
     )
 
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "empty-home"))
+    monkeypatch.setattr(
+        _ReleaseOperationRegistry, "_attach_default_capability_source", lambda self: None
+    )
 
     def load(target: OperationRegistry) -> None:
         _register_catalog_stub(target, operation_id="io.release")

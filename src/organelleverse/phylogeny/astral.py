@@ -5,11 +5,14 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleExecutionError
 from ..core.external import run_external
 from ._results import artifact_for, failed_result, findings, ok_result, provenance
 
 
+@validated_public('phylogeny.run_astral')
 def run_astral(
     gene_trees: str | Path,
     *,

@@ -53,6 +53,8 @@ import math
 import re
 from dataclasses import dataclass, field
 
+from organelleverse._public_validation import validated_public
+
 __all__ = [
     "COMPARTMENTS",
     "LocalizationScores",
@@ -184,6 +186,7 @@ _SP_EUK_WEIGHTS = _sp_build_weights(_SP_EUK_RAW)
 _SP_PRO_WEIGHTS = _sp_build_weights(_SP_PRO_RAW)
 
 
+@validated_public('localization.score_signal_peptide')
 def score_signal_peptide(
     seq: str,
     *,
@@ -327,6 +330,7 @@ _TP_WINDOW = 60
 _TP_HEAD = 15  # the strongly-filtered N-terminal stretch
 
 
+@validated_public('localization.score_transit_peptides')
 def score_transit_peptides(
     seq: str,
     *,
@@ -476,6 +480,7 @@ _NLS_BIPARTITE = re.compile(r"[KR][KR].{9,12}[KR][KR][KR]")
 _NLS_KOSUGI2 = re.compile(r"[KR].{0,4}[KR].{0,4}[KR]")
 
 
+@validated_public('localization.score_nls')
 def score_nls(seq: str) -> dict[str, object]:
     """Detect classical nuclear localization signals.
 
@@ -564,6 +569,7 @@ _PLANT_PTS1: frozenset[str] = frozenset(
 _PTS2 = re.compile(r"[RK][LIVQ].{5}[HL][LAIF]")
 
 
+@validated_public('localization.score_pts')
 def score_pts(seq: str) -> dict[str, object]:
     """Detect peroxisomal targeting signals PTS1 (C-term) and PTS2 (N-term).
 
@@ -638,6 +644,7 @@ _TM_WINDOW = 20
 _TM_MEAN_THRESHOLD = 1.5
 
 
+@validated_public('localization.score_transmembrane')
 def score_transmembrane(
     seq: str,
     *,

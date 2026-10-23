@@ -1,4 +1,9 @@
-"""Site-level alternate allele fraction estimator for supplied organelle SNVs."""
+"""Heteroplasmy: site-level alternate allele fractions for supplied organelle SNVs.
+
+``ov.heteroplasmy`` also carries :func:`estimate_structural_fractions` (the
+structural-configuration estimator in ``heteroplasmy_structural``), so both
+registered ``heteroplasmy.*`` operations are reachable under their suite name.
+"""
 
 from __future__ import annotations
 
@@ -12,8 +17,12 @@ from pathlib import Path
 from typing import Literal
 
 from organelleverse._bam import site_base_counts
+from organelleverse._public_validation import validated_public
 from organelleverse.core.provenance import ResultProvenance
 from organelleverse.core.result import ErrorDetail, Finding, OrganelleResult
+from organelleverse.heteroplasmy_structural import estimate_structural_fractions
+
+__all__ = ["estimate_structural_fractions", "quantify_variant_fractions"]
 
 _VERSION = "1.0"
 
@@ -56,6 +65,7 @@ def _failed(op: str, *, scope: str, code: str, message: str, backend: str) -> Or
     )
 
 
+@validated_public('heteroplasmy.quantify_variant_fractions')
 def quantify_variant_fractions(
     bam_path: str | Path,
     sites_tsv: str | Path,

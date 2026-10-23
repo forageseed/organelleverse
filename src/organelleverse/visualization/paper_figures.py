@@ -36,6 +36,8 @@ from itertools import accumulate, pairwise
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError, OrganelleParameterError
 from .features import annotation_rows, record_display_name, resolve_ir_regions
 from .ogdraw import GENE_COLORS, REGION_COLORS, classify_gene, legend_rows, record_organelle
@@ -319,6 +321,7 @@ def _wrapped_spans(start: int, length: int, total: int) -> list[tuple[int, int]]
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_ir_boundaries')
 def plot_ir_boundaries(
     genbank_path: Sequence[str | Path],
     *,
@@ -636,6 +639,7 @@ def _render_ir_boundaries(path: Path, m: Mapping[str, Any]) -> Path:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('visualization.plot_nucleotide_diversity')
 def plot_nucleotide_diversity(
     alignment_fasta: str | Path | None = None,
     *,
@@ -1005,6 +1009,7 @@ def _primitive(unit: str) -> bool:
     return len(unit) == 1 or unit not in (unit + unit)[1:-1]
 
 
+@validated_public('visualization.plot_repeat_summary')
 def plot_repeat_summary(
     fasta_path: Sequence[str | Path],
     *,
@@ -1386,6 +1391,7 @@ def _genome_genes(records) -> list[tuple[str, str, bool, bool]]:
     return out
 
 
+@validated_public('visualization.plot_gene_presence')
 def plot_gene_presence(
     genbank_path: Sequence[str | Path],
     *,

@@ -15,6 +15,8 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 
+from organelleverse._public_validation import validated_public
+
 from ..annotation.genbank import parse_genbank
 from ..core.genome import OrganelleGenome
 from ..core.provenance import ResultProvenance
@@ -62,6 +64,7 @@ def _provenance(
     )
 
 
+@validated_public('trans_splicing.detect_trans_splicing')
 def detect_trans_splicing(
     genome: OrganelleGenome,
     *,

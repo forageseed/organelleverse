@@ -1,16 +1,20 @@
 """Horizontal gene transfer (HGT) candidate detection."""
 
 from __future__ import annotations
+
 import hashlib
 import json
 import os
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Mapping
+
+from organelleverse._public_validation import validated_public
+
+from .._bio import read_fasta
 from ..core.frozen import FrozenMap
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
-from .._bio import read_fasta
 from ..sequences import Sequences, as_path
 from .align import (
     HGTAlignment,
@@ -60,6 +64,7 @@ def _provenance(op: str, parameters: Mapping[str, Any], *, method: str) -> Resul
     )
 
 
+@validated_public('hgt.detect_hgt')
 def detect_hgt(
     donor_fasta: str | Path | Sequences,
     recipient_fasta: str | Path | Sequences,

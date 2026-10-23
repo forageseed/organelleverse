@@ -32,3 +32,11 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "cor"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "n_perms"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"

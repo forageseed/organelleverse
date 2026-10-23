@@ -345,3 +345,5 @@ analysis environment to read the guide; add `--skill` to print the skill.
 Installing a Python package does not automatically register it with an agent host.
 See [agent installation and discovery](docs/agent-usage.md) for ordinary uv
 installation, project skill setup and a message to paste into an agent chat.
+
+Native public scientific calls and Agent JSON invocations share the operation registry and checked invocation boundary. Python keeps its rich inputs, injection interfaces and native return types; JSON calls use the declared codecs. Use `help(function)`, `ov.operations.parameter_schema(operation_id)` and the installed guide to inspect the contract.

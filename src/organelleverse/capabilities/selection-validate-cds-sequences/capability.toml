@@ -30,3 +30,7 @@ result_key = "cds_validation"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "require_start"
+codec = "json"

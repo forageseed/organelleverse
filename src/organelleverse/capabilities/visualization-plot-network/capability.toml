@@ -34,3 +34,11 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "edges"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "node_groups"
+codec = "json"

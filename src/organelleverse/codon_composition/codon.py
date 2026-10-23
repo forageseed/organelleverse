@@ -13,6 +13,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..core.frozen import FrozenMap, thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import Finding, OrganelleResult, ResultScope
@@ -84,6 +86,7 @@ def _provenance(operation_id: str, parameters: dict[str, Any], source: Path) -> 
     )
 
 
+@validated_public('codon_composition.codon_usage')
 def codon_usage(
     cds_fasta: str | Path | Sequences,
     *,
@@ -130,6 +133,7 @@ def codon_usage(
     )
 
 
+@validated_public('codon_composition.amino_acid')
 def amino_acid(
     cds_fasta: str | Path | Sequences,
     *,

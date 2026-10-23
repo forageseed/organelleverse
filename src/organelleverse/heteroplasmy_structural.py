@@ -20,6 +20,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Literal
 
+from organelleverse._public_validation import validated_public
 from organelleverse.core.provenance import ResultProvenance
 from organelleverse.core.result import ErrorDetail, Finding, OrganelleResult
 
@@ -28,6 +29,7 @@ _VERSION = "1.0"
 _TOKEN = re.compile(r"([><])([^><]+)")
 
 
+@validated_public('heteroplasmy.estimate_structural_fractions')
 def estimate_structural_fractions(
     gaf_path: str | Path,
     configurations_tsv: str | Path,

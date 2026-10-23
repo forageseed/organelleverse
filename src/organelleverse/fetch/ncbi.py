@@ -22,10 +22,12 @@ from __future__ import annotations
 import gzip
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 from xml.etree import ElementTree
+
+from organelleverse._public_validation import validated_public
 
 from ..core.artifacts import ArtifactRef
 from ..core.data import OrganelleData
@@ -41,10 +43,10 @@ from .assembly import group_records
 from .cache import read_baseline, write_jsonl
 from .export import genbank_to_fasta, write_metadata_csv
 from .filters import (
-    FetchFilters,
-    apply_filters,
     _GENE_RECORD_WORDS,
     _GENOME_WORDS,
+    FetchFilters,
+    apply_filters,
     apply_filters_to_units,
     looks_like_gene_record,
 )
@@ -156,13 +158,28 @@ _PAGE_SIZE = 500
 _EFETCH_BATCH = 10
 
 
-def _merge_filters(filters: FetchFilters | None, *, min_length: int | None) -> FetchFilters:
-    """``min_length=`` stays as a shortcut for the most common single filter."""
-    if filters is None:
-        return FetchFilters(min_length=min_length)
-    if min_length is not None and filters.min_length is None:
-        return FetchFilters(**{**filters.__dict__, "min_length": min_length})
-    return filters
+def _merge_filters(filters: FetchFilters | None, **shortcuts: Any) -> FetchFilters:
+    """Apply the keyword shortcuts (``min_length=``, ``refseq_only=`` ...) to ``filters``.
+
+    The shortcuts are the filters the registered ``fetch.entrez_query`` takes, so
+    the Python call and the agent call accept the same parameters. A shortcut
+    left at its default changes nothing; one that contradicts a value already
+    set in ``filters`` is refused rather than silently dropped.
+    """
+    base = filters if filters is not None else FetchFilters()
+    defaults = FetchFilters()
+    updates: dict[str, Any] = {}
+    for name, value in shortcuts.items():
+        if value == getattr(defaults, name):
+            continue
+        current = getattr(base, name)
+        if current != getattr(defaults, name) and current != value:
+            raise OrganelleParameterError(
+                code="fetch.filter_conflict",
+                message=f"{name}={value!r} contradicts filters.{name}={current!r}",
+            )
+        updates[name] = value
+    return replace(base, **updates) if updates else base
 
 
 # Plant nomenclature is messier than viral nomenclature: subspecies, hybrid
@@ -513,6 +530,7 @@ def _accessions_in_genbank(text: str) -> list[str]:
 # ─────────────────────────────────────────────────────────────
 
 
+@validated_public('fetch.entrez_query', python_only=('filters', 'transport'))
 def entrez_query(
     *,
     organelle: str,
@@ -521,6 +539,10 @@ def entrez_query(
     complete_only: bool = True,
     filters: FetchFilters | None = None,
     min_length: int | None = None,
+    max_length: int | None = None,
+    refseq_only: bool = False,
+    min_gene_count: int | None = None,
+    max_ambiguous: int | None = None,
     max_records: int | None = None,
     page_size: int = _PAGE_SIZE,
     genbank_metadata: bool = False,
@@ -536,11 +558,23 @@ def entrez_query(
     history server and paged, so a whole-corpus pull (58,082 complete
     Viridiplantae plastomes) is a normal call, not a special case.
 
+    ``min_length``, ``max_length``, ``refseq_only``, ``min_gene_count`` and
+    ``max_ambiguous`` are shortcuts for the same :class:`FetchFilters` fields and
+    are the filters the registered ``fetch.entrez_query`` operation takes; pass
+    ``filters=`` for the rest.
+
     Not reproducible across time by construction — nuccore changes daily. Use
     :func:`refseq_snapshot` when you need a claim that holds.
     """
     http = transport or default_transport()
-    active = _merge_filters(filters, min_length=min_length)
+    active = _merge_filters(
+        filters,
+        min_length=min_length,
+        max_length=max_length,
+        refseq_only=refseq_only,
+        min_gene_count=min_gene_count,
+        max_ambiguous=max_ambiguous,
+    )
     if active.requires_genbank_metadata() and not genbank_metadata:
         genbank_metadata = True  # the filter asked for it; fetch what it needs
 
@@ -676,6 +710,7 @@ def entrez_query(
     )
 
 
+@validated_public('fetch.accession_list', python_only=('transport',))
 def fetch_accessions(
     *,
     accessions: Sequence[str],
@@ -732,6 +767,7 @@ def fetch_accessions(
 # ─────────────────────────────────────────────────────────────
 
 
+@validated_public('fetch.refseq_snapshot', python_only=('transport',))
 def refseq_snapshot(
     *,
     organelle: str,
@@ -742,6 +778,8 @@ def refseq_snapshot(
     """Download the RefSeq release snapshot for one organelle.
 
     NCBI only keeps sequence files for the current release in this directory.
+    ``release=None`` selects that current release and records its number in
+    the returned manifest; it does not claim a release was fixed before lookup.
     An explicit release is therefore accepted only while it matches
     ``RELEASE_NUMBER``; historical releases are rejected rather than silently
     relabelling current data.
@@ -935,6 +973,10 @@ def _as_data(
         if path.is_file():
             artifacts[name] = ArtifactRef.from_path(path, kind=name, format=fmt, media_type=media)
     payload: dict[str, Any] = {"manifest": manifest}
+    if records is None and modality == "organelle_records":
+        # Empty searches still have a records sequence. Release snapshots have
+        # accession-level records even when no esummary metadata was requested.
+        records = [{"accession": accession} for accession in manifest.get("accessions", [])]
     if records is not None:
         payload["records"] = records
     if genomes is not None:

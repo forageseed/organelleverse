@@ -8,11 +8,14 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
 from ..runtime import managed_run_path
 from ..sequences import Sequences
 
 
+@validated_public('selection.fasta_to_axt')
 def fasta_to_axt(fasta_path: str | Path | Sequences) -> Path:
     """Convert aligned FASTA to an AXT artifact in managed storage."""
     from .kaks_calculator import fasta_to_axt as _convert
@@ -22,6 +25,7 @@ def fasta_to_axt(fasta_path: str | Path | Sequences) -> Path:
     return _convert(fasta_path, output)
 
 
+@validated_public('selection.run_kaks_calculator_workflow')
 def run_kaks_calculator_workflow(
     cds_fasta: str | Path | Sequences,
     *,
@@ -41,6 +45,7 @@ def run_kaks_calculator_workflow(
     )
 
 
+@validated_public('selection.run_codeml')
 def run_codeml(ctl_path: str | Path, *, timeout: float | None = 3600.0) -> dict[str, Any] | None:
     """Run CodeML using a managed copy of its control and input files."""
     from .models import run_codeml as _run

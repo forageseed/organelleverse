@@ -7,13 +7,16 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
+from ..inputs import Tree
 from ..runtime import managed_run_path
 from ..sequences import Sequences, as_path
-from ..inputs import Tree
 from .dating import Calibration, MCMCTreeOptions
 
 
+@validated_public('phylogeny.run_trim_alignment', python_only=('executor',))
 def run_trim_alignment(
     alignment_fasta: str | Path,
     *,
@@ -31,6 +34,7 @@ def run_trim_alignment(
     )
 
 
+@validated_public('phylogeny.run_build_tree', python_only=('executor',))
 def run_build_tree(
     alignment_fasta: str | Path,
     *,
@@ -56,6 +60,7 @@ def run_build_tree(
     )
 
 
+@validated_public('phylogeny.build_partitioned_supermatrix')
 def build_partitioned_supermatrix(
     genbank_paths: list[str | Path],
     *,
@@ -83,6 +88,7 @@ def build_partitioned_supermatrix(
     )
 
 
+@validated_public('phylogeny.select_partition_scheme')
 def select_partition_scheme(
     alignment_fasta: str | Path,
     partition_nexus: str | Path,
@@ -123,6 +129,7 @@ def select_partition_scheme(
     )
 
 
+@validated_public('phylogeny.run_mrbayes')
 def run_mrbayes(
     alignment_fasta: str | Path,
     scheme_nexus: str | Path,
@@ -170,6 +177,7 @@ def run_mrbayes(
     )
 
 
+@validated_public('phylogeny.date_tree')
 def date_tree(
     tree_newick: str | Path | Tree,
     alignment_fasta: str | Path | Sequences,

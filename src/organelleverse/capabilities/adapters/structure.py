@@ -83,31 +83,55 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "structure.multiconf": NamedParameterOverride(
-        parameters=(ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_repeat_len', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_mismatches', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "structure.repeats": NamedParameterOverride(
-        parameters=(ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_ssr_unit', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_ssr_unit', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_copy', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "structure.resolve_configs": NamedParameterOverride(
-        parameters=(ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='gfa_path', codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_repeat_len', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_mismatches', codec=ParameterCodec.JSON),
+            ParameterOverride(name='organelle', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "structure.compute_multiconf": NamedParameterOverride(
-        parameters=(ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_repeat_len', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_mismatches', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="multiconf",
         side_effects=(SideEffect.READ_FILES,),
     ),
     "structure.compute_repeats": NamedParameterOverride(
-        parameters=(ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_ssr_unit', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_ssr_unit', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_copy', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="repeats",
         side_effects=(SideEffect.READ_FILES,),

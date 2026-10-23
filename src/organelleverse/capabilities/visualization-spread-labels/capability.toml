@@ -32,3 +32,11 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "genome_length"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_gap_bp"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_iter"
+codec = "json"

@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from organelleverse._public_validation import validated_public
 
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
@@ -493,6 +494,7 @@ def _write_window_table(rows: Sequence[dict[str, Any]], output: str | Path) -> P
     return path
 
 
+@validated_public('comparative.compute_genome_identity')
 def compute_genome_identity(
     reference_fasta: str | Path | Sequences,
     query_fastas: Sequence[str | Path],

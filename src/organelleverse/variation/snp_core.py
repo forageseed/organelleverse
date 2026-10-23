@@ -1,10 +1,15 @@
 """Typed cores for variation (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
+
+from organelleverse._public_validation import validated_public
+
 from ..sequences import Sequences, as_records
 
 
+@validated_public('variation.compute_snp')
 def compute_snp(alignment_fasta: str | Path | Sequences, reference_index: int = 0) -> dict:
     """Compute SNP/Ti-Tv stats from an alignment. Returns dict."""
     seqs = as_records(alignment_fasta)

@@ -24,6 +24,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_genbank
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
 from ..core.frozen import thaw_json
@@ -160,6 +162,7 @@ def _harmonic_a(n: int) -> float:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('diversity.nucleotide_diversity')
 def nucleotide_diversity(
     alignment_fasta: str | Path | Sequences,
     *,
@@ -232,6 +235,7 @@ def nucleotide_diversity(
     )
 
 
+@validated_public('diversity.sliding_window_diversity')
 def sliding_window_diversity(
     alignment_fasta: str | Path | Sequences,
     *,
@@ -776,6 +780,7 @@ def _label_region(
     return left or right or "intergenic"
 
 
+@validated_public('diversity.neutral_tests')
 def neutral_tests(
     alignment_fasta: str | Path | Sequences,
 ) -> OrganelleResult:

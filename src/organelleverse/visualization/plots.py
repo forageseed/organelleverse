@@ -11,6 +11,8 @@ Bio.Phylo. No hand-rolled SVG/raster code.
 
 from __future__ import annotations
 
+from organelleverse._public_validation import validated_public
+
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -22,6 +24,7 @@ from ..sequences import as_path
 from ..inputs import Tree
 
 
+@validated_public('visualization.plot_genome_map')
 def plot_genome_map(
     genbank_path: Sequence[str | Path],
     *,
@@ -190,6 +193,7 @@ def _render_genome_map_gbdraw(
     )
 
 
+@validated_public('visualization.plot_heatmap')
 def plot_heatmap(
     data: dict[str, dict[str, float]],
     *,
@@ -365,6 +369,7 @@ def _render_heatmap(
     return finish(fig, output, dpi=max(dpi, 600))
 
 
+@validated_public('visualization.plot_tree')
 def plot_tree(
     newick_path: str | Path | Tree,
     *,
@@ -774,6 +779,7 @@ def _render_tree_biophylo(
     return finish(fig, output, dpi=max(dpi, 600))
 
 
+@validated_public('visualization.plot_scatter')
 def plot_scatter(
     x: list[float],
     y: list[float],

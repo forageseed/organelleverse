@@ -31,6 +31,18 @@ result_key = "repeats"
 name = "fasta_path"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "min_ssr_unit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_ssr_unit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_copy"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

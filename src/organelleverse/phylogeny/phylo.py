@@ -17,12 +17,14 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..core.errors import OrganelleExecutionError
 from ..core.external import run_external
 from ..core.result import OrganelleResult
-from ._results import artifact_for, failed_result, findings, ok_result, provenance
 from ..sequences import Sequences, as_path, as_records
+from ._results import artifact_for, failed_result, findings, ok_result, provenance
 
 
 def _which(tool: str) -> str | None:
@@ -32,6 +34,7 @@ def _which(tool: str) -> str | None:
     return shutil.which(tool)
 
 
+@validated_public('phylogeny.align')
 def align(
     input_fasta: str | Path | Sequences,
     *,
@@ -182,6 +185,7 @@ def _parse_fasta_text(text: str) -> list[tuple[str, str]]:
     return out
 
 
+@validated_public('phylogeny.trim_alignment', python_only=('executor',))
 def trim_alignment(
     alignment_fasta: str | Path | Sequences,
     *,
@@ -391,6 +395,7 @@ def _build_fasttree_argv(
     return [bin_path, *flags, "<", alignment, ">", out_newick]
 
 
+@validated_public('phylogeny.extract_shared_genes')
 def extract_shared_genes(
     genbank_paths: list[str | Path],
     *,
@@ -502,6 +507,7 @@ def write_shared_genes(result: OrganelleResult, output_dir: str | Path) -> dict[
     return paths
 
 
+@validated_public('phylogeny.build_tree', python_only=('executor',))
 def build_tree(
     alignment_fasta: str | Path | Sequences,
     *,

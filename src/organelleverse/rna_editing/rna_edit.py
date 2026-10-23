@@ -15,7 +15,10 @@ import os
 from collections.abc import Mapping
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from annotated_types import Ge, Le
+from organelleverse._public_validation import validated_public
 
 from ..annotation.genbank import parse_genbank
 from ..annotation.models import AnnotationFeature
@@ -38,11 +41,12 @@ _SIGNATURES = {
 }
 
 
+@validated_public('rna_editing.predict_edits')
 def predict_edits(
     genome: OrganelleGenome,
     *,
-    backend: str = "auto",
-    threshold: float = 0.5,
+    backend: Literal["auto", "deepred", "plantc2u", "heuristic"] = "auto",
+    threshold: Annotated[float, Ge(0), Le(1)] = 0.5,
 ) -> OrganelleResult:
     """Predict C-to-U RNA editing sites in CDS of an annotated genome.
 
@@ -137,6 +141,7 @@ def predict_edits(
     )
 
 
+@validated_public('rna_editing.validate_edits')
 def validate_edits(
     predicted_sites: list[Mapping[str, str | int | float | bool | None]],
     *,
@@ -228,6 +233,7 @@ _CONSERVED_TARGETS = {
 }
 
 
+@validated_public('rna_editing.predict_edits_prep')
 def predict_edits_prep(
     genome: OrganelleGenome,
 ) -> OrganelleResult:
@@ -336,6 +342,7 @@ def predict_edits_prep(
 # ---------------------------------------------------------------------------
 
 
+@validated_public('rna_editing.predict_edits_deepred')
 def predict_edits_deepred(
     genome: OrganelleGenome,
     *,
@@ -499,6 +506,7 @@ def predict_edits_deepred(
 # ---------------------------------------------------------------------------
 
 
+@validated_public('rna_editing.predict_edits_plantc2u')
 def predict_edits_plantc2u(
     genome: OrganelleGenome,
     *,

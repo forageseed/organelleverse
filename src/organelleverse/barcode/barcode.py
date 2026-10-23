@@ -6,7 +6,11 @@
 """
 
 from __future__ import annotations
+
 from pathlib import Path
+
+from organelleverse._public_validation import validated_public
+
 from ..core.result import ErrorDetail, OrganelleResult
 from ..sequences import Sequences, as_path, as_records
 from ._contract import (
@@ -20,6 +24,7 @@ from ._contract import (
 )
 
 
+@validated_public('barcode.design_barcode')
 def design_barcode(
     alignment_fasta: str | Path | Sequences,
     *,
@@ -114,6 +119,7 @@ def design_barcode(
     )
 
 
+@validated_public('barcode.identify')
 def identify(
     query_fasta: str | Path | Sequences,
     reference_fasta: str | Path | Sequences,

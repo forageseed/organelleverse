@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal
 
 from organelleverse._bam import site_base_counts
+from organelleverse._public_validation import validated_public
 
 from ..core.result import Finding, OrganelleResult
 from ..inputs import ReadAlignments
@@ -24,6 +25,7 @@ _OPERATION = "quantify_efficiency"
 _VERSION = "1.0"
 
 
+@validated_public('rna_editing.quantify_efficiency')
 def quantify_known_site_efficiency(
     bam_path: str | Path | ReadAlignments,
     sites_tsv: str | Path,

@@ -27,3 +27,83 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "gfa"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "color_by"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "node_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "edge_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "edge_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "outline"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "node_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_node_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "text_outline"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "center_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "single_arrowheads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "linear"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "extra_args"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "layout"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"

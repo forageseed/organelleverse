@@ -16,16 +16,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import reverse_complement
 from ..core.errors import OrganelleDependencyError
 from ..core.result import ErrorDetail, OrganelleResult
-from ..sequences import Sequences, as_path, as_records
 from ..diversity.diversity import (
     _call_hotspots,
     _columns_between,
     _sliding_window_stats,
     _window_pi_s,
 )
+from ..sequences import Sequences, as_path, as_records
 from ._contract import (
     OPERATION_VERSION,
     RESULT_SCOPE,
@@ -62,6 +64,7 @@ def _load_primer3():
     return primer3
 
 
+@validated_public('barcode.design_marker_primers')
 def design_marker_primers(
     alignment_fasta: str | Path | Sequences,
     *,

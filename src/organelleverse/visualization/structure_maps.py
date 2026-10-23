@@ -7,6 +7,8 @@ from collections.abc import Mapping, Sequence
 from itertools import pairwise
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError, OrganelleParameterError
 from .features import (
     TRANS_BASIS_TEXT,
@@ -54,6 +56,7 @@ def _tracks(ssrs, tandem_repeats, dispersed_repeats, length):
     return tracks
 
 
+@validated_public('visualization.plot_structure_map')
 def plot_structure_map(
     genbank_path: Sequence[str | Path],
     *,
