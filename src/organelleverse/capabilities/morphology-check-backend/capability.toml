@@ -8,10 +8,11 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Check Backend"
-description = "Check if the OrgSegNet backend is available."
+description = "Check if a morphology segmentation backend is available."
 keywords = ["analyze", "backend", "check", "morphology", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.morphology.install:check_backend"

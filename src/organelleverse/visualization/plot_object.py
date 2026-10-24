@@ -30,6 +30,31 @@ from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
 
 PlotRenderer = Callable[[str | Path], Path]
 
+
+class PanelDrawer:
+    """How a plot draws itself as one panel of a composed figure.
+
+    ``draw(ax, legend)`` draws into a matplotlib axes and returns the legend
+    handles it left out when ``legend`` is false (the composer shows each
+    distinct handle once). ``aspect`` is the panel's height / width and
+    ``header`` the default panel title. ``label_pt(ax)``, when given, returns the
+    gene-name size the panel would use on ``ax``; the composer then draws every
+    such panel with ``draw(ax, legend, label_pt=<smallest>)`` so one figure has
+    one gene-name size.
+    """
+
+    def __init__(
+        self,
+        draw: Callable[..., Sequence[Any]],
+        aspect: float,
+        header: str = "",
+        label_pt: Callable[[Any], float] | None = None,
+    ) -> None:
+        self.draw = draw
+        self.aspect = float(aspect)
+        self.header = header
+        self.label_pt = label_pt
+
 SUITE = "visualization"
 OPERATION_VERSION = "1.0"
 
@@ -340,11 +365,17 @@ class OrganellePlot(OrganelleResult):
 
     _renderer: PlotRenderer | None = PrivateAttr(default=None)
     _render_state: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _panel: PanelDrawer | None = PrivateAttr(default=None)
 
     @property
     def renderer(self) -> PlotRenderer | None:
         """The deferred renderer captured by the compute-only plot call."""
         return self._renderer
+
+    @property
+    def panel(self) -> PanelDrawer | None:
+        """Draws this plot into one panel of a composed figure, if the plot supports it."""
+        return self._panel
 
     @property
     def installed_paths(self) -> tuple[Path, ...]:

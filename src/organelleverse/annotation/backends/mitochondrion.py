@@ -7,6 +7,8 @@ import shutil
 import hashlib
 from pathlib import Path
 
+from Bio import SeqIO
+
 from organelleverse.core.errors import (
     OrganelleDependencyError,
     OrganelleError,
@@ -22,6 +24,8 @@ from ..genbank import parse_genbank
 from ..contigs import (
     apply_molecule_headers,
     contig_layout,
+    extend_circular_molecules,
+    fold_circular_flank,
     molecule_headers,
     split_document_by_contigs,
 )
@@ -118,8 +122,21 @@ class MitochondrionBackend:
             )
         output_dir = scratch / "backend-output"
         sample_name = genome.metadata.accession.strip() or species.replace(" ", "_")
+        source_fasta = genome.sequence.resolve()
+        headers = molecule_headers(source_fasta)
+        # A gene across the origin of a circular molecule is whole only when the molecule
+        # start is repeated after its end; the repeat is folded back after the search.
+        pipeline_fasta = source_fasta
+        true_lengths: list[int | None] = []
+        if any(circular for _, _, circular in headers):
+            pipeline_fasta = scratch / "circular-extended.fasta"
+            flanks = extend_circular_molecules(source_fasta, pipeline_fasta, headers)
+            true_lengths = [
+                len(record.seq) if flank else None
+                for record, flank in zip(SeqIO.parse(str(source_fasta), "fasta"), flanks, strict=True)
+            ]
         pipeline = MitochondrialAnnotationPipeline(
-            input_fasta=genome.sequence.resolve(),
+            input_fasta=pipeline_fasta,
             output_dir=output_dir,
             name=sample_name,
             threads=request.threads,
@@ -185,9 +202,11 @@ class MitochondrionBackend:
             ),
         )
         # The pipeline annotates contigs joined by 200 N; hand back one record per contig.
-        document = split_document_by_contigs(document, contig_layout(genome.sequence.resolve()))
+        document = split_document_by_contigs(document, contig_layout(pipeline_fasta))
+        if true_lengths:
+            document = fold_circular_flank(document, true_lengths)
         # ovasm molecules say whether they are circular; GenBank LOCUS lines should too
-        document = apply_molecule_headers(document, molecule_headers(genome.sequence.resolve()))
+        document = apply_molecule_headers(document, headers)
         database_hashes = {
             "mitochondrion_hmm": _hash_file(database.combined_hmm),
             "mitochondrion_gene_info": _hash_directory(database.gene_info_dir),
@@ -195,6 +214,9 @@ class MitochondrionBackend:
         if "pcg" in request.stages:
             database_hashes["mitochondrion_pcg_blast_refs"] = _hash_directory(
                 database.blast_ref_dir
+            )
+            database_hashes["mitochondrion_boundary_refs"] = _hash_directory(
+                database.boundary_ref_dir
             )
             database_hashes["mitochondrion_exon_refs"] = _hash_directory(database.exon_ref_dir)
         if "trna" in request.stages:

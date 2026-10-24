@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 
 from .codon_contract import allowed_start_codons
 from .db import DBManager
-from .models.gene import GeneAnnotation
+from .models.gene import GeneAnnotation, Strand
 from .models.genome import GenomeSequence
 from .pcg import STOP_CODONS, STOP_GAIN_CODONS, translate_sequence
 
@@ -178,6 +178,7 @@ def partition_valid_cds(
 
     accepted: list[GeneAnnotation] = []
     rejected: list[RejectedCDSCandidate] = []
+    edge_rescued: list[GeneAnnotation] = []
     for annotation in annotations:
         if annotation.gene_type != "CDS":
             accepted.append(annotation)
@@ -190,6 +191,10 @@ def partition_valid_cds(
         if not errors:
             accepted.append(annotation)
             continue
+        partial = _partial_at_sequence_end(annotation, errors, genome, db_manager)
+        if partial is not None:
+            edge_rescued.append(partial)
+            continue
         rejected.append(
             RejectedCDSCandidate(
                 gene_name=annotation.gene_name,
@@ -201,7 +206,97 @@ def partition_valid_cds(
                 issue_messages=tuple(issue.message for issue in errors),
             )
         )
+    # A copy of the gene that is already complete elsewhere wins over a cut one.
+    for partial in edge_rescued:
+        if not any(_overlaps(partial, other) for other in accepted if other.gene_name == partial.gene_name):
+            accepted.append(partial)
     return accepted, tuple(rejected)
+
+
+#: How far from a sequence end a CDS may stop and still count as cut by that end.
+_EDGE_TOLERANCE = 6
+#: A cut gene shorter than this (bases) is a fragment, not a partial gene.
+_MIN_PARTIAL_BASES = 90
+
+
+def _overlaps(a: GeneAnnotation, b: GeneAnnotation) -> bool:
+    shared = min(a.genomic_end, b.genomic_end) - max(a.genomic_start, b.genomic_start) + 1
+    return shared > 0.5 * min(a.total_exon_length, b.total_exon_length)
+
+
+def _sequence_spans(genome: GenomeSequence) -> list[tuple[int, int]]:
+    """1-based inclusive ``(start, end)`` of every molecule in the (possibly merged) sequence."""
+    if genome.contig_map:
+        return [(c.start, c.end) for c in genome.contig_map]
+    return [(1, genome.length)]
+
+
+def _partial_at_sequence_end(
+    ann: GeneAnnotation,
+    errors: tuple[CDSIssue, ...],
+    genome: GenomeSequence,
+    db_manager: DBManager | None,
+) -> GeneAnnotation | None:
+    """A candidate rejected only because a molecule end cut it, as a partial CDS.
+
+    A gene that runs off the end of a linear molecule (or past the origin of a circular
+    one, which the linear search cannot follow) lacks its start or its stop codon and
+    often ends inside a codon. When the only errors are those and the missing end lies
+    within a few bases of a molecule end, the CDS is kept as a partial one: that end is
+    marked open, the incomplete codon is trimmed so the frame holds, and the result must
+    pass validation again. Anything else (internal stops, a gene cut in the middle of
+    the sequence) stays rejected.
+    """
+    if {e.issue_type for e in errors} - {"missing_start", "missing_stop", "frame_shift"}:
+        return None
+    if ann.is_pseudo or not ann.exons:
+        return None
+    first, last = ann.exons[0], ann.exons[-1]
+    plus = ann.strand == Strand.PLUS
+    five = first.start if plus else first.end
+    three = last.end if plus else last.start
+    span = next(
+        (s for s in _sequence_spans(genome) if s[0] <= ann.genomic_start and ann.genomic_end <= s[1]),
+        None,
+    )
+    if span is None:
+        return None
+    low, high = span
+    open_5 = (five - low <= _EDGE_TOLERANCE) if plus else (high - five <= _EDGE_TOLERANCE)
+    open_3 = (high - three <= _EDGE_TOLERANCE) if plus else (three - low <= _EDGE_TOLERANCE)
+    codes = {e.issue_type for e in errors}
+    open_5 = open_5 and "missing_start" in codes
+    open_3 = open_3 and ("missing_stop" in codes or ("frame_shift" in codes and not open_5))
+    if not (open_5 or open_3):
+        return None
+    exons = [exon.model_copy() for exon in ann.exons]
+    extra = sum(e.end - e.start + 1 for e in exons) % 3
+    if extra:
+        # the incomplete codon sits at the open end; the other end keeps its true frame
+        target = exons[-1] if open_3 else exons[0]
+        trim_end = open_3 == plus  # 3' of + and 5' of - both lie at the exon's end
+        if trim_end:
+            target.end -= extra
+        else:
+            target.start += extra
+        if target.end < target.start:
+            return None
+    if sum(e.end - e.start + 1 for e in exons) < _MIN_PARTIAL_BASES:
+        return None
+    partial = ann.model_copy(
+        update={
+            "exons": exons,
+            "is_partial_5prime": open_5,
+            "is_partial_3prime": open_3,
+            "notes": [
+                *ann.notes,
+                "partial CDS: the gene continues beyond the end of the sequence",
+            ],
+        }
+    )
+    if any(i.severity == "error" for i in _validate_single_cds(partial, genome, db_manager)):
+        return None
+    return partial
 
 
 def validate_cds(

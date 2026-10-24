@@ -19,6 +19,7 @@ from .diversity import (
     write_nucleotide,
     write_sliding_window_diversity,
 )
+from ..sequences import read
 from .diversity_core import compute_neutral_tests, compute_nucleotide_diversity
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "compute_nucleotide_diversity",
     "neutral_tests",
     "nucleotide_diversity",
+    "read",
     "sliding_window_diversity",
     "write_neutral_tests",
     "write_nucleotide",

@@ -31,3 +31,11 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "phenotype"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "prepare_input"
+codec = "json"

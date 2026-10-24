@@ -30,3 +30,31 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "matrix"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "row_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "col_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "center"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "cmap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "annotate"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "colorbar_label"
+codec = "json"

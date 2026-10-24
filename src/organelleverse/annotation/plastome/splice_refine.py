@@ -18,6 +18,7 @@ from Bio.Align import PairwiseAligner, substitution_matrices
 from Bio.Seq import Seq
 
 from .cds_terminals import _refine_multi_forward
+from .fast_translate import translate11
 from .group_ii import predicted_ends, structure_agreement
 from .splice_flanks import choose_candidate, group_ii_joins
 
@@ -72,7 +73,7 @@ def _refine_forward_two_exon(
         coding = "".join(seq[s - 1:e] for s, e in exons)
         if len(coding) < 60 or len(coding) % 3:
             return None
-        protein = str(Seq(coding).translate(table=11))
+        protein = translate11(coding)
         if "*" in protein[:-1]:
             return None
         return (_score(ref, _san(protein)), list(exons), coding, [exons[0][1] - exons[0][0] + 1],
@@ -171,12 +172,45 @@ def _refine_internal_forward(
     if n < 2:
         return None
     ref = _san(ref_protein.rstrip("*"))
-    L = len(seq)
     w = _adaptive_window(window, n - 1)
+    # Only the score depends on the reference protein; the open combinations are computed once per gene
+    # and reused for every candidate protein (the caller tries ranked proteins until one splices).
+    candidates = [
+        (_score(ref, prot), list(ex), spliced, list(offsets), joins, agreement)
+        for ex, spliced, prot, offsets, joins, agreement in _open_combinations(seq, tuple(exons), w, structure_offsets)
+    ]
+    return choose_candidate(candidates, junction_flanks)
+
+
+_COMBINATIONS: dict = {}
+_COMBINATIONS_MAX = 64
+
+
+def _open_combinations(seq: str, exons: tuple[tuple[int, int], ...], w: int, structure_offsets):
+    """Cached ``_compute_open_combinations`` (by sequence, exons, window and structure calibration)."""
+    try:
+        key = (seq, exons, w, None if structure_offsets is None else tuple(structure_offsets))
+        hash(key)
+    except TypeError:
+        return _compute_open_combinations(seq, exons, w, structure_offsets)
+    found = _COMBINATIONS.get(key)
+    if found is None:
+        found = _compute_open_combinations(seq, exons, w, structure_offsets)
+        if len(_COMBINATIONS) >= _COMBINATIONS_MAX:
+            _COMBINATIONS.clear()
+        _COMBINATIONS[key] = found
+    return found
+
+
+def _compute_open_combinations(seq: str, exons: tuple[tuple[int, int], ...], w: int, structure_offsets):
+    """Every internal donor/acceptor combination within ``+-w`` whose spliced CDS is an open in-frame ORF, in
+    search order: (exons, spliced, sanitised protein, splice offsets, group II joins, structure agreement)."""
+    n = len(exons)
+    L = len(seq)
     ends = [range(exons[j][1] - w, exons[j][1] + w + 1) for j in range(n - 1)]
     starts = [range(exons[j][0] - w, exons[j][0] + w + 1) for j in range(1, n)]
     predicted = predicted_ends(seq, list(exons), structure_offsets)
-    candidates = []
+    out = []
     for de in product(*ends):
         for st in product(*starts):
             ex: list[tuple[int, int]] = []
@@ -193,18 +227,18 @@ def _refine_internal_forward(
             if sum(b - a + 1 for a, b in ex) % 3:
                 continue
             spliced = "".join(seq[a - 1 : b] for a, b in ex)
-            prot = str(Seq(spliced).translate(table=11))
+            prot = translate11(spliced)
             if "*" in prot[:-1]:
                 continue
-            sc = _score(ref, _san(prot))
             offsets, acc = [], 0
             for a, b in ex[:-1]:
                 acc += b - a + 1
                 offsets.append(acc)
-            candidates.append(
-                (sc, ex, spliced, offsets, group_ii_joins(seq, ex), structure_agreement(seq, ex, predicted))
+            out.append(
+                (tuple(ex), spliced, _san(prot), tuple(offsets), group_ii_joins(seq, ex),
+                 structure_agreement(seq, ex, predicted))
             )
-    return choose_candidate(candidates, junction_flanks)
+    return tuple(out)
 
 
 def refine_internal_boundaries(
@@ -298,7 +332,7 @@ def _refine_block_forward(seq, exons, ref_protein, window, phase_skip, final, ju
                 if final and len(coding) % 3:
                     continue
                 coding = coding[: len(coding) - len(coding) % 3]
-                prot = str(Seq(coding).translate(table=11))
+                prot = translate11(coding)
                 if "*" in (prot[:-1] if final else prot):
                     continue
                 offsets, acc = [], 0

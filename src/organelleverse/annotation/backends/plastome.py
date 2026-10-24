@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 from organelleverse.core.errors import (
@@ -15,7 +16,7 @@ from organelleverse.core.genome import OrganelleGenome
 from ..execution import CommandRunner, resolve_required_tools
 from ..genbank import parse_genbank
 from ..plastome.pipeline import PlastomeAnnotationPipeline
-from ..plastome.tools import _resolve_losat
+from ..plastome.tools import _resolve_losat, losat_opted_out
 from .base import AnnotationRequest, BackendRun
 from .mitochondrion import _hash_directory
 
@@ -32,6 +33,15 @@ def _resolve_search_tools(
         resolved = resolve_required_tools(("losat",), runner=runner, paths={"losat": losat})
         tool = resolved[0]
         return {"losat": tool.path}, {tool.name: tool.version}
+    if not losat_opted_out():
+        warnings.warn(
+            "LOSAT was not found (ORG_VERSE_LOSAT_BIN, the checkout's external_tools build, "
+            "PATH); plastome searches fall back to NCBI BLAST+, which is slower and can give "
+            "different hits. Point ORG_VERSE_LOSAT_BIN at a LOSAT binary, or set it to 'none' "
+            "to silence this warning.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     resolved = resolve_required_tools(("blastn", "makeblastdb", "tblastn"), runner=runner)
     tool_paths = {tool.name: tool.path for tool in resolved}
     software_versions = {tool.name: tool.version for tool in resolved}
@@ -80,6 +90,7 @@ class PlastomeBackend:
             refine_cds="pcg" in request.stages,
             detect_ir=True,
             threads=request.threads,
+            rotate_to_trnh=request.rotate_to_trnh,
         )
         if not pipeline.verify_dependencies():
             raise OrganelleDependencyError(
@@ -93,7 +104,7 @@ class PlastomeBackend:
             failure = pipeline.failed_samples.get(sample_name, "plastome pipeline produced no annotation")
             raise OrganelleExecutionError(
                 code="backend_output_invalid",
-                message="plastome pipeline did not produce a successful annotation",
+                message=f"plastome pipeline did not produce a successful annotation: {failure}",
                 details={"reason": failure},
             )
         genbank_path = stats.output_genbank

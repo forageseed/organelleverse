@@ -8,6 +8,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ...core.artifacts import ArtifactRef
 from ...core.errors import OrganelleDependencyError, OrganelleInputError, OrganelleParameterError
 from ...core.external import run_external
@@ -87,6 +89,7 @@ def load_tmbed_predictions(path: Path, proteins: dict[str, str]) -> dict:
     return predictions
 
 
+@validated_public('phenotype.predict_cms_topology')
 def predict_cms_topology(
     protein_fasta: Path,
     *,

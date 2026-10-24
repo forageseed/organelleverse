@@ -30,3 +30,23 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "species_tree_newick"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "transform"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_overlap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gene_sets"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "n_perms"
+codec = "json"

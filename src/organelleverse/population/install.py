@@ -10,6 +10,9 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
+
+from organelleverse._public_validation import validated_public
+
 from ..assembly.install import _list_conda_envs
 
 __all__ = [
@@ -87,6 +90,7 @@ POP_BACKEND_INFO: dict[str, dict[str, str]] = {
 }
 
 
+@validated_public('population.check_backend')
 def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
     """Check if a population backend is installed.
 
@@ -139,11 +143,13 @@ def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
     }
 
 
+@validated_public('population.check_all_backends')
 def check_all_backends(*, scan_envs: bool = True) -> dict[str, dict[str, Any]]:
     """Check all population backends. Returns {name: status_dict}."""
     return {name: check_backend(name, scan_envs=scan_envs) for name in POP_BACKEND_INFO}
 
 
+@validated_public('population.install_hint')
 def install_hint(name: str) -> str:
     """Return a human-readable install guide with URLs."""
     info = POP_BACKEND_INFO.get(name)

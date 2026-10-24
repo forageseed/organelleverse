@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="rna-analysis-title rna-analysis-desc">
+  <title id="rna-analysis-title">RNA analysis</title>
+  <desc id="rna-analysis-desc">A spliced RNA strand with an editing site.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 17c6-10 13 10 19 0s13 10 19 0" stroke="#d9a33b" /><path d="M8 35h12q10-19 20 0h15" stroke="#355b43" /><rect x="8" y="31" width="12" height="8" rx="2" fill="#e9efe5"/><rect x="40" y="31" width="15" height="8" rx="2" fill="#fbf1d8"/><path d="M15 49h33" stroke="#dc7147" /><circle cx="32" cy="49" r="6" fill="#fbf1d8" stroke="#d9a33b"/><path d="M31 46l3 3-3 3" stroke="#d9a33b" />
+  </g>
+</svg>

@@ -35,6 +35,24 @@ class DBManager:
         return self.data_dir / "blast_refs" / "pcg"
 
     @property
+    def boundary_ref_dir(self) -> Path:
+        """Boundary-only references, kept apart from the ``pcg/`` length set.
+
+        Seven genes (ccmB, ccmC, ccmFC, ccmFN, matR, mttB, nad4L) have two
+        different reference sets: a small, length-consistent set for tblastn
+        boundary refinement and a broader set in ``pcg/`` (lower-case names)
+        for reference-length statistics. Kept in one directory they differed
+        only in letter case, which a case-insensitive filesystem cannot hold.
+        """
+        return self.data_dir / "blast_refs" / "pcg_boundary"
+
+    def boundary_reference(self, gene_name: str) -> Path:
+        """The tblastn boundary reference: ``pcg_boundary/`` first, then ``pcg/``."""
+        name = f"{gene_name}.Protein.fasta"
+        dedicated = self.boundary_ref_dir / name
+        return dedicated if dedicated.is_file() else self.blast_ref_dir / name
+
+    @property
     def exon_ref_dir(self) -> Path:
         return self.data_dir / "blast_refs" / "exons"
 

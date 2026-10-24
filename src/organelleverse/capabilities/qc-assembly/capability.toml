@@ -23,7 +23,7 @@ cacheable = false
 
 [[contract.dependencies]]
 kind = "python"
-name = "pysam"
+name = "rubam"
 optional = true
 
 [[contract.dependencies]]

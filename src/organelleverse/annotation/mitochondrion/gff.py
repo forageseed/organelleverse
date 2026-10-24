@@ -13,7 +13,7 @@ from pathlib import Path
 
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.SeqFeature import FeatureLocation, SeqFeature
+from Bio.SeqFeature import AfterPosition, BeforePosition, ExactPosition, FeatureLocation, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
 from .models.feature import rRNAAnnotation, tRNAAnnotation
@@ -215,6 +215,15 @@ def _annotation_to_gff3_records(
     return records
 
 
+def _open_location(start0: int, end: int, strand: int, open_start: bool, open_end: bool) -> FeatureLocation:
+    """A location whose start and/or end is marked as running on (``<`` / ``>``)."""
+    return FeatureLocation(
+        BeforePosition(start0) if open_start else ExactPosition(start0),
+        AfterPosition(end) if open_end else ExactPosition(end),
+        strand=strand,
+    )
+
+
 def _annotation_to_seq_features(
     ann: GeneAnnotation, genome: GenomeSequence | None = None
 ) -> list[SeqFeature]:
@@ -222,9 +231,16 @@ def _annotation_to_seq_features(
     features = []
     strand_biopython = 1 if ann.strand == Strand.PLUS else -1
 
+    # 5'/3' open ends in genomic orientation: a minus-strand 5' end is the right end
+    plus = strand_biopython == 1
+    open_left = ann.is_partial_5prime if plus else ann.is_partial_3prime
+    open_right = ann.is_partial_3prime if plus else ann.is_partial_5prime
+
     # Gene feature
     gene_feature = SeqFeature(
-        FeatureLocation(ann.genomic_start - 1, ann.genomic_end, strand=strand_biopython),
+        _open_location(
+            ann.genomic_start - 1, ann.genomic_end, strand_biopython, open_left, open_right
+        ),
         type="gene",
         qualifiers={
             "gene": [ann.gene_name],
@@ -242,9 +258,17 @@ def _annotation_to_seq_features(
             from Bio.SeqFeature import CompoundLocation
 
             locations = []
-            for exon in ann.exons:
+            for index, exon in enumerate(ann.exons):
                 exon_strand = 1 if exon.strand == Strand.PLUS else -1
-                locations.append(FeatureLocation(exon.start - 1, exon.end, strand=exon_strand))
+                # exons are in biological order: the first holds the 5' end, the last the 3' end
+                first, last = index == 0, index == len(ann.exons) - 1
+                five_open = first and ann.is_partial_5prime
+                three_open = last and ann.is_partial_3prime
+                left_open = five_open if exon_strand == 1 else three_open
+                right_open = three_open if exon_strand == 1 else five_open
+                locations.append(
+                    _open_location(exon.start - 1, exon.end, exon_strand, left_open, right_open)
+                )
             # GeneAnnotation.exons is already biological 5'->3' order. Sorting
             # here corrupts trans-spliced genes whose numbered exons are not in
             # genomic order, including uniform minus-strand compounds.
@@ -252,7 +276,9 @@ def _annotation_to_seq_features(
         else:
             exon = ann.exons[0]
             exon_strand = 1 if exon.strand == Strand.PLUS else -1
-            cds_loc = FeatureLocation(exon.start - 1, exon.end, strand=exon_strand)
+            cds_loc = _open_location(
+                exon.start - 1, exon.end, exon_strand, open_left, open_right
+            )
 
         cds_feature = SeqFeature(
             cds_loc,

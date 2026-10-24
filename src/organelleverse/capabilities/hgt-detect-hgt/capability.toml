@@ -31,3 +31,31 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "recipient_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_len"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "preset"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "confirm_blast"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "phylogeny_evidence"
+codec = "path"

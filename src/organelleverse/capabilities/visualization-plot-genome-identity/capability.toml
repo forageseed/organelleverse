@@ -42,3 +42,19 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "region"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "conserved_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reference_name"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"

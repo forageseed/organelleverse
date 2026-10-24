@@ -31,6 +31,7 @@ from typing import Annotated, NoReturn, TypedDict, cast
 from urllib.parse import quote
 
 from annotated_types import Ge, Le
+from organelleverse._public_validation import validated_public
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..core.artifacts import ArtifactRef
@@ -624,6 +625,7 @@ def _materialize_report(cache_root: Path, sha256: str, canonical: bytes) -> Arti
     )
 
 
+@validated_public('fetch.genome_size_candidates', python_only=('transport',))
 def genome_size_candidates(
     scientific_name: str,
     *,

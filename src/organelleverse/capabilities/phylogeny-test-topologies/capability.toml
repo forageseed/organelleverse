@@ -36,3 +36,15 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "model"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "replicates"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"

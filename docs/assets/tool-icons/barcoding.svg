@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="barcoding-title barcoding-desc">
+  <title id="barcoding-title">Barcoding</title>
+  <desc id="barcoding-desc">A molecular barcode and sequence matching marker.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="10" width="43" height="36" rx="4" fill="#fff"/><path d="M15 17v22 M20 17v22 M27 17v22 M31 17v22 M39 17v22 M45 17v22" stroke="#355b43" stroke-width="2.6"/><circle cx="46" cy="46" r="10" fill="#fbf1d8"/><path d="M42 46l3 3 6-7" stroke="#d9a33b" />
+  </g>
+</svg>

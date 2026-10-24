@@ -28,6 +28,18 @@ result_codec = "canonical"
 name = "cds_fasta"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genetic_code"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "include_stop"
+codec = "json"
+
 [[fixture]]
 case = "basic"
 input = { kind = "none" }

@@ -509,7 +509,7 @@ def _publish(directory: Path, record: dict, request: WorkflowRequest) -> None:
             format=file.suffix.lstrip("."),
             media_type=mimetypes.guess_type(file)[0] or "application/octet-stream",
         )
-        artifacts.append(ref.model_copy(update={"uri": str(file.relative_to(directory))}))
+        artifacts.append(ref.model_copy(update={"uri": file.relative_to(directory).as_posix()}))
     result = OrganelleResult(
         operation_id=store.OPERATION,
         operation_version=record["workflow_version"],
@@ -547,7 +547,7 @@ def _publish(directory: Path, record: dict, request: WorkflowRequest) -> None:
 
 def _public_files(directory: Path) -> list[dict]:
     return [
-        {"name": str(p.relative_to(directory)), "kind": p.suffix.lstrip(".")}
+        {"name": p.relative_to(directory).as_posix(), "kind": p.suffix.lstrip(".")}
         for p in sorted(directory.rglob("*"))
         if p.is_file()
         and p.name not in {"workflow.json", "workflow.json.tmp"}

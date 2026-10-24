@@ -12,6 +12,7 @@ description = "Parse KaKs_Calculator output TSV."
 keywords = ["analyze", "kaks", "output", "parse", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.kaks_calculator:parse_kaks_output"

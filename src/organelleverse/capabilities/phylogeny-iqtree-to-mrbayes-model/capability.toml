@@ -12,6 +12,7 @@ description = "Map an IQ-TREE DNA model string to MrBayes lset/prset settings (n
 keywords = ["analyze", "iqtree", "model", "mrbayes", "phylogeny", "substitution"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.partition:iqtree_to_mrbayes_model"

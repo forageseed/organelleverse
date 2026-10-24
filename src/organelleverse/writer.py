@@ -18,6 +18,9 @@ through a generic path that would silently produce a file with the wrong shape.
 
 from __future__ import annotations
 
+import functools
+import warnings
+from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -25,7 +28,7 @@ from typing import Any, Protocol, cast
 from .core.errors import OrganelleInputError
 from .core.result import OrganelleResult
 
-__all__ = ["materializing_suites", "write"]
+__all__ = ["deprecated_alias", "materializing_suites", "write"]
 
 # Operation-id prefixes whose implementation package is named differently.
 _SUITE_PACKAGES = {"qc": "quality_control"}
@@ -37,17 +40,25 @@ _KNOWN_SUITES = (
     "annotation",
     "assembly",
     "barcode",
+    "codon_composition",
     "coevolution",
     "comparative",
+    "composition",
+    "diversity",
     "hgt",
     "ir_boundary",
+    "localization",
+    "morphology",
+    "pangenome",
     "phenotype",
     "phylogeny",
+    "population",
     "qc",
     "rna_editing",
     "selection",
     "structure",
     "transfer",
+    "variation",
     "visualization",
 )
 
@@ -129,3 +140,20 @@ def write(obj: Any, output: str | Path) -> Any:
         message="ov.write accepts a released Result or OrganelleReport",
         details={"type": type(obj).__name__},
     )
+
+
+def deprecated_alias(function: Callable[..., Any], name: str) -> Callable[..., Any]:
+    """``function`` under an old ``name``: same call, with a ``DeprecationWarning``."""
+
+    @functools.wraps(function)
+    def alias(*args: Any, **kwargs: Any) -> Any:
+        warnings.warn(
+            f"{name} is deprecated; use write",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return function(*args, **kwargs)
+
+    alias.__name__ = name
+    alias.__qualname__ = name
+    return alias

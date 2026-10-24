@@ -7,93 +7,31 @@ from collections.abc import Mapping, Sequence
 from itertools import pairwise
 from pathlib import Path
 
-from ..annotation.splice_layout import parts_are_trans_spliced
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleInputError, OrganelleParameterError
+from .features import (
+    TRANS_BASIS_TEXT,
+    annotation_rows,
+    genes_from_rows,
+    record_display_name,
+    resolve_ir_regions,
+)
 from .ogdraw import (
     GENE_COLORS,
-    Gene,
     MitoGenome,
     _bp_to_deg,
     _draw_arc_block,
     _load_genbank_records,
     _parse_genbank_record,
-    classify_gene,
     draw_mito_map,
 )
 from .plot_object import OrganellePlot, plot_result
+from .style import FONT_PT, publication_style, width_inches
 
-
-def _parents(feature, genes):
-    """Match the annotated locus, including duplicated genes and mixed strands."""
-    name = feature.qualifiers.get("gene")
-    tag = feature.qualifiers.get("locus_tag")
-    return [
-        gene
-        for gene in genes
-        if (tag == gene.qualifiers.get("locus_tag") if tag else name == gene.qualifiers.get("gene"))
-        and all(
-            any(
-                p.start >= q.start and p.end <= q.end and p.strand == q.strand
-                for q in gene.location.parts
-            )
-            for p in feature.location.parts
-        )
-    ]
-
-
-def _annotations(record, organelle="mito"):
-    genes = [f for f in record.features if f.type == "gene"]
-    products = [f for f in record.features if f.type in {"CDS", "tRNA", "rRNA"}]
-    covered = {id(g) for f in products for g in _parents(f, genes)}
-    rows = []
-    for index, feature in enumerate(record.features):
-        if feature.type not in {"CDS", "tRNA", "rRNA"} and not (
-            feature.type == "gene" and id(feature) not in covered
-        ):
-            continue
-        name = feature.qualifiers.get("gene", feature.qualifiers.get("locus_tag", [feature.type]))[
-            0
-        ]
-        parts = list(feature.location.parts)
-        if any(p.ref is not None or p.strand not in (-1, 1) for p in parts):
-            raise OrganelleInputError(
-                code="visualization.structure.location",
-                message="Structure maps require local, stranded feature locations.",
-            )
-        trans = any(
-            "trans_splicing" in f.qualifiers for f in [feature, *_parents(feature, genes)]
-        ) or (
-            feature.type != "gene"
-            and parts_are_trans_spliced(
-                [(int(p.start), int(p.end), p.strand) for p in parts], len(record)
-            )
-        )
-        # GenBank join order is biological order, including complement and trans-splicing.
-        exons = [
-            {"exon": i, "start": int(p.start) + 1, "end": int(p.end), "strand": p.strand}
-            for i, p in enumerate(parts, 1)
-        ]
-        gaps = [
-            ((b["start"] - a["end"] - 1) if a["strand"] == 1 else (a["start"] - b["end"] - 1))
-            % len(record)
-            for a, b in pairwise(exons)
-        ]
-        # A contiguous join across the circular origin is not a splice junction.
-        splicing = "trans" if trans else "cis" if any(gaps) else "none"
-        if feature.type == "gene":
-            splicing = "none"
-        rows.append(
-            {
-                "feature_index": index,
-                "gene": name,
-                "feature_type": feature.type,
-                "category": classify_gene(name, organelle),
-                "splicing": splicing,
-                "exons": exons,
-                "gaps": gaps if splicing == "cis" else [],
-            }
-        )
-    return rows
+# Kept under their historical names; the logic is shared with the OGDraw map.
+_annotations = annotation_rows
+_structure_genes = genes_from_rows
 
 
 def _tracks(ssrs, tandem_repeats, dispersed_repeats, length):
@@ -118,6 +56,7 @@ def _tracks(ssrs, tandem_repeats, dispersed_repeats, length):
     return tracks
 
 
+@validated_public('visualization.plot_structure_map')
 def plot_structure_map(
     genbank_path: Sequence[str | Path],
     *,
@@ -135,8 +74,12 @@ def plot_structure_map(
 
     CDS/tRNA/rRNA join parts supply 1-based inclusive exon coordinates in
     transcript order; gene-only loci remain on the circle but are not called
-    exons. Trans-splicing comes from the feature or its parent gene qualifier,
-    never from a distance threshold. Every copy is retained. Dashed links
+    exons. Trans-splicing comes from ``/trans_splicing`` on the feature or its
+    parent gene; a file without it is inferred from the exon layout (mixed
+    strands, a backward jump, or a gap above ``MAX_CIS_INTRON`` = 25 kb, the
+    same threshold the annotation writer uses). Each row's ``trans_basis`` says
+    which (``"qualifier"``, ``"mixed_strand"``, ``"backward"``, ``"distance"``)
+    and inferred panels say so in their title. Every copy is retained. Dashed links
     connect successive parts of a trans-spliced transcript; they do not assign
     individual introns a cis/trans mechanism.
 
@@ -182,27 +125,9 @@ def plot_structure_map(
             message="No gene, CDS, tRNA or rRNA annotations found.",
         )
     parsed.genes = _structure_genes(features)
-    regions = {}
-    if show_ir is None and parsed.organelle == "plastid":
-        from ..comparative.orientation import _quadripartite
-
-        regions = _quadripartite(str(record.seq).upper()) or {}
-    elif show_ir:
-        from ..comparative.orientation import _quadripartite
-
-        if parsed.organelle != "plastid":
-            raise OrganelleParameterError(
-                code="visualization.structure.ir_organelle",
-                message="IR partitioning requires a plastid record.",
-            )
-        regions = _quadripartite(str(record.seq).upper())
-        if regions is None:
-            raise OrganelleInputError(
-                code="visualization.structure.ir_unresolved",
-                message="No quadripartite plastome structure detected.",
-            )
+    regions = resolve_ir_regions(record, parsed.organelle, show_ir)
     tracks = _tracks(ssrs, tandem_repeats, dispersed_repeats, len(record))
-    name = genome_name or record.id
+    name = genome_name or record_display_name(record, record.id)
 
     def render(path):
         return _render_structure_map(Path(path), parsed, features, tracks, regions, name, dpi)
@@ -310,23 +235,6 @@ def _plot_multi_contig_structure_map(
     )
 
 
-def _structure_genes(features):
-    return [
-        Gene(
-            name=row["gene"],
-            start=min(e["start"] for e in row["exons"]),
-            end=max(e["end"] for e in row["exons"]),
-            strand=row["exons"][0]["strand"],
-            has_intron=row["splicing"] != "none",
-            category=row["category"],
-            exons=[(e["start"], e["end"]) for e in row["exons"]],
-            exon_strands=[e["strand"] for e in row["exons"]],
-            trans_spliced=row["splicing"] == "trans",
-        )
-        for row in features
-    ]
-
-
 def _restore_structure_plot(result):
     """Reattach rendering to a serialized, fully computed structure-map Result."""
     plot = OrganellePlot.model_validate(result.model_dump(mode="python"))
@@ -384,13 +292,13 @@ def _draw_structure_tracks(ax, length, features, tracks, regions):
     for region, span in regions.items():
         a, b = span["start"], span["start"] + span["length"]
         color = {"LSC": "#cde8bc", "SSC": "#ffd6a0", "IRa": "#a8d4ec", "IRb": "#a8d4ec"}[region]
-        _draw_arc_block(ax, a, b, 0.72, 0.77, length, color)
+        _draw_arc_block(ax, a, b, 0.72, 0.77, length, color, lw=0.3, edge="0.35")
         theta = math.radians(_bp_to_deg((a + b) / 2, length))
         ax.text(
             0.745 * math.cos(theta),
             0.745 * math.sin(theta),
             region,
-            fontsize=8,
+            fontsize=_FONT_TRACK,
             ha="center",
             va="center",
         )
@@ -402,11 +310,11 @@ def _draw_structure_tracks(ax, length, features, tracks, regions):
                 ax, row["start"] - 1, row["end"], radius - 0.025, radius, length, color, lw=0
             )
         ax.text(
-            -1.65,
-            0.65 - i * 0.09,
+            -1.48,
+            1.18 - i * 0.09,
             f"{track['name']}: {len(track['intervals'])} intervals",
             color=color,
-            fontsize=9,
+            fontsize=_FONT_TRACK,
         )
     for row in features:
         if row["splicing"] != "trans":
@@ -423,7 +331,7 @@ def _draw_structure_tracks(ax, length, features, tracks, regions):
                 ),
                 facecolor="none",
                 edgecolor="#555555",
-                lw=0.8,
+                lw=0.6,
                 linestyle="--",
                 alpha=0.65,
             )
@@ -431,8 +339,150 @@ def _draw_structure_tracks(ax, length, features, tracks, regions):
             ax.add_patch(patch)
 
 
+# Printed layout of one structure-map block (millimetres on a 183 mm double column).
+_FONT_TRACK = 6.5
+_FONT_ROW_GENE = 6.5
+_FONT_ROW_SMALL = 5.0
+_MM_CIRCLE_W = 96.0
+_MM_GUTTER = 3.0
+_MM_ROW_LABEL = 17.0
+_MM_ROW_H = 6.6
+_MM_HEADER = 4.0
+_MM_NOTE = 7.0
+_MM_BLOCK_GAP = 6.0
+_EXON_NOTE = (
+    "Coordinates 1-based inclusive. Cis: exons and introns to scale, intron length in bp.\n"
+    "Trans: exons to scale; // marks an omitted genomic gap. Inferred: no /trans_splicing in\n"
+    "the file; called from mixed exon strands, a backward exon order or a gap > 25 kb."
+)
+_LETTERS = "abcdefghijklmnopqrstuvwxyz"
+# Typographic minus, middle dot and en dash for printed labels.
+_MINUS, _DOT, _DASH = "\u2212", "\u00b7", "\u2013"
+
+
+def _spliced_rows(features):
+    return [f for f in features if f["feature_type"] != "gene" and f["splicing"] != "none"]
+
+
+def _circle_height_mm(legend: bool) -> float:
+    from .ogdraw import _XLIM_LEGEND_BELOW, _YLIM, _YLIM_LEGEND_BELOW_BOTTOM, _YLIM_PANEL_BOTTOM
+
+    bottom = _YLIM_LEGEND_BELOW_BOTTOM if legend else _YLIM_PANEL_BOTTOM
+    span_x = _XLIM_LEGEND_BELOW[1] - _XLIM_LEGEND_BELOW[0]
+    return _MM_CIRCLE_W * (_YLIM[1] - bottom) / span_x
+
+
+def _block_height_mm(spliced_count: int, legend: bool) -> float:
+    rows_h = spliced_count * _MM_ROW_H + (_MM_NOTE if spliced_count else 0.0)
+    return _MM_HEADER + max(_circle_height_mm(legend), rows_h)
+
+
+def _draw_structure_block(
+    fig, top_mm, parsed, features, tracks, regions, header, letters, *, legend
+):
+    """Circle panel and exon-row panel of one record, laid out in printed millimetres.
+
+    Both panel letters and both headers sit on one baseline (figure text, so a
+    and b align exactly); every exon row has the same left edge, width and height.
+    """
+    fig_w = fig.get_figwidth() * 25.4
+    fig_h = fig.get_figheight() * 25.4
+
+    def rect(x, y_top, w, h):
+        return (x / fig_w, (fig_h - y_top - h) / fig_h, w / fig_w, h / fig_h)
+
+    body_top = top_mm + _MM_HEADER
+    ax = fig.add_axes(rect(0.0, body_top, _MM_CIRCLE_W, _circle_height_mm(legend)))
+    draw_mito_map(
+        parsed,
+        genome_name=header,
+        ax=ax,
+        draw_gc=False,
+        draw_center_text=False,
+        draw_legend=legend,
+        min_label_gap=None,
+        fold_minus_labels_out=True,
+        legend_below=True,
+        inner_tracks=lambda ax, length: _draw_structure_tracks(
+            ax, length, features, tracks, regions
+        ),
+    )
+    baseline = 1 - (body_top - 1.0) / fig_h  # 1 mm above the panel bodies
+    letter_x = 1.0 / fig_w
+    fig.text(letter_x, baseline, letters[0], fontsize=FONT_PT["panel"], fontweight="bold",
+             ha="left", va="baseline")
+    fig.text(letter_x + 4.0 / fig_w, baseline, header, fontsize=FONT_PT["body"],
+             ha="left", va="baseline")
+    spliced = _spliced_rows(features)
+    if not spliced:
+        return
+    rows_x = _MM_CIRCLE_W + _MM_GUTTER
+    exon_x = rows_x + _MM_ROW_LABEL
+    exon_w = fig_w - exon_x - 1.0
+    fig.text(rows_x / fig_w, baseline, letters[1], fontsize=FONT_PT["panel"],
+             fontweight="bold", ha="left", va="baseline")
+    fig.text((rows_x + 4.0) / fig_w, baseline, "Spliced genes: exon structure",
+             fontsize=FONT_PT["body"], ha="left", va="baseline")
+    for i, row in enumerate(spliced):
+        row_ax = fig.add_axes(rect(exon_x, body_top + i * _MM_ROW_H, exon_w, _MM_ROW_H))
+        _draw_exon_panel(row_ax, row)
+    note_y = 1 - (body_top + len(spliced) * _MM_ROW_H + 1.5) / fig_h
+    fig.text(rows_x / fig_w, note_y, _EXON_NOTE, fontsize=_FONT_ROW_SMALL, ha="left",
+             va="top", color="0.25", linespacing=1.3)
+
+
+def _label_exons(ax, row, exons, lengths, starts, total):
+    """Coordinates over each exon, on alternating levels; exon numbers when they would collide.
+
+    End exons anchor their label inward so it is not clipped at the panel edge.
+    When any two labels on one level would touch (many small exons in a narrow
+    row, e.g. nad7), each exon gets only its number and a cis row gets its
+    overall span below; per-exon coordinates stay in ``<stem>.exons.tsv``.
+    """
+    fig = ax.figure
+    width_pt = ax.get_position().width * fig.get_figwidth() * 72
+    per_pt = total * 1.008 / width_pt
+
+    def placed(texts):
+        spans = []
+        for i, (text, size) in enumerate(zip(texts, lengths, strict=True)):
+            w = len(text) * _FONT_ROW_SMALL * 0.52 * per_pt
+            first, last = i == 0, i == len(texts) - 1
+            x = starts[i] if first else starts[i] + size if last else starts[i] + size / 2
+            lo = x if first else x - w if last else x - w / 2
+            spans.append((i % 2, lo, lo + w, x, "left" if first else "right" if last else "center"))
+        return spans
+
+    def collide(spans):
+        pad = 2 * per_pt
+        for level in (0, 1):
+            row_spans = sorted((s for s in spans if s[0] == level), key=lambda s: s[1])
+            if any(a[2] + pad > b[1] for a, b in pairwise(row_spans)):
+                return True
+        return any(s[1] < -0.004 * total or s[2] > total * 1.004 for s in spans)
+
+    def strand(e):
+        return "+" if e["strand"] == 1 else _MINUS
+
+    texts = [f"{e['exon']} {_DOT} {e['start']:,}{_DASH}{e['end']:,} {strand(e)}" for e in exons]
+    spans = placed(texts)
+    compact = collide(spans)
+    if compact:
+        spans = [(0, 0, 0, starts[i] + lengths[i] / 2, "center") for i in range(len(exons))]
+        texts = [str(e["exon"]) for e in exons]
+    for (level, _lo, _hi, x, ha), text in zip(spans, texts, strict=True):
+        ax.text(x, 0.36 if level == 0 else -0.36, text, ha=ha, va="center",
+                fontsize=_FONT_ROW_SMALL, zorder=3)
+    if compact and row["splicing"] == "cis":
+        lo = min(e["start"] for e in exons)
+        hi = max(e["end"] for e in exons)
+        ax.text(0, -0.36, f"{lo:,}{_DASH}{hi:,} {strand(exons[0])}", ha="left", va="center",
+                fontsize=_FONT_ROW_SMALL, zorder=3)
+
+
 def _draw_exon_panel(ax, row):
     from matplotlib.patches import Rectangle
+    from matplotlib.transforms import ScaledTranslation
 
     exons = row["exons"]
     trans = row["splicing"] == "trans"
@@ -441,47 +491,49 @@ def _draw_exon_panel(ax, row):
     gap_lengths = [sum(lengths) * 0.28] * (len(exons) - 1) if trans else row["gaps"]
     total = sum(lengths) + sum(gap_lengths)
     cursor = 0
-    ax.plot([0, total], [0, 0], color=".5", lw=0.8, linestyle="--" if trans else "-")
+    ax.plot([0, total], [0, 0], color=".5", lw=0.6, linestyle="--" if trans else "-", zorder=1)
+    starts = []
     for i, (exon, size) in enumerate(zip(exons, lengths, strict=True)):
+        starts.append(cursor)
         block = Rectangle(
             (cursor, -0.15),
             size,
             0.3,
             facecolor=GENE_COLORS[row["category"]],
             edgecolor="black",
-            lw=0.5,
+            lw=0.4,
+            zorder=2,
         )
         block.set_gid(f"exon-{row['feature_index']}-{exon['exon']}")
         ax.add_patch(block)
-        # Coordinate labels sit on alternating levels so small neighboring exons remain readable.
-        label = f"{exon['exon']}: {exon['start']:,}-{exon['end']:,} ({'+' if exon['strand'] == 1 else '-'})"
-        ax.text(
-            cursor + size / 2,
-            0.28 if i % 2 == 0 else -0.38,
-            label,
-            ha="center",
-            va="center",
-            fontsize=6.5,
-        )
         if i < len(gap_lengths):
             ax.text(
                 cursor + size + gap_lengths[i] / 2,
                 0,
                 "//" if trans else f"{gap_lengths[i]:,}",
                 ha="center",
-                fontsize=6,
-                backgroundcolor="white",
+                va="center",
+                fontsize=_FONT_ROW_SMALL,
+                # A tight white box breaks the intron line under the number
+                # without covering the coordinate labels above and below.
+                bbox={"facecolor": "white", "edgecolor": "none", "pad": 0.4},
+                zorder=2.5,
             )
             cursor += size + gap_lengths[i]
-    ax.set_xlim(-total * 0.09, total * 1.09)
-    ax.set_ylim(-0.65, 0.7)
-    ax.set_title(
-        f"{row['gene']} · feature {row['feature_index']} · {row['splicing']}",
-        loc="left",
-        fontsize=8,
-        fontstyle="italic",
-        pad=1,
-    )
+    _label_exons(ax, row, exons, lengths, starts, total)
+    ax.set_xlim(-0.004 * total, total * 1.004)  # keep the end exons' outlines inside
+    ax.set_ylim(-0.62, 0.62)
+    basis = row.get("trans_basis")
+    # Annotated trans-splicing is just "trans"; an inferred call says how it was inferred.
+    inferred = trans and basis not in (None, "qualifier")
+    splicing = f"trans ({TRANS_BASIS_TEXT[basis]})" if inferred else row["splicing"]
+    left = ax.transAxes + ScaledTranslation(-3 / 72, 0, ax.figure.dpi_scale_trans)
+    ax.text(0, 0.68, row["gene"], transform=left, ha="right", va="center",
+            fontsize=_FONT_ROW_GENE, fontstyle="italic")
+    ax.text(0, 0.3, "trans (inferred)" if inferred else row["splicing"], transform=left,
+            ha="right", va="center", fontsize=_FONT_ROW_SMALL, color="0.35")
+    # The full call (with how trans-splicing was inferred) stays on the axes.
+    ax.set_label(f"{row['gene']} \u00b7 feature {row['feature_index']} \u00b7 {splicing}")
     ax.axis("off")
 
 
@@ -501,10 +553,17 @@ def _render_contig_map_bundle(path, contigs, name, dpi):
             contig["features"],
             [],
             {},
-            f"{name} · {contig['name']}",
+            f"{name} \u00b7 {contig['name']}",
             dpi,
         )
     return combined
+
+
+def _structure_figure(heights_mm):
+    import matplotlib.pyplot as plt
+
+    height = sum(heights_mm) + _MM_BLOCK_GAP * (len(heights_mm) - 1)
+    return plt.figure(figsize=(width_inches("double"), height / 25.4))
 
 
 def _render_multi_contig_structure_map(path, contigs, name, dpi):
@@ -513,56 +572,31 @@ def _render_multi_contig_structure_map(path, contigs, name, dpi):
     import matplotlib.pyplot as plt
 
     rows: list[dict] = []
-    heights: list[float] = []
-    for contig in contigs:
-        spliced = [
-            row
-            for row in contig["features"]
-            if row["feature_type"] != "gene" and row["splicing"] != "none"
-        ]
-        heights.append(max(4.0, len(spliced) * 0.62 + 1.2))
-        rows.extend(contig["features"])
-    fig = plt.figure(figsize=(23, max(8.0, sum(heights) * 0.62 + 1.5)))
-    try:
-        grid = fig.add_gridspec(
-            len(contigs), 2, width_ratios=[1.1, 1], height_ratios=heights, wspace=0.15, hspace=0.3
-        )
-        for index, contig in enumerate(contigs):
-            parsed = contig["parsed"]
-            ax = fig.add_subplot(grid[index, 0])
-            draw_mito_map(
-                parsed,
-                genome_name=contig["name"],
-                ax=ax,
-                draw_gc=False,
-                draw_center_text=False,
-                # The category legend is shared by every contig; drawing it per
-                # row would stack three copies over the lower circles.
-                draw_legend=index == 0,
-                min_label_gap=parsed.genome_length / 150,
-                fold_minus_labels_out=True,
-            )
-            ax.set_title(
-                f"{contig['name']}\n{contig['length']:,} bp · {contig['organelle']}", fontsize=13
-            )
-            spliced = [
-                row
-                for row in contig["features"]
-                if row["feature_type"] != "gene" and row["splicing"] != "none"
-            ]
-            if spliced:
-                panels = grid[index, 1].subgridspec(len(spliced), 1, hspace=0.55)
-                for panel_index, row in enumerate(spliced):
-                    _draw_exon_panel(fig.add_subplot(panels[panel_index]), row)
-        fig.suptitle(
-            f"{name} · {len(contigs)} contigs · coordinates are 1-based inclusive within each contig\n"
-            "Cis: exon/intron lengths to scale within each row. Trans: exon lengths to scale; // genomic gaps omitted.",
-            fontsize=11,
-            y=0.985,
-        )
-        fig.savefig(path, dpi=dpi, bbox_inches="tight")
-    finally:
-        plt.close(fig)
+    heights = [
+        _block_height_mm(len(_spliced_rows(c["features"])), legend=i == len(contigs) - 1)
+        for i, c in enumerate(contigs)
+    ]
+    with publication_style():
+        fig = _structure_figure(heights)
+        try:
+            top = 0.0
+            for index, contig in enumerate(contigs):
+                rows.extend(contig["features"])
+                header = (
+                    f"{name} \u00b7 {contig['name']} \u00b7 {contig['length']:,} bp "
+                    f"\u00b7 {contig['organelle']}"
+                )
+                first = 2 * index % len(_LETTERS)
+                _draw_structure_block(
+                    fig, top, contig["parsed"], contig["features"], [], {}, header,
+                    _LETTERS[first:first + 2],
+                    # One shared category legend, under the last circle.
+                    legend=index == len(contigs) - 1,
+                )
+                top += heights[index] + _MM_BLOCK_GAP
+            fig.savefig(path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+        finally:
+            plt.close(fig)
     fields = [
         "contig",
         "feature_index",
@@ -590,36 +624,16 @@ def _render_structure_map(path, parsed, features, tracks, regions, name, dpi):
 
     import matplotlib.pyplot as plt
 
-    spliced = [f for f in features if f["feature_type"] != "gene" and f["splicing"] != "none"]
-    fig = plt.figure(figsize=(23, max(12, len(spliced) * 0.62 + 1.5)))
-    try:
-        grid = fig.add_gridspec(1, 2, width_ratios=[1.1, 1], wspace=0.15)
-        ax = fig.add_subplot(grid[0, 0])
-        draw_mito_map(
-            parsed,
-            genome_name=name,
-            ax=ax,
-            draw_gc=False,
-            draw_center_text=False,
-            min_label_gap=parsed.genome_length / 150,
-            fold_minus_labels_out=True,
-            inner_tracks=lambda ax, length: _draw_structure_tracks(
-                ax, length, features, tracks, regions
-            ),
-        )
-        ax.set_title(f"{name}\n{parsed.genome_length:,} bp · {parsed.organelle}", fontsize=14)
-        if spliced:
-            panels = grid[0, 1].subgridspec(len(spliced), 1, hspace=0.55)
-            for i, row in enumerate(spliced):
-                _draw_exon_panel(fig.add_subplot(panels[i]), row)
-        fig.suptitle(
-            "Exon structure · coordinates are 1-based inclusive\nCis: exon/intron lengths to scale within each row. Trans: exon lengths to scale; // genomic gaps omitted.",
-            fontsize=11,
-            y=0.98,
-        )
-        fig.savefig(path, dpi=dpi, bbox_inches="tight")
-    finally:
-        plt.close(fig)
+    header = f"{name} \u00b7 {parsed.genome_length:,} bp \u00b7 {parsed.organelle}"
+    with publication_style():
+        fig = _structure_figure([_block_height_mm(len(_spliced_rows(features)), legend=True)])
+        try:
+            _draw_structure_block(
+                fig, 0.0, parsed, features, tracks, regions, header, "ab", legend=True
+            )
+            fig.savefig(path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+        finally:
+            plt.close(fig)
     with path.with_suffix(".exons.tsv").open("w", newline="") as stream:
         fields = [
             "feature_index",

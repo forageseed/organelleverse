@@ -13,6 +13,7 @@ OrganelleType = Literal["mitochondrion", "plastid"]
 
 
 class AuxiliaryRole(StrEnum):
+    READ_ORIGINS = "read_origins"
     SEED_FASTA = "seed_fasta"
     REFERENCE_FASTA = "reference_fasta"
     REFERENCE_GENBANK = "reference_genbank"
@@ -62,6 +63,12 @@ class AssemblyBackendSpec(StrictSpecModel):
     mitochondrial_auxiliary: tuple[AuxiliaryRole, ...] = ()
     required_short_fields: tuple[Literal["read_length", "insert_size"], ...] = ()
     cli: str = Field(min_length=1)
+    #: Alternate executable filenames the availability probe accepts. PMAT's
+    #: managed build installs the launcher as lowercase ``pmat`` while an
+    #: in-place source checkout exposes ``PMAT``; the runtime capability
+    #: contract admits both, so the probe must too or a correctly provisioned
+    #: backend still reads as missing.
+    cli_aliases: tuple[str, ...] = ()
     adapter_locator: str = Field(
         pattern=r"^organelleverse\.assembly\.backends\.[a-z0-9_]+:[A-Za-z_]\w*$"
     )

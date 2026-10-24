@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="morphology-title morphology-desc">
+  <title id="morphology-title">Morphology</title>
+  <desc id="morphology-desc">Organelle outlines with a measurement ruler.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 18c0-11 16-11 19 1s-16 19-19-1z" fill="#e9efe5"/><path d="M36 13c7-10 21-1 16 10s-24 4-16-10z" fill="#fbf1d8"/><path d="M12 18c7-6 10 1 4 4 M41 16c8-3 7 5 1 5" stroke="#355b43" /><path d="M9 47h46 M9 42v10 M55 42v10 M20 47v5 M31 47v5 M43 47v5" stroke="#d9a33b" />
+  </g>
+</svg>

@@ -21,8 +21,6 @@ from pathlib import Path
 from typing import BinaryIO, Protocol, cast
 from uuid import uuid4
 
-from pydantic import BaseModel, JsonValue, ValidationError
-
 from organelleverse.core.artifacts import ArtifactRef
 from organelleverse.core.data import OrganelleData
 from organelleverse.core.errors import (
@@ -56,6 +54,7 @@ from organelleverse.runtime import (
     publish_staged_result,
     remove_managed_entry,
 )
+from pydantic import BaseModel, JsonValue, ValidationError
 
 from .code_identity import ExecutionIdentity, inspect_bundle_code
 from .codecs import (
@@ -288,6 +287,13 @@ def _minimal_environment() -> dict[str, str]:
 def _kill_process_group(process: subprocess.Popen[bytes]) -> None:
     if process.pid <= 0:
         return
+    if _WINDOWS:
+        job = getattr(process, "_organelleverse_job", None)
+        if job is not None:
+            job.close()
+        elif process.poll() is None:
+            process.kill()
+        return
     try:
         os.killpg(process.pid, signal.SIGKILL)
     except ProcessLookupError:
@@ -442,7 +448,7 @@ class OneShotBundleWorkerExecutor:
             ) from error
 
     def _exchange(self, request: WorkerRequest) -> WorkerResponse:
-        if _WINDOWS:
+        if _WINDOWS and os.name != "nt":
             raise OrganelleContractError(
                 code="capability.execution_provider_required",
                 message=(
@@ -466,7 +472,9 @@ class OneShotBundleWorkerExecutor:
         try:
             process = subprocess.Popen(
                 [
-                    sys.executable,
+                    getattr(sys, "_base_executable", sys.executable)
+                    if _WINDOWS
+                    else sys.executable,
                     "-I",
                     "-S",
                     "-E",
@@ -482,8 +490,28 @@ class OneShotBundleWorkerExecutor:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=0,
-                start_new_session=True,
+                start_new_session=not _WINDOWS,
+                creationflags=0x08000000 if _WINDOWS else 0,  # CREATE_NO_WINDOW
             )
+            if _WINDOWS:
+                from ._windows_job import WindowsWorkerJob
+
+                try:
+                    # Use the actual base interpreter, not the venv launcher:
+                    # no child may escape assignment before the request frame.
+                    process._organelleverse_job = WindowsWorkerJob(int(process._handle))
+                except BaseException as error:
+                    process.kill()
+                    process.wait(timeout=5)
+                    for pipe in (process.stdin, process.stdout, process.stderr):
+                        _close_pipe(pipe)
+                    if isinstance(error, OSError):
+                        raise OrganelleContractError(
+                            code="capability.execution_provider_required",
+                            message="Windows worker Job Object assignment failed",
+                            details={"capability_id": request.operation_id, "reason": str(error)},
+                        ) from error
+                    raise
         except OSError as error:
             raise _frame_error(
                 "capability.worker_spawn_failed",
@@ -1415,15 +1443,12 @@ class WorkerInvocationStrategy:
             )
         locator = entry.bundle.contract.callable_locator
         assert locator is not None
-        target_context = getattr(
-            entry.bundle.contract, "execution_context", ExecutionContext.HOST
-        )
+        target_context = getattr(entry.bundle.contract, "execution_context", ExecutionContext.HOST)
         if target_context is not ExecutionContext.HOST:
             raise OrganelleExecutionError(
                 code="capability.execution_context_unavailable",
                 message=(
-                    f"controlled worker execution context {target_context.value!r} "
-                    "is not available"
+                    f"controlled worker execution context {target_context.value!r} is not available"
                 ),
                 details={
                     "capability_id": entry.capability_id,
@@ -1671,9 +1696,7 @@ class WorkerInvocationStrategy:
         completed = managed_run_path(entry.capability_id, publication_run_id)
         input_object_ids = (input.object_id,) if input is not None else ()
         provenance_input_hashes = frozenset((*artifact_hashes, *core_artifact_hashes))
-        trusted_input_hashes = frozenset(
-            (*publication_input_hashes, *core_artifact_hashes)
-        )
+        trusted_input_hashes = frozenset((*publication_input_hashes, *core_artifact_hashes))
         snapshot_owned = False
         context: CapabilityExecutionContext | None = None
         snapshot_records: list[tuple[Path, str, int]] = []
@@ -1798,9 +1821,7 @@ class WorkerInvocationStrategy:
             # provenance trust set after that step so their hashes cannot be
             # omitted from either channel.
             provenance_input_hashes = frozenset((*artifact_hashes, *core_artifact_hashes))
-            trusted_input_hashes = frozenset(
-                (*publication_input_hashes, *core_artifact_hashes)
-            )
+            trusted_input_hashes = frozenset((*publication_input_hashes, *core_artifact_hashes))
             for index, name in enumerate(sorted(path_inputs)):
                 source, expected_sha256, expected_size_bytes = path_inputs[name]
                 destination = snapshot_root / _snapshot_name("path", index, source)

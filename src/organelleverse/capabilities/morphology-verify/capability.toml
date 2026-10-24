@@ -44,3 +44,11 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "on_disagree"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "reverify"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "instance_map"
+codec = "json"

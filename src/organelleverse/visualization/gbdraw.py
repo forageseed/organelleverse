@@ -16,6 +16,8 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.data import OrganelleData
 from ..core.genome import OrganelleGenome
 from ..core.result import OrganelleResult
@@ -35,6 +37,7 @@ _OUTPUT_SUFFIX = {
 }
 
 
+@validated_public('visualization.plot_gbdraw', python_only=('runner',))
 def plot_gbdraw(
     inputs: (PathInput | Sequence[PathInput] | OrganelleGenome | OrganelleData),
     *,
@@ -503,6 +506,9 @@ def _render_gbdraw(
     return_code = _return_code(run_result)
     if return_code != 0:
         raise RuntimeError(_failure_summary(run_result))
+    missing = tuple(p for p in expected_outputs if not p.exists())
+    if missing:
+        _convert_missing_from_svg(missing, output_prefix, run_result)
     existing_outputs = tuple(p for p in expected_outputs if p.exists())
     if not existing_outputs:
         raise RuntimeError(f"gbdraw exited successfully but did not create {out}.")
@@ -511,6 +517,7 @@ def _render_gbdraw(
     return existing_outputs[0]
 
 
+@validated_public('visualization.plot_gene_structure')
 def plot_gene_structure(
     inputs: (PathInput | Sequence[PathInput] | OrganelleGenome | OrganelleData),
     *,
@@ -539,6 +546,7 @@ def plot_gene_structure(
     )
 
 
+@validated_public('visualization.plot_collinearity')
 def plot_collinearity(
     inputs: (PathInput | Sequence[PathInput] | OrganelleGenome | OrganelleData),
     *,
@@ -899,6 +907,43 @@ def _failure_summary(run_result: Any) -> str:
     stderr = str(getattr(run_result, "stderr", "") or "").strip()
     stdout = str(getattr(run_result, "stdout", "") or "").strip()
     return (stderr or stdout or "gbdraw rendering failed.")[:1000]
+
+
+_SVG_EXPORTERS = {".png": "svg2png", ".pdf": "svg2pdf", ".ps": "svg2ps", ".eps": "svg2eps"}
+_RASTER_SCALE = 300 / 96  # SVG user units are 96 per inch; rasterise at 300 dpi
+
+
+def _convert_missing_from_svg(missing: tuple[Path, ...], output_prefix: Path, run_result: Any) -> None:
+    """Export formats gbdraw skipped from the SVG it did write.
+
+    gbdraw needs CairoSVG for PNG/PDF/PS/EPS; without it the CLI writes only the
+    SVG, prints a hint and still exits 0. OrganelleVerse converts that SVG with
+    its own CairoSVG instead. If that is unavailable too, the error names the
+    missing dependency rather than reporting a vanished file.
+    """
+    svg = output_prefix.with_suffix(".svg")
+    convertible = [p for p in missing if p.suffix.lower() in _SVG_EXPORTERS]
+    if not svg.exists() or not convertible:
+        return
+    try:
+        import cairosvg  # type: ignore
+    except ImportError as exc:
+        hint = _failure_summary(run_result)
+        raise RuntimeError(
+            f"gbdraw wrote only {svg.name}: its PNG/PDF export needs CairoSVG, which neither "
+            "gbdraw's environment nor OrganelleVerse's has. Install it (pip install cairosvg, "
+            "or gbdraw[export] in gbdraw's environment) or request an .svg output. "
+            f"gbdraw said: {hint}"
+        ) from exc
+    _apply_white_svg_background(svg)
+    for path in convertible:
+        exporter = getattr(cairosvg, _SVG_EXPORTERS[path.suffix.lower()], None)
+        if exporter is None:
+            continue
+        options: dict[str, Any] = {"url": str(svg), "write_to": str(path)}
+        if path.suffix.lower() == ".png":
+            options.update(scale=_RASTER_SCALE, background_color="white")
+        exporter(**options)
 
 
 def _apply_white_background(paths: tuple[Path, ...], *, output_prefix: Path) -> None:

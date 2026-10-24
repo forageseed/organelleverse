@@ -44,3 +44,31 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "label_source"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "intensity_image"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_area"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "watershed_classes"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "class_names"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "instance_map"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "network_metrics"
+codec = "json"

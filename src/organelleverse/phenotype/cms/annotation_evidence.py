@@ -6,6 +6,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
 
+from organelleverse._public_validation import validated_public
+
 from ..._bio import write_fasta
 from ...annotation.genbank import _feature_label, _translation
 from ...annotation.validation import validate_document
@@ -202,6 +204,7 @@ def _edited_rows(path, entries):
     return mapped, edited
 
 
+@validated_public('phenotype.assess_cms_annotation')
 def assess_cms_annotation(
     annotation_result: OrganelleResult,
     *,

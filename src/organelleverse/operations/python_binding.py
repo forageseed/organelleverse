@@ -38,6 +38,13 @@ from typing import (
 )
 from uuid import uuid4
 
+from organelleverse._public_validation import unchecked_public
+from organelleverse.capabilities.codecs import CapabilityExecutionContext, encode_capability_result
+from organelleverse.capabilities.models import CapabilityBundle, ImplementationKind
+from organelleverse.capabilities.worker_contracts import WorkerParameter
+from organelleverse.core.base import StrictFrozenModel
+from organelleverse.core.errors import OrganelleContractError, OrganelleInputError
+from organelleverse.core.result import OrganelleResult
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -47,13 +54,6 @@ from pydantic import (
     WithJsonSchema,
     create_model,
 )
-
-from organelleverse.capabilities.codecs import CapabilityExecutionContext, encode_capability_result
-from organelleverse.capabilities.models import CapabilityBundle, ImplementationKind
-from organelleverse.capabilities.worker_contracts import WorkerParameter
-from organelleverse.core.base import StrictFrozenModel
-from organelleverse.core.errors import OrganelleContractError, OrganelleInputError
-from organelleverse.core.result import OrganelleResult
 
 from .data_contracts import DataContract
 from .registry import BoundOperation, CoreObject, InvocationStrategy
@@ -688,7 +688,7 @@ def _bind_canonical_core(spec: OperationSpec, implementation: Callable[..., obje
     core_returning = cast("Callable[..., CoreObject]", implementation)
     return BoundOperation(
         spec=spec,
-        implementation=core_returning,
+        implementation=cast("Callable[..., CoreObject]", unchecked_public(implementation)),
         function=core_returning,
         signature=signature,
         data_contracts=(),
@@ -727,7 +727,7 @@ def _one_path_as_list(value: object) -> object:
     The Agent schema stays an array; this keeps callers that passed one file to a
     parameter that later became a list working.
     """
-    return [value] if isinstance(value, str) else value
+    return [value] if isinstance(value, (str, Path)) else value
 
 
 def _resolve_path_parameter_plan(
@@ -1151,7 +1151,7 @@ def _bind_named_parameters(
             parameters_hash=parameters_hash,
         )
 
-        raw_value = implementation(*bound_arguments.args, **bound_arguments.kwargs)
+        raw_value = unchecked_public(implementation)(*bound_arguments.args, **bound_arguments.kwargs)
         # Result codec validation runs only now, after the callable has
         # returned - encoding what it produced is not itself a preflight
         # step and must not be confused for one.
@@ -1167,13 +1167,12 @@ def _bind_named_parameters(
     return BoundOperation(
         spec=spec,
         implementation=encoding_wrapper,
-        # .function intentionally holds the raw original callable, not
-        # encoding_wrapper: its purpose here is identity/provenance ("this
-        # capability really calls this exact function", never a second
-        # implementation), not direct invocation. Direct calls must go
-        # through .invoke(), which always calls encoding_wrapper via
-        # .implementation. The real return type (e.g. a bare dict) need not
-        # be CoreObject for that purpose, hence the explicit narrowing.
+        # Retain the exact public callable for identity and native Python
+        # signatures. Released public functions carry their own shared
+        # validation boundary. JSON calls use .invoke() and encoding_wrapper;
+        # only that already-checked path unwraps our boundary before running
+        # the algorithm. A native return (e.g. dict) need not be CoreObject,
+        # hence the explicit narrowing for this metadata field.
         function=cast("Callable[..., CoreObject]", implementation),
         signature=signature,
         data_contracts=(),

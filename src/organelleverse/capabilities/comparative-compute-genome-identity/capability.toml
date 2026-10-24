@@ -45,6 +45,18 @@ codec = "path"
 name = "reference_genbank"
 codec = "path"
 
+[[contract.binding.parameters]]
+name = "window_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "step"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "preset"
+codec = "json"
+
 [[fixture]]
 case = "single_query"
 input = { kind = "none" }

@@ -38,9 +38,11 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
-from . import _contract
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
-from .._bio import read_fasta
+from ..sequences import Sequences, as_path, as_records
+from . import _contract
 
 __all__ = [
     "SUPPORTED_METHODS",
@@ -81,6 +83,7 @@ _KAKS_INFO = {
 }
 
 
+@validated_public('selection.check_kaks_calculator')
 def check_kaks_calculator() -> dict[str, Any]:
     """Check if KaKs_Calculator is installed (PATH + all conda envs)."""
     from ..assembly.install import _list_conda_envs
@@ -127,7 +130,7 @@ def install_hint() -> str:
 
 
 def fasta_to_axt(
-    fasta_path: str | Path,
+    fasta_path: str | Path | Sequences,
     output_path: str | Path | None = None,
 ) -> Path:
     """Convert codon-aligned FASTA pairs to AXT format for KaKs_Calculator.
@@ -140,9 +143,9 @@ def fasta_to_axt(
 
     All-vs-all pairs are generated.
     """
-    seqs = read_fasta(Path(fasta_path))
+    seqs = as_records(fasta_path)
     if output_path is None:
-        output_path = Path(fasta_path).with_suffix(".axt")
+        output_path = Path(as_path(fasta_path)).with_suffix(".axt")
     output_path = Path(output_path)
 
     lines: list[str] = []
@@ -229,6 +232,7 @@ def run_kaks_calculator(
 # =========================================================================
 
 
+@validated_public('selection.parse_kaks_output')
 def parse_kaks_output(output_file: str | Path) -> list[dict[str, Any]]:
     """Parse KaKs_Calculator output TSV.
 
@@ -267,8 +271,9 @@ def parse_kaks_output(output_file: str | Path) -> list[dict[str, Any]]:
 # =========================================================================
 
 
+@validated_public('selection.kaks_calculator')
 def kaks_calculator(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     method: str = "YN",
     genetic_code: int = 1,
@@ -298,7 +303,7 @@ def kaks_calculator(
 
 
 def run_kaks_calculator_workflow(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     method: str = "YN",
     output_dir: str | Path,

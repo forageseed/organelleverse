@@ -39,10 +39,14 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
-from ..core.provenance import ResultProvenance
 from ..core.frozen import FrozenMap
+from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
+from ..inputs import Variants
+from ..sequences import Sequences, as_path
 
 _OPERATION_VERSION = "1.0"
 _SCOPE = "mitochondrion"
@@ -270,8 +274,9 @@ def call_variants(
     )
 
 
+@validated_public('population.fst_scan')
 def fst_scan(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     pop_assignments: dict[str, str],
     window_size: int = 1000,
@@ -295,6 +300,7 @@ def fst_scan(
     ``samples_missing_from_vcf`` — silently dropping them shrinks a population
     (a one-letter typo then moves F_ST for the whole window).
     """
+    vcf_path = as_path(vcf_path)
     parameters = {
         "vcf_path": str(vcf_path),
         "pop_assignments": dict(pop_assignments),
@@ -399,9 +405,10 @@ def fst_scan(
     )
 
 
+@validated_public('population.detect_numt')
 def detect_numt(
-    nuclear_fasta: str | Path,
-    mito_fasta: str | Path,
+    nuclear_fasta: str | Path | Sequences,
+    mito_fasta: str | Path | Sequences,
     *,
     k: int = 31,
     min_len: int = 100,
@@ -426,6 +433,8 @@ def detect_numt(
     (``fragment_clipped_at_reference_record_boundary``; pieces shorter than
     ``min_len`` are dropped and counted in ``boundary_pieces_dropped``).
     """
+    nuclear_fasta = as_path(nuclear_fasta)
+    mito_fasta = as_path(mito_fasta)
     from ..transfer.transfer import _detect_transfer_alignment
 
     result = _detect_transfer_alignment(
@@ -503,7 +512,7 @@ def _map_concatenated_fragments(
 
 
 def prepare_gemma_input(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     phenotype: str | Path,
     out_dir: str | Path,
@@ -533,6 +542,7 @@ def prepare_gemma_input(
     failed dosage rewrite) yields ``status="failed"`` — reporting ``planned``
     after three steps already ran would hide a broken pipeline.
     """
+    vcf_path = as_path(vcf_path)
     from .install import check_backend, install_hint
 
     out_dir = Path(out_dir)
@@ -649,7 +659,7 @@ def prepare_gemma_input(
 
 
 def cytonuclear_gwas(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     phenotype: str | Path,
     method: str = "gemma",
@@ -685,6 +695,7 @@ def cytonuclear_gwas(
     set and all tools present, runs the steps sequentially; a failing step
     yields ``status="failed"``.
     """
+    vcf_path = as_path(vcf_path)
     from .install import check_backend, install_hint
 
     out_dir = Path(out_dir)

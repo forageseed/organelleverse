@@ -62,3 +62,7 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "instance_map"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"

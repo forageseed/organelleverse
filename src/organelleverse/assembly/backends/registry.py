@@ -1,6 +1,6 @@
 from collections.abc import Iterator, Mapping, Sequence
 from types import MappingProxyType
-from typing import Literal, TypeAlias, cast
+from typing import Any, Literal, TypeAlias, cast
 
 from organelleverse.assembly.contracts import assembly_method_ids
 from organelleverse.core.errors import OrganelleContractError
@@ -90,8 +90,8 @@ _INSTALL = {
     ),
     "ovasm": BackendInstallSpec(
         tier="source",
-        source="https://github.com/forageseed/ovasm",
-        note="Native binary: build it from https://github.com/forageseed/ovasm (`cargo build --release`), then put it on PATH or set ORG_VERSE_OVASM_BIN; no managed environment",
+        source="https://github.com/xibeixingchen/organelleverse",
+        note="Native binary: `cargo build --release` in rust/ovasm, or set ORG_VERSE_OVASM_BIN; no managed environment",
     ),
 }
 
@@ -228,7 +228,7 @@ _BACKEND_FACTS = (
         (),
         "ovasm",
         "native",
-        "https://github.com/forageseed/ovasm",
+        "https://github.com/xibeixingchen/organelleverse",
         (
             "ovasm-hifi",
             "ovasm-ont-raw",
@@ -250,6 +250,10 @@ _ADAPTER_CLASSES = {
     "tippo": "TippoAdapter",
     "ptgaul": "PtgaulAdapter",
     "ovasm": "OvasmAdapter",
+}
+
+_CLI_ALIASES = {
+    "pmat": ("pmat",),
 }
 
 BackendFact: TypeAlias = tuple[
@@ -299,6 +303,7 @@ for fact in cast(tuple[BackendFact, ...], _BACKEND_FACTS):
             mitochondrial_auxiliary=tuple(AuxiliaryRole(value) for value in mitochondrial_values),
             required_short_fields=required_short_fields,
             cli=cli,
+            cli_aliases=_CLI_ALIASES.get(backend_id, ()),
             adapter_locator=adapter_locator,
             output_contract=output_contract,
             environment=environment,
@@ -329,11 +334,12 @@ def get_backend(backend_id: str) -> AssemblyBackendSpec:
     return BACKENDS[backend_id]
 
 
-def install_info() -> dict[str, dict[str, str]]:
+def install_info() -> dict[str, dict[str, Any]]:
     return {
         spec.backend_id: {
             "url": spec.official_url,
             "cli": spec.cli,
+            "cli_aliases": tuple(spec.cli_aliases),
             "tier": spec.install.tier,
             "note": spec.install.note,
             **({"pip": spec.install.pip} if spec.install.pip is not None else {}),

@@ -49,9 +49,9 @@ _TESTED: dict[str, ResolvedBackendVersion] = {
     "ptgaul": ResolvedBackendVersion(
         backend_id="ptgaul", version="1.0.5", requested_selector="tested"
     ),
-    # the crate version of ovasm; the run records the version the binary itself reports
+    # the crate version of rust/ovasm; the run records the version the binary itself reports
     "ovasm": ResolvedBackendVersion(
-        backend_id="ovasm", version="0.1.1", requested_selector="tested"
+        backend_id="ovasm", version="0.1.0", requested_selector="tested"
     ),
     "pmat": ResolvedBackendVersion(
         backend_id="pmat",

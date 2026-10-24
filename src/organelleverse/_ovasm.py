@@ -1,4 +1,4 @@
-"""Resolution and invocation of the ``ovasm`` binary (https://github.com/forageseed/ovasm).
+"""Resolution and invocation of the vendored ``ovasm`` binary (rust/ovasm).
 
 ``ovasm recruit`` scans sequencing reads once and writes the reads of each seeded
 organelle target (plus NUMT candidates and a JSON report); ``ovasm discover`` does
@@ -17,6 +17,8 @@ downsampled replicates.
 """
 
 from __future__ import annotations
+
+from organelleverse._layout import checkout_root
 
 import json
 import os
@@ -37,14 +39,79 @@ __all__ = [
     "run_discover",
     "run_evidence",
     "run_identify",
-    "run_panel",
     "run_linearize",
+    "run_panel",
     "run_pipeline",
+    "run_primary",
     "run_recruit",
+    "run_reconstruction",
     "run_unify",
 ]
 
 OvasmPreset = Literal["hifi", "ont", "sr"]
+
+
+def run_reconstruction(
+    reads: Sequence[str | Path] = (),
+    *,
+    references: Mapping[str, str | Path],
+    out_dir: str | Path,
+    sample: str,
+    target_depth: float | None = None,
+    threads: int = 8,
+    salt: int = 0,
+    timeout_seconds: float | None = None,
+    target_reads: Mapping[str, Sequence[str | Path]] | None = None,
+) -> dict[str, Any]:
+    """Run all-path species pan graph assisted WGS reconstruction.
+
+    Reference-only DNA cannot fill an unsupported target interval. Individual
+    FASTA records are nonbranching contigs, not certified physical molecules.
+    The native report preserves projection support, de novo output/errors and
+    unresolved phase. This function runs on its current execution host.
+    """
+    import math
+
+    if target_reads is not None:
+        if (
+            reads
+            or target_depth is not None
+            or set(target_reads) != {"mitochondrion", "plastid"}
+            or not all(target_reads.values())
+        ):
+            raise ValueError(
+                "target mode requires both labelled organelle read sets, "
+                "no raw reads or depth sampling"
+            )
+    elif not reads:
+        raise ValueError("at least one WGS read file is required")
+    if set(references) != {"mitochondrion", "plastid"}:
+        raise ValueError("one mitochondrial and one plastid reference graph are required")
+    if not sample or any(c in sample for c in "#\t\n "):
+        raise ValueError("sample must be a nonempty PanSN field")
+    if threads < 1:
+        raise ValueError("threads must be positive")
+    if target_depth is not None and (not math.isfinite(target_depth) or target_depth <= 0):
+        raise ValueError("target depth must be finite and positive")
+    argv = [
+        _require(), "reconstruct", "--out", str(out_dir), "--sample", sample,
+        "--threads", str(threads), "--salt", str(salt),
+    ]
+    for path in reads:
+        argv += ["--reads", str(path)]
+    for organelle, paths in (target_reads or {}).items():
+        for path in paths:
+            argv += ["--target-reads", f"{organelle}={path}"]
+    for organelle in ("mitochondrion", "plastid"):
+        argv += ["--reference", f"{organelle}={references[organelle]}"]
+    if target_depth is not None:
+        argv += ["--target-depth", str(target_depth)]
+    run_external(
+        argv, tool="ovasm reconstruct", code="assembly.reconstruction_failed",
+        timeout=timeout_seconds,
+    )
+    return json.loads((Path(out_dir) / "reconstruction.json").read_text(encoding="utf-8"))
+
 
 #: ``ovasm evidence`` settings per read type: k, diagonal tolerance, hits per side.
 _EVIDENCE_PRESETS: dict[str, tuple[int, int, int]] = {
@@ -59,7 +126,7 @@ _DISABLED_TOKENS = {"none", "off", "disable", "0"}
 
 
 def resolve_ovasm() -> str | None:
-    """Resolve the ovasm binary: env override, then PATH."""
+    """Resolve the ovasm binary: env override, then the checkout build, then PATH."""
     env_value = os.environ.get("ORG_VERSE_OVASM_BIN")
     if env_value:
         if env_value.strip().casefold() in _DISABLED_TOKENS:
@@ -69,6 +136,10 @@ def resolve_ovasm() -> str | None:
         )
         if resolved:
             return resolved
+    name = "ovasm.exe" if os.name == "nt" else "ovasm"
+    candidate = checkout_root() / "rust" / "ovasm" / "target" / "release" / name
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+        return str(candidate)
     return shutil.which("ovasm")
 
 
@@ -77,8 +148,8 @@ def _require() -> str:
     if binary is None:
         raise OrganelleDependencyError(
             code="dependency_missing",
-            message="ovasm is not available; install it from https://github.com/forageseed/ovasm "
-            "and put it on PATH or set ORG_VERSE_OVASM_BIN",
+            message="ovasm is not available; build it with `cargo build --release` in rust/ovasm "
+            "or set ORG_VERSE_OVASM_BIN",
             details={"missing": ["ovasm"]},
         )
     return binary
@@ -260,6 +331,10 @@ def run_evidence(
         "--bootstrap",
         str(bootstrap),
     ]
+    if preset == "sr":
+        # Dense overlap-edge words support local adjacency independently of the
+        # long-span anchors required to phase a repeat entry/exit pairing.
+        argv += ["--short-read-adjacency"]
     for path in reads:
         argv += ["--reads", str(path)]
     if threads is not None:
@@ -275,10 +350,13 @@ def run_linearize(
     out_fasta: str | Path,
     out_json: str | Path,
     min_reads: int = 2,
+    max_molecules: int = 0,
 ) -> dict[str, Any]:
     """Run ``ovasm linearize`` on a graph and its evidence report; return the parsed report.
 
     ``out_fasta`` is written only when some path visits every unique segment (``best`` set).
+    Zero uses the automatic cover envelope, which includes the necessary bound
+    from path ends. Positive values are explicit search-size limits.
     """
     argv: list[str] = [
         _require(),
@@ -293,6 +371,8 @@ def run_linearize(
         str(out_json),
         "--min-reads",
         str(min_reads),
+        "--max-molecules",
+        str(max_molecules),
     ]
     run_external(argv, tool="ovasm linearize", code="assembly.evidence_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
@@ -348,6 +428,7 @@ def run_assemble(
     k: int | None = None,
     dense: bool = False,
     min_count: int | None = None,
+    multichrom_graph: bool = False,
     threads: int | None = None,
 ) -> dict[str, Any]:
     """Run ``ovasm assemble`` and return its parsed JSON report.
@@ -365,11 +446,28 @@ def run_assemble(
         argv += ["--k", str(k)]
     if dense:
         argv += ["--s", "0"]
+    if multichrom_graph:
+        if dense or min_count is None or min_count < 1:
+            raise ValueError("multichrom graph needs long reads and a positive read-derived min_count")
+        argv += ["--multichrom-graph"]
     if min_count is not None:
         argv += ["--min-count", str(min_count)]
     if threads is not None:
         argv += ["--threads", str(threads)]
     run_external(argv, tool="ovasm assemble", code="assembly.assemble_failed")
+    return json.loads(Path(out_json).read_text(encoding="utf-8"))
+
+
+def run_primary(
+    gfa: str | Path,
+    *,
+    out_fasta: str | Path,
+    out_json: str | Path,
+) -> dict[str, Any]:
+    """Export primary paths and unplaced segments; these do not certify physical molecules."""
+    argv = [_require(), "primary", "--gfa", str(gfa), "--out", str(out_fasta),
+            "--out-json", str(out_json)]
+    run_external(argv, tool="ovasm primary", code="assembly.primary_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -415,7 +513,11 @@ def run_components(
     depth_factor: float | None = None,
     gene_depth_factor: float | None = None,
     min_other_genes: int | None = None,
+    reject_other_only: bool = False,
     panel: str | Path | None = None,
+    read_origins: str | Path | None = None,
+    out_assigned_gfa: str | Path | None = None,
+    out_unassigned_gfa: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run ``ovasm components`` on an assembly graph and return its report.
 
@@ -423,8 +525,13 @@ def run_components(
     most target genes (conserved-protein panel, as ``ovasm panel``), those with target
     genes unless far shallower (``gene_depth_factor``), and those without genes whose depth is
     within ``depth_factor`` of it. ``report["components"]`` lists every component, kept or
-    removed, with its length, depth, genes and reason. Without a gene-bearing component
-    nothing is removed. Defaults are the binary's.
+    removed, with its length, depth, genes and reason. Optional ``read_origins`` is the
+    reference-assisted original-read evidence JSON from ``assembly.read_origins``.
+    An unmarked component is excluded only when every associated read favors nuclear
+    context and the nuclear-context alignments cover every segment. Compatible periodic
+    reads, unresolved reads and uncovered bases veto this exclusion. The JSON report
+    retains the counts. This is sequence screening, not identification of physical origin.
+    Without this evidence, defaults and the panel/depth rule are unchanged.
     """
     argv: list[str] = [
         _require(),
@@ -444,8 +551,16 @@ def run_components(
         argv += ["--gene-depth-factor", str(gene_depth_factor)]
     if min_other_genes is not None:
         argv += ["--min-other-genes", str(min_other_genes)]
+    if reject_other_only:
+        argv += ["--reject-other-only"]
     if panel is not None:
         argv += ["--panel", str(panel)]
+    if read_origins is not None:
+        argv += ["--read-origins", str(read_origins)]
+    for flag, path in (("--out-assigned-gfa", out_assigned_gfa),
+                       ("--out-unassigned-gfa", out_unassigned_gfa)):
+        if path is not None:
+            argv += [flag, str(path)]
     run_external(argv, tool="ovasm components", code="assembly.components_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
@@ -489,6 +604,7 @@ def run_pipeline(
     seeds: Mapping[str, Sequence[str | Path]] | None = None,
     recruit: Literal["seeds", "discover", "both"] = "seeds",
     recruit_depth: float | None = None,
+    recruit_cache: str | Path | None = None,
     single_seed: bool = False,
     mode: Literal["fast", "standard"] = "fast",
     replicates: int | None = None,
@@ -509,6 +625,8 @@ def run_pipeline(
     ``evidence.json``, ``linearization.json``, ``molecules.fasta``, ``organelle.gfa``/``.json``
     and ``summary.json`` into ``out_dir``. ``mode="standard"`` adds downsampled replicates and
     each junction's share of replicates that reproduce it (``summary["replicates"]``).
+    ``recruit_cache`` enables lossless sequence replay with final original quality extraction.
+    Source candidate reports retain uncertainty; they do not certify physical origin.
     With ``recruit="discover"``/``"both"`` each graph first loses the components that are not the
     target organelle (``ovasm components``; ``component_panel`` swaps its protein panel).
     ``organelle="both"`` writes each organelle into its own subdirectory and returns
@@ -516,6 +634,9 @@ def run_pipeline(
     """
     if not reads:
         raise ValueError("at least one read file is required")
+    for name, paths in (seeds or {}).items():
+        if not paths:
+            raise ValueError(f"seed target {name!r} has no files")
     argv: list[str] = [
         _require(),
         "run",
@@ -537,12 +658,12 @@ def run_pipeline(
     for path in reads:
         argv += ["--reads", str(path)]
     for name, paths in (seeds or {}).items():
-        if not paths:
-            raise ValueError(f"seed target {name!r} has no files")
         for path in paths:
             argv += ["--seeds", f"{name}={path}"]
     if recruit_depth is not None:
         argv += ["--recruit-depth", str(recruit_depth)]
+    if recruit_cache is not None:
+        argv += ["--recruit-cache", str(recruit_cache)]
     if single_seed:
         argv.append("--single-seed")
     if replicates is not None:

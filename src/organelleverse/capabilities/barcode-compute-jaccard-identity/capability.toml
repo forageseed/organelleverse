@@ -12,6 +12,8 @@ description = "Identify query against reference DB via k-mer Jaccard. Returns di
 keywords = ["analyze", "barcode", "compute", "identity", "jaccard", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
+superseded_by = "barcode.identify"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.barcode.barcode_core:compute_jaccard_identity"
@@ -32,6 +34,10 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "reference_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "k"
+codec = "json"
 
 [[fixture]]
 case = "basic"

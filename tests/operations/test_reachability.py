@@ -123,9 +123,13 @@ def test_producer_without_a_contract_yields_reachable_unvalidated() -> None:
 def test_released_catalog_matches_the_recorded_state() -> None:
     from organelleverse import operations as op
     from organelleverse.operations.data_contracts import BUILTIN_DATA_CONTRACTS
+    from tests.capabilities.release_bundles import release_operation_ids
 
-    specs = op.list()
-    assert len(specs) == 20
+    # The recorded state is the 20-operation release surface; other admitted
+    # first-party capabilities are listed too but are not part of it.
+    release = release_operation_ids()
+    specs = tuple(spec for spec in op.list() if spec.operation_id in release)
+    assert {spec.operation_id for spec in specs} == release
     contract_modalities = frozenset(
         {contract.modality for contract in BUILTIN_DATA_CONTRACTS}
         | {"sequencing_reads", "pmat_graph_input"}
@@ -157,7 +161,7 @@ def test_released_source_has_no_non_literal_suggestion_ids() -> None:
 
     from .reachability import scan_suggestions
 
-    src = Path(__file__).resolve().parents[2] / "src" / "organelleverse"
+    src = Path(__file__).resolve().parents[2] / "src"
     assert [finding for finding in scan_suggestions(src) if finding.non_literal] == []
 
 

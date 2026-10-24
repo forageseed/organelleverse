@@ -40,6 +40,7 @@ from organelleverse.plugin_experiments.store import ExperimentStore
 
 from .benchmark_evaluator import GraphBenchmarkTruth
 from .conformation_benchmark import ConformationTruth
+from .taxonomy_benchmark import TaxonomyTruth
 from .graph_selection import verified_artifact
 
 
@@ -210,6 +211,7 @@ def _truth_model(evaluator_id):
     models = {
         "pangenome.evaluate_graph_benchmark": GraphBenchmarkTruth,
         "pangenome.evaluate_conformation_benchmark": ConformationTruth,
+        "pangenome.evaluate_taxonomy_benchmark": TaxonomyTruth,
     }
     if evaluator_id not in models:
         raise ValueError("Graph study requires an admitted independent graph evaluator")
@@ -277,7 +279,11 @@ def prepare_graph_study(
     if (
         contract.target.capability_id != "pangenome.build_graph"
         or contract.evaluator.identity.capability_id
-        not in {"pangenome.evaluate_graph_benchmark", "pangenome.evaluate_conformation_benchmark"}
+        not in {
+            "pangenome.evaluate_graph_benchmark",
+            "pangenome.evaluate_conformation_benchmark",
+            "pangenome.evaluate_taxonomy_benchmark",
+        }
     ):
         raise ValueError(
             "Graph study requires the PGGB constructor and an independent graph evaluator"
@@ -314,7 +320,10 @@ def prepare_graph_study(
             raise ValueError("Benchmark contract must bind the exact captured truth artifact")
         # Integrity verification does not inspect held-out labels during preparation.
         verified_artifact(artifact)
-    if contract.evaluator.identity.capability_id == "pangenome.evaluate_conformation_benchmark":
+    if contract.evaluator.identity.capability_id in {
+        "pangenome.evaluate_conformation_benchmark",
+        "pangenome.evaluate_taxonomy_benchmark",
+    }:
         # Check specimen identities only. Held-out conformation labels and
         # measurements are not passed to the search strategy.
         accessions = [
@@ -322,7 +331,7 @@ def prepare_graph_study(
             for source in (search_truth, validation_truth)
         ]
         if accessions[0] & accessions[1]:
-            raise ValueError("Conformation search and validation accessions must be disjoint")
+            raise ValueError("Search and validation accessions must be disjoint")
     study_id = study_id or "study-" + uuid4().hex
     inputs_dir = evidence_root / study_id / "bindings"
     inputs_dir.mkdir(parents=True, exist_ok=True)

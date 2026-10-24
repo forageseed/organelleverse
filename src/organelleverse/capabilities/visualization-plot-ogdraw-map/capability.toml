@@ -27,3 +27,31 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "genbank_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "genome_name"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_ir"
+codec = "json"

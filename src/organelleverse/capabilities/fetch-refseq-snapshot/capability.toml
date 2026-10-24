@@ -7,8 +7,8 @@ implementation = "native"
 
 [contract]
 contract_version = "1.0"
-title = "Fetch a pinned RefSeq organelle snapshot"
-description = "Downloads organelle records from a pinned RefSeq release number, giving a reproducible accession set for the chosen organelle types."
+title = "Fetch a RefSeq organelle release snapshot"
+description = "Downloads organelle records from NCBI's retained current RefSeq release and records the resolved release number. A null release selects the current release; an explicit release must match it."
 keywords = ["fetch", "ncbi", "refseq"]
 execution_mode = "durable"
 stage = "read"
@@ -18,8 +18,9 @@ organelle_types = ["mitochondrion", "plastid"]
 output_modalities = ["organelle_records"]
 callable_locator = "organelleverse.fetch._agent_ops:op_refseq_snapshot"
 side_effects = ["network", "write_files"]
-deterministic = true
-idempotent = true
+deterministic = false
+deterministic_reason = "A null release resolves NCBI's live current release; the resolved release number is recorded in the result manifest."
+idempotent = false
 cacheable = false
 
 [contract.retry]

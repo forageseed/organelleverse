@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, TypeAlias, TypeGuard, cast
 
 import matplotlib
+from organelleverse._public_validation import validated_public
 
 matplotlib.use("Agg", force=True)
 import itertools
@@ -25,7 +26,6 @@ from matplotlib.collections import PolyCollection
 from matplotlib.colors import Normalize, TwoSlopeNorm  # type: ignore
 from matplotlib.lines import Line2D  # type: ignore
 from matplotlib.patches import (  # type: ignore
-    ConnectionPatch,
     FancyArrowPatch,
     FancyBboxPatch,
     Polygon,
@@ -35,7 +35,9 @@ from matplotlib.patches import (  # type: ignore
 from ..core.frozen import thaw_json
 from ..core.result import OrganelleResult
 from ..selection.kaks import _CODONS as _STANDARD_CODONS
+from .panel_capture import finish, journal_figsize, new_axes, renderer_panel
 from .plot_object import OrganellePlot, data_plot_result, plot_result
+from .style import FONT_PT, publication_rc
 
 _PALETTE = (
     "#0072B2",
@@ -135,6 +137,7 @@ _AA_NAMES = {
 }
 
 
+@validated_public('visualization.plot_qc_dashboard')
 def plot_qc_dashboard(
     metrics: Mapping[str, str | int | float | bool | None | list[str]],
     *,
@@ -143,10 +146,15 @@ def plot_qc_dashboard(
     """Render an evidence-driven assembly-QC dashboard (compute-only).
 
     The dashboard reflects the immutable QC decision and its evidence: check
-    counts, coverage breadth, zero-coverage bases, unsupported/contradicted
-    junction counts, and flags. It does not assign or display a 0-100 score, a
-    letter grade, or a GC-contamination claim; no universal pass threshold is
-    applied. Render with ``ov.write(plot, output)``.
+    counts, both coverage tracks (any alignment, confident primary) with their
+    zero-coverage bases, unsupported/contradicted junction counts, and flags. It
+    does not assign or display a 0-100 score, a letter grade, or a
+    GC-contamination claim; no universal pass threshold is applied. Render with
+    ``ov.write(plot, output)``.
+
+    ``metrics`` is the ``metrics`` of an ``ov.qc.assembly`` result. Its flags live on
+    the result itself, so add them as ``{**qc.metrics, "flags": list(qc.flags)}``;
+    without a ``flags`` entry the panel says "not provided" instead of "none".
     """
 
     def _render(path: str | Path) -> Path:
@@ -161,6 +169,16 @@ def plot_qc_dashboard(
     )
 
 
+_LGA_CHECK_COLORS = {
+    "Pass": _PALETTE[2],
+    "Warning": _PALETTE[1],
+    "Fail": _ALARM,
+    "Not assessed": "#BFC5CC",
+}
+_LGA_TRACK = "#EEF0F2"
+_LGA_MUTED = "#6B7280"
+
+
 def _render_qc_dashboard(
     metrics: Mapping[str, Any],
     output: str | Path,
@@ -168,6 +186,8 @@ def _render_qc_dashboard(
     title: str | None = None,
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_qc_dashboard`."""
+    import textwrap
+
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -176,63 +196,112 @@ def _render_qc_dashboard(
         "ready": _PALETTE[2],
         "needs_review": _PALETTE[1],
         "not_ready": _ALARM,
-    }.get(decision, _PALETTE[4])
+    }.get(decision, _LGA_MUTED)
     pass_count = int(_float(metrics.get("qc_pass_count", 0)))
     warning_count = int(_float(metrics.get("qc_warning_count", 0)))
     failure_count = int(_float(metrics.get("qc_failure_count", 0)))
     not_assessed_count = int(_float(metrics.get("qc_not_assessed_count", 0)))
-    coverage_breadth = metrics.get("coverage_breadth")
-    zero_coverage_bases = metrics.get("zero_coverage_bases")
+    # The two coverage tracks of the assembly-QC result, which are not interchangeable.
+    coverage_tracks = (
+        (
+            "any alignment",
+            metrics.get("any_alignment_coverage_breadth"),
+            metrics.get("any_alignment_zero_coverage_bases"),
+        ),
+        (
+            "confident primary",
+            metrics.get("confident_coverage_breadth"),
+            metrics.get("confident_zero_coverage_bases"),
+        ),
+    )
     unsupported_junction_count = metrics.get("unsupported_junction_count")
     contradicted_junction_count = metrics.get("contradicted_junction_count")
-    flags = [str(value) for value in metrics.get("flags", [])]
+    # Flags live on the QC result, not in its metrics: pass them as metrics["flags"].
+    flags = None if "flags" not in metrics else [str(value) for value in metrics["flags"]]
 
-    fig, axes = plt.subplots(2, 2, figsize=(8.4, 5.4))
-    fig.suptitle(title or "Assembly QC evidence", x=0.02, ha="left", fontsize=10)
+    # One strip at double-column width: decision | checks | coverage | junctions.
+    fig, axes = plt.subplots(
+        1,
+        4,
+        figsize=journal_figsize(7.2, 1.75),
+        gridspec_kw={"width_ratios": [0.9, 1.25, 1.55, 1.35], "wspace": 0.55},
+    )
+    _figure_title(fig, title)
 
-    ax = axes[0, 0]
+    ax = axes[0]
     ax.axis("off")
     ax.set_title("Decision", loc="left")
     ax.text(
         0.0,
-        0.5,
-        decision,
-        fontsize=15,
+        0.72,
+        decision.replace("_", " ").capitalize(),
+        fontsize=FONT_PT["title"],
         fontweight="bold",
         color=decision_color,
         transform=ax.transAxes,
+        va="center",
+    )
+    assessed = pass_count + warning_count + failure_count
+    total = assessed + not_assessed_count
+    ax.text(
+        0.0,
+        0.46,
+        f"{pass_count} of {total} checks passed" if total else "No checks reported",
+        color=_LGA_MUTED,
+        transform=ax.transAxes,
+        va="center",
     )
 
-    ax = axes[0, 1]
-    ax.bar(
-        ["pass", "warn", "fail", "n/a"],
-        [pass_count, warning_count, failure_count, not_assessed_count],
-        color=[_PALETTE[2], _PALETTE[1], _ALARM, _PALETTE[4]],
+    ax = axes[1]
+    labels = list(_LGA_CHECK_COLORS)
+    counts = [pass_count, warning_count, failure_count, not_assessed_count]
+    ax.barh(
+        range(len(labels)),
+        counts,
+        color=[_LGA_CHECK_COLORS[label] for label in labels],
+        height=0.62,
     )
+    peak = max(1, *counts)
+    for row, count in enumerate(counts):
+        ax.text(count + peak * 0.04, row, str(count), va="center", ha="left")
+    ax.set_yticks(range(len(labels)), labels)
+    ax.set_ylim(len(labels) - 0.5, -0.5)
+    ax.set_xlim(0, peak * 1.25)
+    ax.set_xticks([])
+    ax.spines["bottom"].set_visible(False)
     ax.set_title("Checks", loc="left")
-    ax.set_ylabel("count")
     _despine(ax)
+    ax.tick_params(axis="y", length=0, pad=3)
 
-    ax = axes[1, 0]
+    ax = axes[2]
     ax.set_title("Coverage breadth", loc="left")
-    if coverage_breadth is None:
-        ax.text(0.5, 0.5, "not assessed", ha="center", transform=ax.transAxes)
-        ax.set_yticks([])
-        ax.set_xticks([])
-    else:
-        breadth = max(0.0, min(1.0, _float(coverage_breadth)))
-        ax.barh([0], [1.0], color="#F3F4F6", height=0.4)
-        ax.barh([0], [breadth], color=_PALETTE[0], height=0.4)
-        ax.set_xlim(0, 1)
-        ax.set_yticks([])
-        ax.set_xticks([0, 0.5, 1.0], ["0", "50%", "100%"])
-        _despine(ax)
-    zero_text = (
-        "n/a" if zero_coverage_bases is None else _format_bp(int(_float(zero_coverage_bases)))
+    ax.barh(range(2), [1.0, 1.0], color=_LGA_TRACK, height=0.5)
+    for row, (_, breadth, _) in enumerate(coverage_tracks):
+        if breadth is None:
+            ax.text(0.5, row, "n/a", ha="center", va="center", color=_LGA_MUTED)
+            continue
+        value = max(0.0, min(1.0, _float(breadth)))
+        ax.barh([row], [value], color=_PALETTE[0], height=0.5)
+        text = f"{100 * value:.1f}%"
+        if value >= 0.3:
+            ax.text(value - 0.02, row, text, ha="right", va="center", color="white")
+        else:
+            ax.text(value + 0.02, row, text, ha="left", va="center", color="#1F2933")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(1.6, -0.6)
+    ax.set_yticks(
+        range(2),
+        [
+            f"{label}\nzero: {'n/a' if zero is None else _format_bp(int(_float(zero)))}"
+            for label, _, zero in coverage_tracks
+        ],
     )
-    ax.set_xlabel(f"zero-coverage bases: {zero_text}")
+    ax.set_xticks([0, 0.5, 1.0], ["0", "50", "100"])
+    ax.set_xlabel("Reference covered (%)")
+    _despine(ax)
+    ax.tick_params(axis="y", length=0, pad=3)
 
-    ax = axes[1, 1]
+    ax = axes[3]
     ax.axis("off")
     ax.set_title("Junctions & flags", loc="left")
     unsupported_text = (
@@ -245,20 +314,34 @@ def _render_qc_dashboard(
         if contradicted_junction_count is None
         else str(int(_float(contradicted_junction_count)))
     )
+    flag_text = (
+        "not provided"
+        if flags is None
+        else textwrap.fill(", ".join(flags), 26, break_long_words=False) if flags else "none"
+    )
     lines = [
         ("Unsupported junctions", unsupported_text),
         ("Contradicted junctions", contradicted_text),
-        ("Flags", ", ".join(flags) if flags else "none"),
+        ("Flags", flag_text),
     ]
-    y = 0.78
-    for label, value in lines:
-        ax.text(0.0, y, label, fontweight="bold", transform=ax.transAxes)
-        ax.text(0.46, y, value, transform=ax.transAxes)
-        y -= 0.28
+    # count first, then its name, offset by the widest count
+    from .style import text_width_pt
+
+    axes_width_pt = max(1.0, ax.get_position().width * fig.get_figwidth() * 72)
+    value_width = max(text_width_pt(value, FONT_PT["body"], bold=True) for _, value in lines[:2])
+    label_x = min(0.5, (value_width + 5.0) / axes_width_pt)
+    y = 0.86
+    for label, value in lines[:2]:
+        ax.text(0.0, y, value, transform=ax.transAxes, va="top", fontweight="bold")
+        ax.text(label_x, y, label, color=_LGA_MUTED, transform=ax.transAxes, va="top")
+        y -= 0.22
+    ax.text(0.0, y, lines[2][0], color=_LGA_MUTED, transform=ax.transAxes, va="top")
+    ax.text(0.0, y - 0.15, lines[2][1], transform=ax.transAxes, va="top", color="#1F2933")
 
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_track_density')
 def plot_track_density(
     tracks: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -280,6 +363,29 @@ def plot_track_density(
     )
 
 
+_LGA_REGION_SHADE = "#F1F3F5"
+
+
+def _lga_genome_axis(ax: Any, max_position: float, label: str = "Position") -> None:
+    """Label a base-pair x axis in bp, kb or Mb (thousands separators for bp)."""
+    from matplotlib.ticker import FuncFormatter  # type: ignore
+
+    if max_position >= 2_000_000:
+        scale, unit = 1_000_000, "Mb"
+    elif max_position >= 2_000:
+        scale, unit = 1_000, "kb"
+    else:
+        scale, unit = 1, "bp"
+
+    def _format(value: float, _pos: int) -> str:
+        if scale == 1:
+            return f"{value:,.0f}"
+        return f"{value / scale:,.2f}".rstrip("0").rstrip(".")
+
+    ax.xaxis.set_major_formatter(FuncFormatter(_format))
+    ax.set_xlabel(f"{label} ({unit})")
+
+
 def _render_track_density(
     tracks: Sequence[Mapping[str, Any]],
     output: str | Path,
@@ -292,41 +398,86 @@ def _render_track_density(
     _apply_figure_style()
 
     n = len(tracks)
-    fig, axes = plt.subplots(n, 1, figsize=(8.8, max(2.2, 1.65 * n)), sharex=True)
+    fig, axes = plt.subplots(
+        n, 1, figsize=journal_figsize(7.2, max(1.5, 0.95 * n + 0.45)), sharex=True
+    )
     if n == 1:
         axes = [axes]
-    fig.suptitle(title or "Windowed organelle tracks", x=0.02, ha="left", fontsize=10)
+    _figure_title(fig, title)
 
+    max_x = 0.0
     for i, (ax, track) in enumerate(zip(axes, tracks, strict=False)):
         x = _float_list(track.get("x", []), "track x")
         y = _float_list(track.get("y", []), "track y")
         if len(x) != len(y):
             raise ValueError("track x and y must have the same length")
-        color = str(track.get("color") or _PALETTE[i % len(_PALETTE)])
+        max_x = max([max_x, *x])
+        # one hue for every track unless the caller colors them
+        color = str(track.get("color") or _PALETTE[0])
         label = str(track.get("label", f"track {i + 1}"))
-        ax.plot(x, y, marker="o", ms=3, lw=1.5, color=color, label=label)
+        dense = len(x) > 40
+        ax.plot(
+            x,
+            y,
+            marker="" if dense else "o",
+            ms=2.2,
+            lw=0.8,
+            color=color,
+            label=label,
+            solid_joinstyle="round",
+        )
+        previous_end: float | None = None
+        previous_shaded = False
         for region in regions or ():
             start = _float(region.get("start", 0.0))
             end = _float(region.get("end", start))
-            ax.axvspan(start, end, color="#D1D5DB", alpha=0.25, lw=0)
+            # Every region is shaded, except that a region abutting a shaded
+            # one is left white so tiled regions (LSC/IR/SSC) alternate
+            # instead of washing the whole axis grey.
+            abutting = previous_end is not None and abs(start - previous_end) <= 1
+            shaded = not (abutting and previous_shaded)
+            if shaded:
+                ax.axvspan(start, end, color=_LGA_REGION_SHADE, lw=0, zorder=0)
+            previous_end, previous_shaded = end, shaded
             if i == 0 and region.get("label"):
                 ax.text(
                     (start + end) / 2,
-                    0.98,
+                    1.03,
                     str(region["label"]),
                     transform=ax.get_xaxis_transform(),
                     ha="center",
-                    va="top",
-                    fontsize=7,
+                    va="bottom",
+                    fontsize=FONT_PT["label"],
                     color=_NEUTRAL,
+                    clip_on=False,
                 )
-        ax.set_ylabel(str(track.get("ylabel", label)))
-        ax.legend(loc="upper right", frameon=False)
+        ylabel = str(track.get("ylabel", label))
+        ax.set_ylabel(ylabel)
+        if label != ylabel:
+            # name the track in place instead of a one-entry legend
+            ax.text(
+                0.005,
+                0.97,
+                label,
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=FONT_PT["label"],
+                color=_NEUTRAL,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 0.6},
+                zorder=4,
+            )
+        ax.margins(x=0)
+        ax.tick_params(axis="y", labelsize=FONT_PT["tick"])
         _despine(ax)
-    axes[-1].set_xlabel("Position (bp)")
+    if regions:
+        max_x = max([max_x, *(_float(region.get("end", 0.0)) for region in regions)])
+    fig.align_ylabels(axes)
+    _lga_genome_axis(axes[-1], max_x)
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_matrix_heatmap')
 def plot_matrix_heatmap(
     matrix: Sequence[Sequence[int | float]],
     *,
@@ -336,8 +487,13 @@ def plot_matrix_heatmap(
     center: float | None = None,
     cmap: str | None = None,
     annotate: bool = True,
+    colorbar_label: str | None = None,
 ) -> OrganellePlot:
-    """Render a small matrix heatmap with optional cell values (compute-only)."""
+    """Render a small matrix heatmap with optional cell values (compute-only).
+
+    Cells are square; ``center`` gives a diverging scale symmetric about it.
+    ``colorbar_label`` names the colour scale (e.g. ``"Identity (%)"``).
+    """
     values = _matrix(matrix)
     if not values:
         raise ValueError("matrix must contain at least one row")
@@ -360,14 +516,72 @@ def plot_matrix_heatmap(
             center=center,
             cmap=cmap,
             annotate=annotate,
+            colorbar_label=colorbar_label,
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_matrix_heatmap",
         _render,
         metrics={"rows": n_rows, "cols": n_cols},
         summary="Matrix heatmap prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+#: Sequential scale for plain matrices: white to the Okabe-Ito blue family.
+_MTX_SEQUENTIAL = ("#F5F8FB", "#C6DBEF", "#6BAED6", "#2171B5", "#08306B")
+_MTX_MM = 25.4
+
+
+def _mtx_decimals(flat: Sequence[float]) -> int:
+    """One number format per matrix: integers stay integers, others share decimals."""
+    if all(float(v).is_integer() for v in flat):
+        return 0
+    peak = max(abs(v) for v in flat)
+    if peak < 10:
+        return 2
+    return 1 if peak < 1000 else 0
+
+
+def _mtx_cell_text(value: float, decimals: int) -> str:
+    text = f"{value:.{decimals}f}"
+    if text.startswith("-"):
+        text = "\u2212" + text[1:]  # typographic minus
+        if not text.strip("\u22120."):
+            text = text[1:]  # no "-0.00"
+    return text
+
+
+def _mtx_text_color(rgba: Sequence[float]) -> str:
+    """Dark or white cell text from the luminance of the cell colour itself."""
+    red, green, blue = rgba[:3]
+    return "#111827" if 0.2126 * red + 0.7152 * green + 0.0722 * blue > 0.5 else "white"
+
+
+def _mtx_layout(
+    rows: Sequence[str], cols: Sequence[str], annotate: bool
+) -> tuple[float, float, float, bool]:
+    """Journal width, height (inches), cell size (pt) and column-label rotation."""
+    from .style import text_width_pt
+
+    tick = FONT_PT["tick"]
+    row_mm = max(text_width_pt(str(label), tick) for label in rows) / 72 * _MTX_MM + 2.5
+    col_pt = max(text_width_pt(str(label), tick) for label in cols)
+    cbar_mm = 16.0
+    target_mm = 7.0 if annotate else 4.5
+    n_rows, n_cols = len(rows), len(cols)
+    width_mm = 183.0
+    for journal_mm in (89.0, 120.0, 183.0):
+        if row_mm + n_cols * target_mm + cbar_mm <= journal_mm:
+            width_mm = journal_mm
+            break
+    cell_mm = min(target_mm, max(1.5, (width_mm - row_mm - cbar_mm) / n_cols))
+    cell_pt = cell_mm / _MTX_MM * 72
+    rotate = col_pt > 0.9 * cell_pt
+    col_mm = (col_pt * 0.72 + tick * 0.72 if rotate else tick * 1.2) / 72 * _MTX_MM + 2.5
+    height_mm = n_rows * cell_mm + col_mm + 6.0
+    return width_mm / _MTX_MM, height_mm / _MTX_MM, cell_pt, rotate
 
 
 def _render_matrix_heatmap(
@@ -380,8 +594,13 @@ def _render_matrix_heatmap(
     center: float | None = None,
     cmap: str | None = None,
     annotate: bool = True,
+    colorbar_label: str | None = None,
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_matrix_heatmap`."""
+    from matplotlib.colors import LinearSegmentedColormap  # type: ignore
+
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -396,40 +615,89 @@ def _render_matrix_heatmap(
             vmin -= 0.5
             vmax += 0.5
         norm = Normalize(vmin=vmin, vmax=vmax)
-        chosen_cmap = cmap or "viridis"
+        chosen_cmap: Any = cmap or LinearSegmentedColormap.from_list(
+            "ov_matrix_blue", _MTX_SEQUENTIAL
+        )
     else:
-        vmin = min(min(flat), center)
-        vmax = max(max(flat), center)
-        if vmin >= center:
-            vmin = center - max(vmax - center, 1.0)
-        if vmax <= center:
-            vmax = center + max(center - vmin, 1.0)
-        norm = TwoSlopeNorm(vmin=vmin, vcenter=center, vmax=vmax)
-        chosen_cmap = cmap or "coolwarm"
+        # symmetric about the centre so equal distances read as equal colours
+        span = max(abs(v - center) for v in flat) or 1.0
+        norm = TwoSlopeNorm(vmin=center - span, vcenter=center, vmax=center + span)
+        chosen_cmap = cmap or "RdBu_r"
 
-    fig_w = max(4.6, min(10.0, 0.52 * n_cols + 2.6))
-    fig_h = max(3.8, min(9.0, 0.46 * n_rows + 2.2))
-    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-    im = ax.imshow(values, cmap=chosen_cmap, norm=norm, aspect="auto")
-    ax.set_xticks(range(n_cols), cols, rotation=45, ha="right")
+    width_in, height_in, cell_pt, rotate = _mtx_layout(rows, cols, annotate)
+    fig, ax = new_axes(journal_figsize(width_in, height_in))
+    im = ax.imshow(values, cmap=chosen_cmap, norm=norm, aspect="equal", interpolation="nearest")
+    if rotate:
+        ax.set_xticks(range(n_cols), cols, rotation=45, ha="right", rotation_mode="anchor")
+    else:
+        ax.set_xticks(range(n_cols), cols)
     ax.set_yticks(range(n_rows), rows)
-    ax.set_title(title or "Matrix heatmap", loc="left")
+    ax.set_xticks([i - 0.5 for i in range(1, n_cols)], minor=True)
+    ax.set_yticks([i - 0.5 for i in range(1, n_rows)], minor=True)
+    ax.grid(which="minor", color="white", linewidth=0.6)
+    ax.grid(which="major", visible=False)
+    ax.tick_params(which="both", length=0, pad=2)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    _panel_title(ax, title)
+
     if annotate and n_rows * n_cols <= 200:
-        for r, row in enumerate(values):
-            for c, value in enumerate(row):
-                ax.text(
-                    c,
-                    r,
-                    _format_number(value),
-                    ha="center",
-                    va="center",
-                    fontsize=6,
-                    color=_text_color_for_value(norm(value)),
-                )
-    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        decimals = _mtx_decimals(flat)
+        texts = [[_mtx_cell_text(v, decimals) for v in row] for row in values]
+        widest = max(len(text) for row in texts for text in row)
+        sample = max((t for row in texts for t in row if len(t) == widest), key=len)
+        size = next(
+            (
+                pt
+                for pt in (FONT_PT["label"],)
+                if text_width_pt(sample, pt) <= 0.86 * cell_pt
+            ),
+            None,
+        )
+        if size is not None:
+            cmap_obj = im.get_cmap()
+            for r, row in enumerate(values):
+                for c, value in enumerate(row):
+                    ax.text(
+                        c,
+                        r,
+                        texts[r][c],
+                        ha="center",
+                        va="center",
+                        fontsize=size,
+                        color=_mtx_text_color(cmap_obj(norm(value))),
+                    )
+
+    # colour bar as an inset so it matches the matrix height and stays in a panel
+    # 2.2 mm wide whatever the axes size (also inside a composed panel)
+    box = ax.get_position()
+    box_w_pt = box.width * fig.get_figwidth() * 72
+    box_h_pt = box.height * fig.get_figheight() * 72
+    drawn_w_pt = min(box_w_pt, box_h_pt * n_cols / n_rows)
+    bar_fraction = (2.2 / _MTX_MM * 72) / max(1e-6, drawn_w_pt)
+    cax = ax.inset_axes((1.0 + bar_fraction * 1.2, 0.0, bar_fraction, 1.0))
+    bar = fig.colorbar(im, cax=cax)
+    bar.outline.set_visible(False)
+    bar.ax.tick_params(labelsize=FONT_PT["tick"], length=2, width=0.6, pad=1.5)
+    if center == 0:
+        from matplotlib.ticker import MaxNLocator  # type: ignore
+
+        bar.locator = MaxNLocator(nbins=4, symmetric=True)
+        bar.update_ticks()
+    if colorbar_label:
+        bar.set_label(colorbar_label, fontsize=FONT_PT["body"], labelpad=3)
     return _save(fig, out)
 
 
+# Okabe-Ito vermillion/blue for direct/inverted blocks (colour-blind safe), and
+# group tags from the remaining hues so the two never share a colour.
+_LGA_SYNTENY_DIRECT = _PALETTE[5]
+_LGA_SYNTENY_INVERTED = _PALETTE[0]
+_LGA_SYNTENY_GROUP_CYCLE = (_PALETTE[2], _PALETTE[3], _PALETTE[1], _PALETTE[4], _PALETTE[7])
+_LGA_SYNTENY_FRAME = "#9AA3AD"
+
+
+@validated_public('visualization.plot_synteny_matrix')
 def plot_synteny_matrix(
     blocks: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]]]],
     *,
@@ -437,8 +705,8 @@ def plot_synteny_matrix(
     groups: Mapping[str, str] | None = None,
     genome_lengths: Mapping[str, int | float] | None = None,
     title: str | None = None,
-    direct_color: str = _SYNTENY_DIRECT,
-    inverted_color: str = _SYNTENY_INVERTED,
+    direct_color: str = _LGA_SYNTENY_DIRECT,
+    inverted_color: str = _LGA_SYNTENY_INVERTED,
 ) -> OrganellePlot:
     """Prepare a synteny matrix without writing; render it with ``ov.write``."""
     data = _synteny_matrix_data(blocks, labels=labels, genome_lengths=genome_lengths)
@@ -455,12 +723,25 @@ def plot_synteny_matrix(
             inverted_color=inverted_color,
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_synteny_matrix",
         _render,
         metrics={"genomes": len(data["labels"]), "blocks": len(data["rows"])},
         summary="Synteny matrix prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+def _lga_synteny_group_colors(
+    names: Sequence[str], groups: Mapping[str, str] | None
+) -> dict[str, str]:
+    """Group -> tag colour; the historic named groups keep their colours."""
+    colors: dict[str, str] = {}
+    cycle = iter(itertools.cycle(_LGA_SYNTENY_GROUP_CYCLE))
+    for group in _ordered_groups(names, groups):
+        colors[group] = _SYNTENY_GROUP_COLORS.get(group) or next(cycle)
+    return colors
 
 
 def _render_synteny_matrix(
@@ -471,14 +752,16 @@ def _render_synteny_matrix(
     groups: Mapping[str, str] | None = None,
     genome_lengths: Mapping[str, int | float] | None = None,
     title: str | None = None,
-    direct_color: str = _SYNTENY_DIRECT,
-    inverted_color: str = _SYNTENY_INVERTED,
+    direct_color: str = _LGA_SYNTENY_DIRECT,
+    inverted_color: str = _LGA_SYNTENY_INVERTED,
 ) -> Path:
     """Render a lower-triangle whole-genome pairwise synteny dotplot matrix.
 
     Each block row should name two genomes (``genome_a``/``genome_b`` or
     ``query``/``target`` aliases), coordinates on each genome, and optionally
-    ``orientation``/``strand`` as direct or inverted.
+    ``orientation``/``strand`` as direct or inverted. Row genomes are named on
+    the left and column genomes below, each with its length; a coloured tag
+    marks the group of each genome when ``groups`` is given.
     """
     data = _synteny_matrix_data(
         blocks,
@@ -495,15 +778,16 @@ def _render_synteny_matrix(
     lengths = data["lengths"]
     index = {name: i for i, name in enumerate(names)}
     n = len(names)
-    fig_size = max(4.6, min(13.5, 0.66 * n + 2.2))
-    fig, ax = plt.subplots(figsize=(fig_size, fig_size))
+    fig_size = max(3.4, min(7.2, 0.62 * n + 1.4))
+    fig, ax = new_axes(journal_figsize(fig_size, fig_size))
 
     for i in range(1, n):
         y = n - 1 - i
         for j in range(i):
-            ax.add_patch(Rectangle((j, y), 1, 1, fill=False, edgecolor="#737373", linewidth=0.6))
+            ax.add_patch(
+                Rectangle((j, y), 1, 1, fill=False, edgecolor=_LGA_SYNTENY_FRAME, linewidth=0.5)
+            )
 
-    direct_blocks = inverted_blocks = 0
     for row in rows:
         a = row["genome_a"]
         b = row["genome_b"]
@@ -530,64 +814,93 @@ def _render_synteny_matrix(
             orientation == "direct" and slope_product < 0
         ):
             y0, y1 = y1, y0
-        if orientation == "inverted":
-            inverted_blocks += 1
-            color = inverted_color
-        else:
-            direct_blocks += 1
-            color = direct_color
-        ax.plot([x0, x1], [y0, y1], color=color, lw=1.2, alpha=0.95, solid_capstyle="round")
+        color = inverted_color if orientation == "inverted" else direct_color
+        ax.plot([x0, x1], [y0, y1], color=color, lw=0.9, solid_capstyle="round")
 
-    group_colors = _synteny_group_palette(names, groups)
+    group_map = {str(name): str((groups or {}).get(name, "")) for name in names}
+    group_colors = _lga_synteny_group_colors(names, groups)
+    tag = 0.045  # group tag thickness, in cells
+    gap = 0.03
+    long_names = max(len(name) for name in names) > 9
     for i, name in enumerate(names):
-        y = (n - 1) if i == 0 else (n - i)
-        ax.text(
-            i + 0.04,
-            y + 0.03,
-            name,
-            ha="left",
-            va="bottom",
-            fontsize=10,
-            fontweight="bold",
-            color=group_colors[name],
-        )
+        length_text = _format_bp(int(round(lengths[name])))
+        color = group_colors.get(group_map[name])
+        if i >= 1:  # row label on the left of the first column
+            y_mid = n - 1 - i + 0.5
+            if color:
+                ax.add_patch(
+                    Rectangle((-gap - tag, n - 1 - i + 0.04), tag, 0.92, color=color, lw=0,
+                              clip_on=False)
+                )
+            x_text = -gap - (tag + gap if color else 0.0)
+            ax.text(x_text, y_mid + 0.03, name, ha="right", va="bottom",
+                    fontsize=FONT_PT["body"], color="#1F2933")
+            ax.text(x_text, y_mid - 0.03, length_text, ha="right", va="top",
+                    fontsize=FONT_PT["label"], color=_NEUTRAL)
+        if i <= n - 2:  # column label under the bottom row
+            x_mid = i + 0.5
+            if color:
+                ax.add_patch(
+                    Rectangle((i + 0.04, -gap - tag), 0.92, tag, color=color, lw=0, clip_on=False)
+                )
+            y_text = -gap - (tag + gap if color else 0.0)
+            if long_names:
+                ax.text(x_mid + 0.25, y_text, f"{name} ({length_text})", ha="right", va="top",
+                        rotation=35, rotation_mode="anchor", fontsize=FONT_PT["body"],
+                        color="#1F2933")
+            else:
+                ax.text(x_mid, y_text, name, ha="center", va="top",
+                        fontsize=FONT_PT["body"], color="#1F2933")
+                ax.text(x_mid, y_text - 0.13, length_text, ha="center", va="top",
+                        fontsize=FONT_PT["label"], color=_NEUTRAL)
 
-    ax.set_xlim(-0.02, n + 1.05)
-    ax.set_ylim(-0.02, n + 0.28)
+    span = n - 1
+    # Keep the genome names inside the axes so a composed panel reserves room
+    # for them: margins are the measured label sizes over the cell size.
+    from .style import text_width_pt
+
+    right_pad = 1.25 if n == 2 else 0.02
+    axes_pt = min(ax.get_position().width * fig.get_figwidth(),
+                  ax.get_position().height * fig.get_figheight()) * 72
+    cell_pt = max(1.0, axes_pt / (span + right_pad + 0.6))
+    widest = max(text_width_pt(name, FONT_PT["body"]) for name in names)
+    left_units = (widest + 6.0) / cell_pt + (tag + 2 * gap if group_colors else gap)
+    if long_names:
+        bottom_pt = widest * 0.6 + 12.0
+    else:
+        bottom_pt = FONT_PT["body"] + FONT_PT["label"] + 8.0
+    bottom_units = bottom_pt / cell_pt + (tag + 2 * gap if group_colors else gap)
+    ax.set_xlim(-left_units, span + right_pad)
+    ax.set_ylim(-bottom_units, span + 0.02)
     ax.set_aspect("equal", adjustable="box")
     ax.set_axis_off()
     if title:
-        ax.set_title(title, loc="left", pad=10)
+        _panel_title(ax, title)
 
-    orientation_handles = [
-        Line2D([0], [0], color=direct_color, lw=1.6, label="Direct"),
-        Line2D([0], [0], color=inverted_color, lw=1.6, label="Inverted"),
+    handles = [
+        Rectangle((0, 0), 1, 1, color=color, lw=0, label=group)
+        for group, color in group_colors.items()
     ]
-    group_labels = []
-    for group in _ordered_groups(names, groups):
-        color = _SYNTENY_GROUP_COLORS.get(
-            group,
-            group_colors[next(name for name in names if (groups or {}).get(name, "") == group)],
-        )
-        group_labels.append(Line2D([0], [0], color=color, lw=3.0, label=group))
-    if group_labels:
-        legend = ax.legend(
-            handles=group_labels + orientation_handles,
-            loc="center left",
-            bbox_to_anchor=(0.76, 0.64),
-            frameon=False,
-        )
-        ax.add_artist(legend)
-    else:
-        ax.legend(
-            handles=orientation_handles,
-            loc="center left",
-            bbox_to_anchor=(0.76, 0.64),
-            frameon=False,
-        )
+    handles += [
+        Line2D([0], [0], color=direct_color, lw=1.2, label="Direct"),
+        Line2D([0], [0], color=inverted_color, lw=1.2, label="Inverted"),
+    ]
+    # The empty upper triangle holds the key (beside the single cell when n == 2).
+    ax.legend(
+        handles=handles,
+        loc="upper right" if n > 2 else "upper left",
+        bbox_to_anchor=(span, span) if n > 2 else (span + 0.08, span),
+        bbox_transform=ax.transData,
+        frameon=False,
+        handlelength=1.4,
+        handleheight=0.7,
+        borderaxespad=0.0,
+        labelspacing=0.35,
+    )
     return _save(fig, out)
 
 
+@validated_public('visualization.summarize_synteny_matrix')
 def summarize_synteny_matrix(
     blocks: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]]],
     *,
@@ -614,6 +927,7 @@ def summarize_synteny_matrix(
     }
 
 
+@validated_public('visualization.plot_network')
 def plot_network(
     nodes: Sequence[Mapping[str, str | int | float | bool | None]],
     edges: Sequence[Mapping[str, str | int | float | bool | None]],
@@ -638,12 +952,27 @@ def plot_network(
     def _render(path: str | Path) -> Path:
         return _render_network(nodes, edges, node_ids, path, title=title, node_groups=node_groups)
 
-    return plot_result(
+    plot = plot_result(
         "plot_network",
         _render,
         metrics={"nodes": len(node_ids), "edges": len(edges)},
         summary="Network plot prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+#: Node colours: Okabe-Ito without the yellow, which vanishes on white.
+_NET_GROUP_COLORS = ("#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#6B7280")
+_NET_EDGE = "#8B95A1"
+_NET_UNGROUPED = "#52606D"
+
+
+def _net_label_anchor(x: float, y: float) -> tuple[str, str]:
+    """Horizontal/vertical alignment that puts a label radially outside its node."""
+    ha = "left" if x > 0.3 else "right" if x < -0.3 else "center"
+    va = "bottom" if y > 0.3 else "top" if y < -0.3 else "center"
+    return ha, va
 
 
 def _render_network(
@@ -656,6 +985,8 @@ def _render_network(
     node_groups: Mapping[str, str] | None = None,
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_network`."""
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -664,47 +995,107 @@ def _render_network(
         for node_id, node in zip(node_ids, nodes, strict=False)
     }
     positions = _network_positions(node_ids, groups)
-    group_palette = _group_palette(groups.values())
+    named_groups = sorted({group for group in groups.values() if group})
+    group_palette = {
+        group: _NET_GROUP_COLORS[i % len(_NET_GROUP_COLORS)] for i, group in enumerate(named_groups)
+    }
+    group_palette[""] = _NET_UNGROUPED
 
-    fig, ax = plt.subplots(figsize=(7.2, 5.8))
-    ax.set_title(title or "Network", loc="left")
-    for edge in edges:
-        source = str(edge["source"])
-        target = str(edge["target"])
-        weight = abs(_float(edge.get("weight", 1.0)))
-        x1, y1 = positions[source]
-        x2, y2 = positions[target]
+    # legend rows below the circle: one column per entry while the row fits 89 mm
+    weights = [abs(_float(edge.get("weight", 1.0))) for edge in edges]
+    w_max = max(weights, default=1.0) or 1.0
+    w_min = min(weights, default=w_max)
+    show_groups = len(named_groups) > 1
+    show_weights = bool(edges) and w_max - w_min > 1e-9
+    entries = (named_groups if show_groups else []) + (
+        [f"|weight| {w_min:.2g}", f"|weight| {w_max:.2g}"] if show_weights else []
+    )
+    legend_pt = [text_width_pt(entry, FONT_PT["label"]) + 20 for entry in entries]
+    ncol = max(1, len(entries))
+    while ncol > 1 and sum(sorted(legend_pt, reverse=True)[:ncol]) > 89 / 25.4 * 72 * 0.95:
+        ncol -= 1
+    legend_rows = -(-len(entries) // ncol) if entries else 0
+
+    n_nodes = len(node_ids)
+    base_area = 42.0 if n_nodes <= 20 else 26.0 if n_nodes <= 40 else 14.0
+    width_in = 89 / 25.4
+    fig, ax = new_axes(journal_figsize(width_in, width_in * 0.86 + legend_rows * 0.13))
+    _panel_title(ax, title)
+
+    def _line_width(weight: float) -> float:
+        return 0.35 + 1.65 * weight / w_max
+
+    for edge, weight in sorted(zip(edges, weights, strict=False), key=lambda item: item[1]):
+        x1, y1 = positions[str(edge["source"])]
+        x2, y2 = positions[str(edge["target"])]
         ax.plot(
             [x1, x2],
             [y1, y2],
-            color="#9CA3AF",
-            lw=max(0.6, min(4.0, 0.8 + 2.5 * weight)),
+            color=_NET_EDGE,
+            lw=_line_width(weight),
             alpha=0.55,
+            solid_capstyle="round",
             zorder=1,
         )
     for node, node_id in zip(nodes, node_ids, strict=False):
         x, y = positions[node_id]
-        group = groups[node_id]
-        size = 330 * max(0.7, _float(node.get("size", 1.0)))
+        area = base_area * max(0.7, _float(node.get("size", 1.0)))
         ax.scatter(
-            [x], [y], s=size, color=group_palette[group], edgecolor="white", linewidth=1.0, zorder=2
+            [x],
+            [y],
+            s=area,
+            color=group_palette[groups[node_id]],
+            edgecolor="white",
+            linewidth=0.6,
+            zorder=2,
         )
-        if y > 0.74:
-            label_y, va = y + 0.11, "bottom"
-        elif y < -0.74:
-            label_y, va = y - 0.12, "top"
-        else:
-            label_y, va = y + 0.09, "bottom"
-        ax.text(
-            x, label_y, str(node.get("label", node_id)), ha="center", va=va, fontsize=8, zorder=3
+        radius_pt = sqrt(area) / 2 + 2.0
+        ha, va = _net_label_anchor(x, y)
+        ax.annotate(
+            str(node.get("label", node_id)),
+            (x, y),
+            xytext=(radius_pt * x, radius_pt * y),
+            textcoords="offset points",
+            ha=ha,
+            va=va,
+            fontsize=FONT_PT["label"],
+            zorder=3,
+        )
+    if entries:
+        handles: list[Any] = []
+        if show_groups:
+            handles += [
+                Line2D(
+                    [], [], ls="", marker="o", markersize=4.5, color=group_palette[group],
+                    markeredgecolor="white", markeredgewidth=0.4, label=group,
+                )
+                for group in named_groups
+            ]
+        if show_weights:
+            handles += [
+                Line2D([], [], color=_NET_EDGE, alpha=0.8, lw=_line_width(w), label=label)
+                for w, label in zip((w_min, w_max), entries[-2:], strict=True)
+            ]
+        ax.legend(
+            handles=handles,
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.0),
+            ncol=ncol,
+            fontsize=FONT_PT["label"],
+            handlelength=1.4,
+            handletextpad=0.4,
+            columnspacing=1.0,
+            borderaxespad=0.0,
+            frameon=False,
         )
     ax.set_aspect("equal")
-    ax.set_xlim(-1.25, 1.25)
-    ax.set_ylim(-1.28, 1.45)
+    ax.set_xlim(-1.42, 1.42)
+    ax.set_ylim(-1.22, 1.22)
     ax.set_axis_off()
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_selection_summary')
 def plot_selection_summary(
     records: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -717,12 +1108,34 @@ def plot_selection_summary(
     def _render(path: str | Path) -> Path:
         return _render_selection_summary(records, path, title=title)
 
-    return plot_result(
+    plot = plot_result(
         "plot_selection_summary",
         _render,
         metrics={"records": len(records)},
         summary="Selection-pressure summary prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+_SEL_BASE = "#7BA7CC"  # light member of the Okabe-Ito blue family
+_SEL_SIGNIFICANT = _ALARM
+
+
+def _sel_tick_labels(ax: Any, labels: Sequence[str], axes_width_pt: float) -> None:
+    """Italic gene names, upright while they fit their slot, else at 45 degrees."""
+    from .style import text_width_pt
+
+    size = FONT_PT["tick"]
+    slot = axes_width_pt / max(1, len(labels))
+    widest = max(text_width_pt(label, size, italic=True) for label in labels)
+    if widest <= 0.92 * slot:
+        ax.set_xticks(range(len(labels)), labels, fontstyle="italic")
+    else:
+        ax.set_xticks(
+            range(len(labels)), labels, fontstyle="italic",
+            rotation=45, ha="right", rotation_mode="anchor",
+        )
 
 
 def _render_selection_summary(
@@ -732,6 +1145,10 @@ def _render_selection_summary(
     title: str | None = None,
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_selection_summary`."""
+    from matplotlib.patches import Patch  # type: ignore
+    from matplotlib.ticker import MaxNLocator  # type: ignore
+    from matplotlib.transforms import blended_transform_factory  # type: ignore
+
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -739,33 +1156,86 @@ def _render_selection_summary(
     omega = [_float(r.get("omega", r.get("kaks", 0.0))) for r in records]
     pvals = [_float(r.get("p_value", r.get("p", 1.0))) for r in records]
     sites = [_float(r.get("selected_sites", 0.0)) for r in records]
-    colors = [_ALARM if p < 0.05 else _PALETTE[0] for p in pvals]
+    significant = [p < 0.05 for p in pvals]
+    colors = [_SEL_SIGNIFICANT if flag else _SEL_BASE for flag in significant]
 
-    fig, ax = plt.subplots(figsize=(8.4, 4.6))
-    x = list(range(len(records)))
-    ax.bar(x, omega, color=colors, width=0.66)
-    ax.axhline(1.0, color=_NEUTRAL, lw=1.0, ls="--")
-    ax.text(
-        len(records) - 0.35, 1.02, "omega = 1", ha="right", va="bottom", fontsize=7, color=_NEUTRAL
+    n = len(records)
+    width_mm = 89.0 if n <= 10 else 120.0 if n <= 22 else 183.0
+    fig, ax = new_axes(journal_figsize(width_mm / 25.4, 56 / 25.4))
+    x = list(range(n))
+    ax.bar(x, omega, color=colors, width=0.68, linewidth=0, zorder=2)
+    ax.axhline(1.0, color=_NEUTRAL, lw=0.6, ls=(0, (3, 2)), zorder=1)
+    # reference label inside the axes above a short end bar (so it stays inside a
+    # composed panel), otherwise just right of the axes
+    if max(omega[-2:]) < 0.85:
+        ref_x, ref_ha, ref_va, ref_text = 1.0, "right", "bottom", "\u03c9 = 1"
+    elif max(omega[:2]) < 0.85:
+        ref_x, ref_ha, ref_va, ref_text = 0.0, "left", "bottom", "\u03c9 = 1"
+    else:
+        ref_x, ref_ha, ref_va, ref_text = 1.0, "left", "center", " \u03c9 = 1"
+    ax.annotate(
+        ref_text,
+        (ref_x, 1.0),
+        xycoords=blended_transform_factory(ax.transAxes, ax.transData),
+        xytext=(0, 1.0 if ref_va == "bottom" else 0),
+        textcoords="offset points",
+        ha=ref_ha,
+        va=ref_va,
+        fontsize=FONT_PT["tick"],
+        color=_NEUTRAL,
+        annotation_clip=False,
     )
+    top = max(max(omega), 1.0)
     for xi, value, n_sites in zip(x, omega, sites, strict=False):
         if n_sites:
-            ax.text(
-                xi,
-                value + max(omega) * 0.04,
-                f"{int(n_sites)} sites",
+            count = int(n_sites)
+            ax.annotate(
+                f"{count}",
+                (xi, value),
+                xytext=(0, 1.5),
+                textcoords="offset points",
                 ha="center",
                 va="bottom",
-                fontsize=7,
+                fontsize=FONT_PT["label"],
+                color="#1F2933",
+                bbox={"boxstyle": "square,pad=0.08", "fc": "white", "ec": "none"},
+                zorder=3,
             )
-    ax.set_xticks(x, genes, rotation=35, ha="right")
-    ax.set_ylabel("omega / KaKs")
-    ax.set_title(title or "Selection pressure summary", loc="left")
-    ax.set_ylim(0, max(max(omega) * 1.25, 1.25))
+    _sel_tick_labels(ax, genes, width_mm / 25.4 * 72 * 0.82)
+    ax.set_xlim(-0.6, n - 0.4)
+    ax.set_ylabel("Ka/Ks (\u03c9)")
+    ax.set_ylim(0, top * 1.16)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    _panel_title(ax, title)
     _despine(ax)
+    handles = []
+    if any(significant):
+        handles.append(Patch(color=_SEL_SIGNIFICANT, label="P < 0.05"))
+        if not all(significant):
+            handles.append(Patch(color=_SEL_BASE, label="P \u2265 0.05"))
+    if any(sites):
+        handles.append(
+            Line2D([], [], ls="", marker="$n$", color="#1F2933", markersize=4.5,
+                   label="Sites under selection")
+        )
+    if handles:
+        ax.legend(
+            handles=handles,
+            loc="lower right",
+            bbox_to_anchor=(1.0, 1.0),
+            ncol=len(handles),
+            fontsize=FONT_PT["label"],
+            handlelength=1.0,
+            handleheight=0.8,
+            handletextpad=0.4,
+            columnspacing=1.0,
+            borderaxespad=0.2,
+            frameon=False,
+        )
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_transfer_schematic')
 def plot_transfer_schematic(
     events: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -778,12 +1248,28 @@ def plot_transfer_schematic(
     def _render(path: str | Path) -> Path:
         return _render_transfer_schematic(events, path, title=title)
 
-    return plot_result(
+    plot = plot_result(
         "plot_transfer_schematic",
         _render,
         metrics={"events": len(events)},
         summary="Transfer schematic prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+_LGA_TRANSFER_BAR = "#DDE2E7"
+_LGA_TRANSFER_DONOR_COLORS = (_PALETTE[0], _PALETTE[2], _PALETTE[5], _PALETTE[3], _PALETTE[1])
+
+
+def _lga_transfer_span(
+    event: Mapping[str, Any], role: str, maximum: float
+) -> tuple[float, float]:
+    start = _float(event.get(f"{role}_start", 0.0))
+    end = _float(event.get(f"{role}_end", start))
+    low, high = sorted((start, end))
+    scale = max(1.0, maximum)
+    return max(0.0, min(1.0, low / scale)), max(0.0, min(1.0, high / scale))
 
 
 def _render_transfer_schematic(
@@ -792,64 +1278,123 @@ def _render_transfer_schematic(
     *,
     title: str | None = None,
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_transfer_schematic`."""
+    """Private path-taking renderer backing :func:`plot_transfer_schematic`.
+
+    Each genome is a bar scaled to its own length: ``donor_length`` /
+    ``recipient_length`` in an event when given (the length is then printed at
+    the bar end), otherwise the largest coordinate seen. Transferred segments
+    are highlighted on both bars, arrows are coloured by donor genome and each
+    event is labeled next to its recipient segment.
+    """
+    from matplotlib.path import Path as MplPath  # type: ignore
+
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
     entities = _ordered_entities(events)
     maxima = _entity_maxima(events, entities)
-    y_pos = {entity: i for i, entity in enumerate(reversed(entities))}
-    fig, ax = plt.subplots(figsize=(9.0, max(3.6, 0.8 * len(entities) + 2.2)))
-    ax.set_title(title or "DNA transfer schematic", loc="left")
+    declared: dict[str, float] = {}
+    for event in events:
+        for role in ("donor", "recipient"):
+            value = event.get(f"{role}_length")
+            if value not in (None, ""):
+                name = str(event.get(role, role))
+                declared[name] = max(declared.get(name, 0.0), _float(value))
+    for name, value in declared.items():
+        maxima[name] = max(maxima[name], value)
+    y_pos = {entity: float(i) for i, entity in enumerate(reversed(entities))}
+    donors = list(dict.fromkeys(str(event.get("donor", "donor")) for event in events))
+    donor_color = {
+        name: _LGA_TRANSFER_DONOR_COLORS[i % len(_LGA_TRANSFER_DONOR_COLORS)]
+        for i, name in enumerate(donors)
+    }
+    fig, ax = new_axes(journal_figsize(7.2, 0.62 * len(entities) + 0.55))
+    _panel_title(ax, title)
+    axes_width_pt = max(1.0, 0.8 * ax.get_position().width * fig.get_figwidth() * 72)
+    unit_per_pt = 1.25 / axes_width_pt  # x spans -0.2..1.05
 
     for entity in entities:
         y = y_pos[entity]
-        ax.plot([0, 1], [y, y], color="#CBD5E1", lw=8, solid_capstyle="round")
-        ax.text(-0.03, y, entity, ha="right", va="center", fontweight="bold")
+        ax.plot([0, 1], [y, y], color=_LGA_TRANSFER_BAR, lw=3.2, solid_capstyle="round",
+                zorder=1)
+        ax.text(-0.03, y, entity, ha="right", va="center", fontsize=FONT_PT["body"])
+        if entity in declared:
+            ax.text(1.02, y, _format_bp(int(declared[entity])), ha="left", va="center",
+                    fontsize=FONT_PT["label"], color=_NEUTRAL)
+
+    placed: dict[tuple[float, int, int], list[tuple[float, float]]] = {}
     for i, event in enumerate(events):
         donor = str(event.get("donor", "donor"))
         recipient = str(event.get("recipient", "recipient"))
+        color = donor_color[donor]
         dy = y_pos[donor]
         ry = y_pos[recipient]
-        dx = _scaled_mid(event, "donor", maxima[donor])
-        rx = _scaled_mid(event, "recipient", maxima[recipient])
-        color = _PALETTE[i % len(_PALETTE)]
-        ax.scatter([dx, rx], [dy, ry], color=color, s=42, zorder=3)
-        con = ConnectionPatch(
-            (dx, dy),
-            (rx, ry),
-            "data",
-            "data",
-            arrowstyle="-|>",
-            shrinkA=4,
-            shrinkB=4,
-            mutation_scale=12,
-            lw=1.4,
-            color=color,
-            alpha=0.78,
-            axesA=ax,
-            axesB=ax,
-            connectionstyle="arc3,rad=0.22",
+        d0, d1 = _lga_transfer_span(event, "donor", maxima[donor])
+        r0, r1 = _lga_transfer_span(event, "recipient", maxima[recipient])
+        for (s0, s1), y in (((d0, d1), dy), ((r0, r1), ry)):
+            if s1 - s0 < 0.006:
+                mid = (s0 + s1) / 2
+                s0, s1 = mid - 0.003, mid + 0.003
+            ax.plot([s0, s1], [y, y], color=color, lw=3.2, solid_capstyle="butt", zorder=2)
+        dx = (d0 + d1) / 2
+        rx = (r0 + r1) / 2
+        side = 1 if dy > ry else -1  # the recipient side facing the donor
+        # an S-curve leaving and entering the bars vertically never overshoots them
+        y_start, y_end = dy - side * 0.08, ry + side * 0.08
+        y_mid = (y_start + y_end) / 2
+        ax.add_patch(
+            FancyArrowPatch(
+                path=MplPath(
+                    [(dx, y_start), (dx, y_mid), (rx, y_mid), (rx, y_end)],
+                    [MplPath.MOVETO, MplPath.CURVE4, MplPath.CURVE4, MplPath.CURVE4],
+                ),
+                arrowstyle="-|>",
+                mutation_scale=6,
+                lw=0.8,
+                color=color,
+                shrinkA=0,
+                shrinkB=0,
+                zorder=3,
+            )
         )
-        ax.add_artist(con)
         label = str(event.get("label", f"event {i + 1}"))
+        width = text_width_pt(label, FONT_PT["label"]) * unit_per_pt
+        # Beside the arrow head, on the side the curve does not come from; a
+        # label that would touch one already placed moves to a second row.
+        from_left = dx <= rx
+        left = rx + 0.012 if from_left else rx - 0.012 - width
+        left = min(max(left, -0.19), 1.04 - width)
+        tier = 0
+        for tier in range(3):
+            band = placed.setdefault((ry, side, tier), [])
+            if all(left + width + 0.01 <= a or left - 0.01 >= b for a, b in band):
+                break
+        band.append((left, left + width))
         ax.text(
-            (dx + rx) / 2,
-            (dy + ry) / 2 + 0.16,
+            left,
+            ry + side * (0.2 + 0.17 * tier),
             label,
-            ha="center",
-            va="bottom",
-            fontsize=7,
-            color=color,
+            ha="left",
+            va="center",
+            fontsize=FONT_PT["label"],
+            color="#1F2933",
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.85, "pad": 0.4},
+            zorder=4,
         )
-    ax.set_xlim(-0.22, 1.05)
-    ax.set_ylim(-0.7, len(entities) - 0.25)
-    ax.set_xlabel("Scaled coordinate within each genome")
+    ax.set_xlim(-0.2, 1.05 + (0.08 if declared else 0.0))
+    ax.set_ylim(-0.55, len(entities) - 0.45)
+    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0], ["0", "25", "50", "75", "100"])
+    ax.spines["bottom"].set_bounds(0, 1)
+    ax.set_xlabel("Relative position in genome (%)")
     ax.set_yticks([])
     _despine(ax)
+    ax.spines["left"].set_visible(False)
     return _save(fig, out)
 
 
+@validated_public('visualization.ideogram')
 def ideogram(
     karyotype: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, int | float],
     *,
@@ -861,8 +1406,15 @@ def ideogram(
     max_mb: float | None = None,
     show_lengths: bool = False,
     chromosome_width: float | None = None,
+    density_label: str | None = None,
+    profile_labels: Sequence[str] | None = None,
 ) -> OrganelleResult:
-    """Prepare a RIdeogram-style chromosome plot object without writing files."""
+    """Prepare a RIdeogram-style chromosome plot object without writing files.
+
+    ``density_label`` names the overlaid heatmap in its colour key (default
+    "Density") and ``profile_labels`` names the profile's filled area and
+    line, in that order, in the key.
+    """
     chrom_rows = _numt_chromosome_rows(karyotype)
     if not chrom_rows:
         raise ValueError("karyotype must contain at least one chromosome")
@@ -891,6 +1443,8 @@ def ideogram(
         "show_lengths": bool(show_lengths),
         "length_axis": "left" if show_lengths else "hidden",
         "chromosome_width": chrom_width,
+        "density_label": density_label,
+        "profile_labels": [str(value) for value in profile_labels] if profile_labels else None,
     }
     return data_plot_result(
         "ideogram",
@@ -911,6 +1465,7 @@ def ideogram(
     )
 
 
+@validated_public('visualization.write_ideogram')
 def write_ideogram(
     result: OrganelleResult | Mapping[str, Any],
     output: str | Path,
@@ -933,50 +1488,120 @@ def write_ideogram(
         chromosome_width=metrics.get("chromosome_width"),
         figure_width=width,
         figure_height=height,
+        density_label=metrics.get("density_label"),
+        profile_labels=metrics.get("profile_labels"),
     )
 
 
+@validated_public('visualization.nuclear_transfer_ideogram')
 def nuclear_transfer_ideogram(
     chromosomes: Sequence[Mapping[str, str | int | float | None]] | Mapping[str, int | float],
-    fragments: (Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]] | Mapping[str, Sequence[Mapping[str, str | int | float | None]]]]),
+    fragments: (
+        Sequence[Mapping[str, str | int | float | None]]
+        | Mapping[
+            str,
+            Sequence[Mapping[str, str | int | float | None]]
+            | Mapping[str, Sequence[Mapping[str, str | int | float | None]]],
+        ]
+    ),
     gene_hits: Sequence[Mapping[str, Any]] | None = None,
     *,
     title: str | None = None,
-    panel_label: str | None = "C",
+    panel_label: str | None = None,
     max_mb: float | None = None,
     transfer_label: str | None = None,
+    plastid_fragments: Sequence[Mapping[str, Any]] | Mapping[str, Any] | None = None,
+    color_by: str = "organelle",
+    show_density: bool = True,
+    density_window: int = 500_000,
+    label_top: int = 0,
+    centromeres: Mapping[str, Sequence[float]] | None = None,
+    chromosome_order: Sequence[str] | None = None,
+    nuclear_annotated: bool | None = None,
 ) -> OrganelleResult:
-    """Prepare a panel-C style NUMT/NUPT chromosome ideogram without writing files.
+    """Prepare a NUMT/NUPT chromosome ideogram without writing files.
 
-    Use :func:`write_nuclear_transfer_ideogram` to render the prepared result.
+    Chromosomes are drawn vertically in natural order (or ``chromosome_order``,
+    which also selects them), position 0 at the top, in Mb. Each insertion is a
+    thin tick outside the chromosome: NUMT on the left, NUPT on the right, tick
+    length/width by fragment length; the chromosome body is filled with the
+    insertion density per ``density_window`` bp. Use
+    :func:`write_nuclear_transfer_ideogram` to render the prepared result.
+
+    Parameters
+    ----------
+    chromosomes : {name: length} or rows
+        Chromosome lengths (bp or Mb); rows may carry ``centromere_start``/
+        ``centromere_end``. Fragments on other sequences are counted as
+        unplaced (``metrics["unplaced_candidates"]``) and not drawn.
+    fragments : rows or transfer Result
+        NUMT/NUPT candidates (``detect_transfers*`` Result or its candidate
+        rows) or legacy fragment rows (``chromosome``, ``start``/``end``).
+    gene_hits : rows, optional
+        Legacy explicit gene markers (``class`` ``new_gene``/``un_gene`` are
+        shown as within nuclear gene / intergenic).
+    plastid_fragments : rows or transfer Result, optional
+        NUPT candidates; ``fragments`` is then the NUMT set, drawn on the left.
+    color_by : {"organelle", "evidence_level", "identity", "organelle_gene"}
+        Tick colour. ``evidence_level`` names the validation layers;
+        ``identity`` is continuous (recent insertions are near 100 %).
+    label_top : int
+        Annotate the N longest insertions with length and organelle gene.
+    centromeres : {name: (start_bp, end_bp)}, optional
+        Centromere spans drawn as a constriction.
+    nuclear_annotated : bool, optional
+        Whether a nuclear annotation was used. ``None`` infers it from any
+        candidate naming a ``nuclear_gene``; without annotation no locus
+        markers are drawn. With it, insertions are marked as within a nuclear
+        gene or intergenic.
     """
-    chrom_rows = _numt_chromosome_rows(chromosomes)
-    if not chrom_rows:
+    from . import transfer_plots as tp
+
+    legacy_rows = _numt_chromosome_rows(chromosomes)
+    if not legacy_rows:
         raise ValueError("chromosomes must contain at least one chromosome")
-    if _is_transfer_result(fragments) and gene_hits is None:
-        candidate_rows = _transfer_candidate_rows(fragments)
-        fragment_rows = [_numt_fragment_row(candidate) for candidate in candidate_rows]
-        hit_rows = [
-            _numt_gene_hit_row(_transfer_candidate_gene_hit(candidate))
-            for candidate in candidate_rows
-        ]
-        resolved_transfer_label = transfer_label or _transfer_result_label(fragments)
-    else:
-        fragment_rows = [_numt_fragment_row(fragment) for fragment in fragments]  # type: ignore[union-attr]
-        hit_rows = [_numt_gene_hit_row(hit) for hit in (gene_hits or ())]
-        resolved_transfer_label = transfer_label or "NUMT"
+    chrom_rows = tp.normalize_chromosomes(
+        (_transfer_ideogram_chromosome(row) for row in legacy_rows),
+        order=chromosome_order,
+        centromeres=centromeres,
+    )
+    sets = tp.build_transfer_sets(
+        fragments, primary_label=transfer_label, plastid=plastid_fragments
+    )
+    hit_rows = [_numt_gene_hit_row(hit) for hit in (gene_hits or ())]
+    annotated = bool(hit_rows) or tp.resolve_gene_annotation(sets, nuclear_annotated)
+    placement = tp.placement_summary(sets, chrom_rows)
+    resolved_transfer_label = (
+        "NUMT + NUPT" if len(sets) > 1 else (transfer_label or sets[0]["transfer"])
+    )
+    fragment_rows = [_transfer_ideogram_fragment(row) for row in sets[0]["rows"]]
+    plastid_rows = (
+        [_transfer_ideogram_fragment(row) for row in sets[1]["rows"]] if len(sets) > 1 else []
+    )
     metrics = {
         "plot_kind": "nuclear_transfer_ideogram",
-        "chromosomes": chrom_rows,
+        "chromosomes": [_transfer_ideogram_chromosome_metrics(row) for row in chrom_rows],
         "fragments": fragment_rows,
+        "plastid_fragments": plastid_rows,
         "gene_hits": hit_rows,
         "chromosome_count": len(chrom_rows),
-        "fragment_count": len(fragment_rows),
+        "fragment_count": len(fragment_rows) + len(plastid_rows),
         "gene_hit_count": len(hit_rows),
         "transfer_label": resolved_transfer_label,
+        "transfers": [item["transfer"] for item in sets],
         "panel_label": panel_label,
         "max_mb": max_mb,
         "title": title,
+        "color_by": color_by,
+        "show_density": bool(show_density),
+        "density_window": int(density_window),
+        "label_top": int(label_top),
+        "nuclear_annotated": annotated,
+        "drawn_fragment_count": placement["drawn_candidates"],
+        "unplaced_candidates": placement["unplaced_candidates"],
+        "unplaced_seqids": placement["unplaced_seqids"],
+        "by_transfer": placement["by_transfer"],
+        "note": placement["note"],
     }
     return data_plot_result(
         "nuclear_transfer_ideogram",
@@ -984,18 +1609,20 @@ def nuclear_transfer_ideogram(
         metrics=metrics,
         key_findings=(
             {"metric": "chromosomes", "value": len(chrom_rows)},
-            {"metric": "fragments", "value": len(fragment_rows)},
+            {"metric": "fragments", "value": metrics["fragment_count"]},
+            {"metric": "unplaced_fragments", "value": placement["unplaced_candidates"]},
             {"metric": "gene_hits", "value": len(hit_rows)},
         ),
         flags=("nuclear_transfer_ideogram_prepared",),
         summary=(
             f"{resolved_transfer_label} ideogram prepared for {len(chrom_rows)} "
-            f"chromosome(s), {len(fragment_rows)} fragment(s)."
+            f"chromosome(s), {metrics['fragment_count']} fragment(s)."
         ),
         method="matplotlib_ideogram_data",
     )
 
 
+@validated_public('visualization.write_nuclear_transfer_ideogram')
 def write_nuclear_transfer_ideogram(
     result: OrganelleResult | Mapping[str, Any],
     output: str | Path,
@@ -1005,23 +1632,82 @@ def write_nuclear_transfer_ideogram(
 ) -> Path:
     """Render a prepared nuclear-transfer ideogram to an image file."""
     metrics = _result_metrics(result)
-    chromosomes = metrics.get("chromosomes", ())
-    fragments = metrics.get("fragments", ())
-    gene_hits = metrics.get("gene_hits", ())
     return _render_nuclear_transfer_ideogram(
-        chromosomes,
-        fragments,
-        gene_hits,
+        metrics.get("chromosomes", ()),
+        metrics.get("fragments", ()),
+        metrics.get("gene_hits", ()),
         output,
-        title=metrics.get("title"),
-        panel_label=metrics.get("panel_label", "C"),
-        max_mb=metrics.get("max_mb"),
-        transfer_label=str(metrics.get("transfer_label", "NUMT")),
+        **_ideogram_options(metrics),
         figure_width=width,
         figure_height=height,
     )
 
 
+def plot_nuclear_transfer_ideogram(
+    result: OrganelleResult | Mapping[str, Any],
+    *,
+    width: str | float | None = None,
+    height: float | None = None,
+) -> OrganellePlot:
+    """Plot form of a prepared :func:`nuclear_transfer_ideogram` (compute-only).
+
+    Renders with ``ov.write(plot, output)`` like the other plots and can be a
+    panel of :func:`~organelleverse.visualization.compose_figure`.
+    """
+    from . import transfer_plots as tp
+
+    metrics = _result_metrics(result)
+    spec = _nuclear_transfer_ideogram_spec(
+        metrics.get("chromosomes", ()),
+        metrics.get("fragments", ()),
+        metrics.get("gene_hits", ()),
+        **_ideogram_options(metrics),
+        figure_width=width,
+        figure_height=height,
+    )
+
+    def _render(path: str | Path) -> Path:
+        return tp.render_transfer_figure(spec, path)
+
+    plot = plot_result(
+        "plot_nuclear_transfer_ideogram",
+        _render,
+        organelle="nuclear",
+        metrics={
+            key: metrics.get(key)
+            for key in (
+                "transfer_label",
+                "chromosome_count",
+                "fragment_count",
+                "drawn_fragment_count",
+                "unplaced_candidates",
+                "note",
+            )
+        }
+        | {"caption": tp.transfer_caption(spec)},
+        summary=str(metrics.get("note") or "Transfer ideogram prepared."),
+    )
+    plot._panel = tp.transfer_panel(spec)
+    return plot
+
+
+def _ideogram_options(metrics: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "title": metrics.get("title"),
+        "panel_label": metrics.get("panel_label"),
+        "max_mb": metrics.get("max_mb"),
+        "transfer_label": str(metrics.get("transfer_label", "NUMT")),
+        "plastid_fragments": metrics.get("plastid_fragments") or None,
+        "color_by": str(metrics.get("color_by") or "organelle"),
+        "show_density": bool(metrics.get("show_density", True)),
+        "density_window": int(metrics.get("density_window") or 500_000),
+        "label_top": int(metrics.get("label_top") or 0),
+        "nuclear_annotated": metrics.get("nuclear_annotated"),
+        "note": metrics.get("note"),
+    }
+
+
+@validated_public('visualization.save_plot')
 def save_plot(
     plot: OrganelleResult | Mapping[str, Any],
     output: str | Path,
@@ -1048,6 +1734,10 @@ def _result_metrics(
     return value
 
 
+_LGA_IDEOGRAM_OUTLINE = "#7A858C"
+_LGA_IDEOGRAM_LEGEND_UNITS = 1.7  # width of the key column, in chromosome slots
+
+
 def _render_ideogram(
     chromosomes: Sequence[Mapping[str, Any]] | Mapping[str, int | float],
     density: Sequence[Mapping[str, Any]],
@@ -1062,6 +1752,8 @@ def _render_ideogram(
     chromosome_width: float | None = None,
     figure_width: float | None = None,
     figure_height: float | None = None,
+    density_label: str | None = None,
+    profile_labels: Sequence[str] | None = None,
 ) -> Path:
     chrom_rows = _numt_chromosome_rows(chromosomes)
     if not chrom_rows:
@@ -1087,19 +1779,27 @@ def _render_ideogram(
             _ideogram_profile_row(row)
         )
 
-    marker_only = bool(labels) and not density and not profile
-    if marker_only:
-        fig_w = max(5.4, min(7.0, 0.22 * len(chrom_rows) + 1.5))
-        fig_h = 4.6
-    else:
-        fig_w = max(7.4, min(10.8, 0.36 * len(chrom_rows) + 2.2))
-        fig_h = 5.2
-    fig_w, fig_h = _figure_size(fig_w, fig_h, figure_width, figure_height)
-    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     chrom_width = _ideogram_chromosome_width(chromosome_width)
     inner_pad = chrom_width * 0.08
     profile_gap = 0.08
     profile_width = 0.28
+    # horizontal extent of one chromosome slot to the right of its centre
+    reach = chrom_width / 2
+    if labels:
+        reach = max(reach, chrom_width / 2 + _IDEOGRAM_MARKER_TRACK_GAP + 0.05)
+    if profile:
+        reach = (
+            chrom_width / 2 + profile_gap
+            + (_IDEOGRAM_MARKER_TRACK_GAP + 0.12 if labels else 0.0) + profile_width
+        )
+    has_key = bool(density) or bool(labels) or bool(profile and profile_labels)
+    x_min = 1 - chrom_width / 2 - 0.3
+    key_x = len(chrom_rows) + reach + 0.35
+    x_max = key_x + (_LGA_IDEOGRAM_LEGEND_UNITS if has_key else -0.2)
+    units = x_max - x_min
+    fig_w = 0.45 * units + 0.5
+    fig_h = fig_w * max(0.42, min(0.8, 3.2 / fig_w))
+    fig, ax = new_axes(_figure_size(fig_w, fig_h, figure_width, figure_height))
 
     for row in chrom_rows:
         chrom = row["name"]
@@ -1112,9 +1812,8 @@ def _render_ideogram(
                 chrom_width,
                 length,
                 boxstyle=f"round,pad=0,rounding_size={chrom_width / 2}",
-                facecolor="#D7F0EA" if has_density else "white",
-                edgecolor="#7A858C",
-                linewidth=0.75,
+                facecolor=_ideogram_density_color(0.0) if has_density else "white",
+                edgecolor="none",
                 zorder=1,
             )
         )
@@ -1132,7 +1831,6 @@ def _render_ideogram(
                         end - start,
                         facecolor=_ideogram_density_color(value),
                         edgecolor="none",
-                        alpha=0.86,
                         zorder=2,
                     )
                 )
@@ -1143,8 +1841,8 @@ def _render_ideogram(
                 length,
                 boxstyle=f"round,pad=0,rounding_size={chrom_width / 2}",
                 facecolor="none",
-                edgecolor="#7A858C",
-                linewidth=0.75,
+                edgecolor=_LGA_IDEOGRAM_OUTLINE,
+                linewidth=0.6,
                 zorder=4,
             )
         )
@@ -1166,36 +1864,111 @@ def _render_ideogram(
             length,
         )
 
-    ax.set_xlim(0.45, len(chrom_rows) + 1.05)
+    ax.set_xlim(x_min, x_max)
     ax.set_ylim(0, max_y * 1.03)
     ax.set_xticks(list(x_by_chrom.values()), chrom_names)
     if show_lengths:
         ax.set_yticks(_ideogram_length_ticks(max_y))
-        ax.set_ylabel("Mb", fontsize=8, labelpad=10)
+        ax.set_ylabel("Position (Mb)")
         ax.spines["left"].set_visible(True)
         ax.spines["left"].set_bounds(0, max_y)
-        ax.spines["left"].set_color("#52606D")
-        ax.spines["left"].set_linewidth(0.8)
-        ax.tick_params(axis="y", direction="out", length=3, pad=2, labelsize=6, colors="#52606D")
+        ax.spines["left"].set_color(_NEUTRAL)
+        ax.spines["left"].set_linewidth(0.6)
+        ax.tick_params(
+            axis="y", direction="out", length=2.5, pad=2, labelsize=FONT_PT["tick"],
+            colors=_NEUTRAL,
+        )
     else:
         ax.set_yticks([])
-    ax.tick_params(axis="x", length=0, pad=2, labelsize=6)
+    ax.tick_params(axis="x", length=0, pad=3, labelsize=FONT_PT["tick"])
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
     if not show_lengths:
         ax.spines["left"].set_visible(False)
     if title:
-        ax.set_title(title, loc="left", pad=6)
-    if density:
-        _draw_ideogram_density_legend(ax)
-    _draw_ideogram_marker_legend(
-        ax,
-        labels,
-        below_density=bool(density),
-        label_names=label_names,
-    )
+        _panel_title(ax, title)
+    if has_key:
+        _lga_draw_ideogram_key(
+            ax,
+            key_x,
+            max_y,
+            density=bool(density),
+            density_label=density_label or "Density",
+            labels=labels,
+            label_names=label_names,
+            profile_labels=list(profile_labels or ()) if profile else [],
+        )
     return _save(fig, out)
+
+
+def _lga_draw_ideogram_key(
+    ax: Any,
+    x: float,
+    max_y: float,
+    *,
+    density: bool,
+    density_label: str,
+    labels: Sequence[Mapping[str, Any]],
+    label_names: Mapping[str, str] | None,
+    profile_labels: Sequence[str],
+) -> None:
+    """Colour key and marker legend in the column right of the last chromosome."""
+    top = max_y
+    if density:
+        bar_w, bar_h = 1.0, max_y * 0.03
+        ax.text(x, top, density_label, ha="left", va="top", fontsize=FONT_PT["label"])
+        bar_y = top - max_y * 0.075
+        steps = 32
+        for i in range(steps):
+            ax.add_patch(
+                Rectangle(
+                    (x + bar_w * i / steps, bar_y),
+                    bar_w / steps,
+                    bar_h,
+                    facecolor=_ideogram_density_color(i / (steps - 1)),
+                    edgecolor="none",
+                    clip_on=False,
+                )
+            )
+        ax.add_patch(
+            Rectangle((x, bar_y), bar_w, bar_h, facecolor="none",
+                      edgecolor=_LGA_IDEOGRAM_OUTLINE, linewidth=0.4, clip_on=False)
+        )
+        for text, x_text, align in (("Low", x, "left"), ("High", x + bar_w, "right")):
+            ax.text(x_text, bar_y - max_y * 0.01, text, ha=align, va="top",
+                    fontsize=FONT_PT["label"], color=_NEUTRAL)
+        top = bar_y - max_y * 0.09
+    handles: list[Any] = []
+    if labels:
+        resolved = _ideogram_label_names(labels, label_names)
+        for label_type in _ideogram_marker_types(labels):
+            style = _ideogram_marker_style(label_type)
+            handles.append(
+                Line2D([0], [0], marker=style["marker"], color="none",
+                       markerfacecolor=style["color"], markeredgewidth=0, markersize=4.0,
+                       label=resolved.get(label_type, label_type))
+            )
+    if len(profile_labels) >= 1:
+        handles.append(Rectangle((0, 0), 1, 1, color=_LGA_PROFILE_AREA, lw=0,
+                                 label=profile_labels[0]))
+    if len(profile_labels) >= 2:
+        handles.append(Line2D([0], [0], color=_LGA_PROFILE_LINE, lw=0.8, label=profile_labels[1]))
+    if handles:
+        ax.legend(
+            handles=handles,
+            loc="upper left",
+            bbox_to_anchor=(x - 0.08, top),
+            bbox_transform=ax.transData,
+            frameon=False,
+            handlelength=1.0,
+            handleheight=0.8,
+            handletextpad=0.4,
+            labelspacing=0.3,
+            borderaxespad=0.0,
+            borderpad=0.0,
+            fontsize=FONT_PT["label"],
+        )
 
 
 def _render_nuclear_transfer_ideogram(
@@ -1203,144 +1976,114 @@ def _render_nuclear_transfer_ideogram(
     fragments: Sequence[Mapping[str, Any]],
     gene_hits: Sequence[Mapping[str, Any]],
     output: str | Path,
+    **options: Any,
+) -> Path:
+    from . import transfer_plots as tp
+
+    spec = _nuclear_transfer_ideogram_spec(chromosomes, fragments, gene_hits, **options)
+    return tp.render_transfer_figure(spec, output)
+
+
+def _nuclear_transfer_ideogram_spec(
+    chromosomes: Sequence[Mapping[str, Any]] | Mapping[str, int | float],
+    fragments: Sequence[Mapping[str, Any]],
+    gene_hits: Sequence[Mapping[str, Any]],
     *,
     title: str | None = None,
-    panel_label: str | None = "C",
+    panel_label: str | None = None,
     max_mb: float | None = None,
     transfer_label: str = "NUMT",
     figure_width: float | None = None,
     figure_height: float | None = None,
-) -> Path:
-    chrom_rows = _numt_chromosome_rows(chromosomes)
-    if not chrom_rows:
+    plastid_fragments: Sequence[Mapping[str, Any]] | None = None,
+    color_by: str = "organelle",
+    show_density: bool = True,
+    density_window: int = 500_000,
+    label_top: int = 0,
+    nuclear_annotated: bool | None = None,
+    note: str | None = None,
+) -> dict[str, Any]:
+    from . import transfer_plots as tp
+
+    legacy_rows = _numt_chromosome_rows(chromosomes)
+    if not legacy_rows:
         raise ValueError("chromosomes must contain at least one chromosome")
-    out = _prepare_output(output)
-    _apply_figure_style()
-
-    chrom_names = [row["name"] for row in chrom_rows]
-    x_by_chrom = {name: i + 1 for i, name in enumerate(chrom_names)}
-    max_y = max_mb if max_mb is not None else max(row["length_mb"] for row in chrom_rows)
-    max_y = max(1.0, float(max_y))
-
-    fig_w = max(3.6, min(4.35, 0.12 * len(chrom_rows) + 1.7))
-    fig_w, fig_h = _figure_size(fig_w, 3.05, figure_width, figure_height)
-    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-    chrom_width = 0.34
-
-    for row in chrom_rows:
-        x = x_by_chrom[row["name"]]
-        length = min(row["length_mb"], max_y)
-        ax.add_patch(
-            FancyBboxPatch(
-                (x - chrom_width / 2, 0.0),
-                chrom_width,
-                length,
-                boxstyle=f"round,pad=0,rounding_size={chrom_width / 2}",
-                facecolor="white",
-                edgecolor="#5B6770",
-                linewidth=0.65,
-                zorder=1,
-            )
-        )
-        _draw_ideogram_centromere(ax, x, chrom_width, row, max_y)
-
-    for fragment in fragments:
-        chrom = _numt_chromosome_name(fragment)
-        if chrom not in x_by_chrom:
-            continue
-        start, end = _numt_interval_mb(fragment)
-        if end < start:
-            start, end = end, start
-        y = max(0.0, min(max_y, (start + end) / 2))
-        x = x_by_chrom[chrom]
-        ax.plot(
-            [x - chrom_width * 0.36, x + chrom_width * 0.36],
-            [y, y],
-            color=_NUMT_FRAGMENT,
-            lw=0.9,
-            solid_capstyle="butt",
-            zorder=3,
-        )
-
-    for hit in gene_hits:
-        chrom = _numt_chromosome_name(hit)
-        if chrom not in x_by_chrom:
-            continue
-        y = max(0.0, min(max_y, _numt_position_mb(hit)))
-        kind = _numt_gene_kind(hit)
-        if kind == "new_gene":
-            marker = "s"
-            color = _NUMT_NEW_GENE
-            size = 6
-            x = x_by_chrom[chrom] - chrom_width * 0.12
-        else:
-            marker = "o"
-            color = _NUMT_UN_GENE
-            size = 7
-            x = x_by_chrom[chrom] + chrom_width * 0.48
-        ax.scatter([x], [y], marker=marker, s=size, color=color, linewidths=0, zorder=4)
-
-    ax.set_xlim(0.45, len(chrom_rows) + 0.55)
-    ax.set_ylim(0, max_y)
-    ax.set_xticks(list(x_by_chrom.values()), chrom_names)
-    ax.set_yticks([tick for tick in range(0, int(max_y) + 1, 5)])
-    ax.set_ylabel("MB", fontsize=7, labelpad=4)
-    if title:
-        ax.set_title(title, loc="left", pad=6)
-    ax.spines["left"].set_bounds(0, max_y)
-    ax.spines["bottom"].set_visible(False)
-    ax.tick_params(axis="x", length=0, pad=1, labelsize=6)
-    ax.tick_params(axis="y", direction="out", length=3, pad=1, labelsize=6)
-    ax.grid(False)
-
-    handles = [
-        Line2D([0], [0], color=_NUMT_FRAGMENT, lw=1.0, label=f"{transfer_label} fragments"),
-        Line2D(
-            [0],
-            [0],
-            marker="s",
-            color="none",
-            markerfacecolor=_NUMT_NEW_GENE,
-            markeredgewidth=0,
-            markersize=3.2,
-            label=f"{transfer_label} -> new-gene",
-        ),
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="none",
-            markerfacecolor=_NUMT_UN_GENE,
-            markeredgewidth=0,
-            markersize=3.2,
-            label=f"{transfer_label} -> un-gene",
-        ),
-    ]
-    ax.legend(
-        handles=handles,
-        loc="upper left",
-        bbox_to_anchor=(0.55, 1.02),
-        frameon=False,
-        borderaxespad=0,
-        handlelength=1.2,
-        handletextpad=0.35,
-        labelspacing=0.12,
-        fontsize=5.5,
+    # prepared metrics already hold the drawing order; plain inputs are sorted
+    prepared = not isinstance(chromosomes, Mapping) and all(
+        isinstance(row, Mapping) and "length_bp" in row for row in chromosomes
     )
-    if panel_label:
-        ax.text(
-            -0.12,
-            1.02,
-            panel_label,
-            transform=ax.transAxes,
-            ha="left",
-            va="bottom",
-            fontweight="bold",
-            fontsize=10,
+    chrom_rows = tp.normalize_chromosomes(
+        (_transfer_ideogram_chromosome(row) for row in legacy_rows),
+        order=[row["name"] for row in legacy_rows] if prepared else None,
+    )
+    label = None if plastid_fragments else transfer_label
+    sets = tp.build_transfer_sets(fragments, primary_label=label, plastid=plastid_fragments)
+    hits = []
+    for hit in gene_hits or ():
+        row = _numt_gene_hit_row(hit)
+        hits.append(
+            {
+                "seqid": row["chromosome"],
+                "position": row["position_mb"] * 1_000_000,
+                "class": "within_gene" if row["class"] == "new_gene" else "intergenic",
+            }
         )
-    return _save(fig, out)
+    annotated = bool(hits) or tp.resolve_gene_annotation(sets, nuclear_annotated)
+    spec = {
+        "orientation": "vertical",
+        "chromosomes": chrom_rows,
+        "sets": sets,
+        "gene_hits": hits,
+        "gene_classes": annotated,
+        "color_by": color_by,
+        "show_density": show_density,
+        "density_window": density_window,
+        "label_top": label_top,
+        "max_bp": float(max_mb) * 1_000_000 if max_mb else None,
+        "title": title,
+        "panel_label": panel_label,
+        "note": note or tp.placement_summary(sets, chrom_rows)["note"],
+        "figure_width": figure_width,
+        "figure_height": figure_height,
+    }
+    return spec
 
 
+def _transfer_ideogram_chromosome(row: Mapping[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "name": row["name"],
+        "length_bp": round(_float(row.get("length_mb")) * 1_000_000),
+    }
+    if row.get("centromere_start_mb") is not None and row.get("centromere_end_mb") is not None:
+        out["centromere"] = [
+            round(_float(row["centromere_start_mb"]) * 1_000_000),
+            round(_float(row["centromere_end_mb"]) * 1_000_000),
+        ]
+    return out
+
+
+def _transfer_ideogram_chromosome_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
+    centromere = row.get("centromere")
+    return {
+        "name": row["name"],
+        "length_mb": row["length_bp"] / 1_000_000,
+        "length_bp": row["length_bp"],
+        "centromere_start_mb": centromere[0] / 1_000_000 if centromere else None,
+        "centromere_end_mb": centromere[1] / 1_000_000 if centromere else None,
+    }
+
+
+def _transfer_ideogram_fragment(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "chromosome": row["seqid"],
+        "start_mb": row["start"] / 1_000_000,
+        "end_mb": row["end"] / 1_000_000,
+        "length_mb": max(0.0, (row["end"] - row["start"]) / 1_000_000),
+        **row,
+    }
+
+
+@validated_public('visualization.plot_transfer_tracks')
 def plot_transfer_tracks(
     candidates: Sequence[Mapping[str, str | int | float | bool | None]],
     nuclear_fasta: str | Path | None = None,
@@ -1348,48 +2091,110 @@ def plot_transfer_tracks(
     chromosome_lengths: Mapping[str, int] | None = None,
     color_by: str = "evidence_level",
     title: str | None = None,
+    plastid_candidates: Sequence[Mapping[str, Any]] | None = None,
+    transfer_label: str | None = None,
+    centromeres: Mapping[str, Sequence[float]] | None = None,
+    chromosome_order: Sequence[str] | None = None,
+    show_density: bool = True,
+    density_window: int = 500_000,
+    label_top: int = 0,
+    min_chromosome_fraction: float = 0.02,
+    panel_label: str | None = None,
+    width: float | None = None,
+    height: float | None = None,
 ) -> OrganellePlot:
-    """Render NUMT/NUPT insertions as dots on linear chromosome tracks (compute-only).
+    """Render NUMT/NUPT insertions on linear chromosome tracks (compute-only).
 
-    Each nuclear chromosome is drawn as a horizontal bar (length = chromosome
-    length in bp, x = chromosome name). Insertion candidates are plotted as
-    markers at their nuclear position; marker size encodes the fragment length
-    and colour encodes either ``evidence_level`` or ``organelle_gene``. Render
-    with ``ov.write(plot, output)``.
+    Each nuclear chromosome is a horizontal bar in natural order (1, 2, ...,
+    10; or ``chromosome_order``, which also selects them) on a Mb axis. Every
+    insertion is a thin semi-transparent tick: NUMT above the bar, NUPT below;
+    tick length/width encode the fragment length. The bar is filled with the
+    insertion density per ``density_window`` bp so dense regions stay
+    readable. Render with ``ov.write(plot, output)``.
 
     Parameters
     ----------
     candidates : sequence of mappings
-        ``detect_transfers_evidence`` key_findings (each carrying
-        ``nuclear_seqid``, ``nuclear_start``, ``nuclear_end``, ``length``,
-        ``evidence_level``, ``organelle_gene``).
+        ``detect_transfers*`` candidates (``nuclear_seqid``, ``nuclear_start``,
+        ``nuclear_end``, ``length``, ``identity``, ``evidence_level``,
+        ``depth_supported``, ``longread_linked``, ``organelle_gene``); a
+        transfer Result is also accepted.
     nuclear_fasta : path, optional
-        Read chromosome lengths from this FASTA when ``chromosome_lengths`` is
-        not given.
+        Read chromosome lengths (from ``.fai`` when present) when
+        ``chromosome_lengths`` is not given; sequences shorter than
+        ``min_chromosome_fraction`` of the longest count as unplaced.
     chromosome_lengths : {seqid: length}, optional
-        Explicit chromosome lengths; takes precedence over ``nuclear_fasta``.
-    color_by : {"evidence_level", "organelle_gene"}
-        How to colour the insertion markers.
+        Explicit chromosomes to draw; candidates elsewhere are counted in
+        ``metrics["unplaced_candidates"]`` and not drawn.
+    color_by : {"evidence_level", "organelle", "identity", "organelle_gene"}
+        Tick colour. Evidence is named from the validation layers (alignment
+        only, read depth, long-read linked, both); input with only the BLAST
+        layer is shown as candidates (alignment only).
+    plastid_candidates : sequence or transfer Result, optional
+        NUPT candidates to draw below the bars; ``candidates`` is then NUMT.
+    transfer_label : {"NUMT", "NUPT"}, optional
+        Label of a single ``candidates`` set (guessed from the input otherwise).
+    centromeres : {seqid: (start_bp, end_bp)}, optional
+        Centromere spans drawn as a constriction.
+    label_top : int
+        Annotate the N longest insertions with length and organelle gene.
     """
-    if not candidates:
-        raise ValueError("candidates must contain at least one transfer candidate")
+    from . import transfer_plots as tp
 
-    def _render(path: str | Path) -> Path:
-        return _render_transfer_tracks(
-            candidates,
-            path,
+    sets = tp.build_transfer_sets(
+        candidates, primary_label=transfer_label, plastid=plastid_candidates
+    )
+    if not any(item["rows"] for item in sets):
+        raise ValueError("candidates must contain at least one transfer candidate")
+    chromosomes = tp.normalize_chromosomes(
+        tp.resolve_track_chromosomes(
+            sets,
             nuclear_fasta=nuclear_fasta,
             chromosome_lengths=chromosome_lengths,
-            color_by=color_by,
-            title=title,
-        )
+            min_chromosome_fraction=min_chromosome_fraction,
+        ),
+        order=chromosome_order,
+        centromeres=centromeres,
+    )
+    placement = tp.placement_summary(sets, chromosomes)
+    spec = {
+        "orientation": "horizontal",
+        "chromosomes": chromosomes,
+        "sets": sets,
+        "gene_classes": False,
+        "color_by": color_by,
+        "show_density": show_density,
+        "density_window": density_window,
+        "label_top": label_top,
+        "title": title,
+        "panel_label": panel_label,
+        "note": placement["note"],
+        "figure_width": width,
+        "figure_height": height,
+    }
 
-    return plot_result(
+    def _render(path: str | Path) -> Path:
+        return tp.render_transfer_figure(spec, path)
+
+    plot = plot_result(
         "plot_transfer_tracks",
         _render,
-        metrics={"candidates": len(candidates), "color_by": color_by},
-        summary="Transfer track plot prepared.",
+        metrics={
+            "candidates": sum(len(item["rows"]) for item in sets),
+            "color_by": color_by,
+            "transfers": [item["transfer"] for item in sets],
+            "chromosomes": [row["name"] for row in chromosomes],
+            "drawn_candidates": placement["drawn_candidates"],
+            "unplaced_candidates": placement["unplaced_candidates"],
+            "unplaced_seqids": placement["unplaced_seqids"],
+            "by_transfer": placement["by_transfer"],
+            "density_window": int(density_window),
+            "caption": tp.transfer_caption(spec),
+        },
+        summary=f"Transfer track plot prepared ({placement['note']}).",
     )
+    plot._panel = tp.transfer_panel(spec)
+    return plot
 
 
 def _render_transfer_tracks(
@@ -1402,136 +2207,16 @@ def _render_transfer_tracks(
     title: str | None = None,
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_transfer_tracks`."""
-    out = _prepare_output(output)
-    _apply_figure_style()
-
-    # resolve chromosome lengths
-    lengths = dict(chromosome_lengths) if chromosome_lengths else {}
-    if nuclear_fasta is not None and not lengths:
-        from .._bio import read_fasta
-
-        for name, seq in read_fasta(Path(nuclear_fasta)):
-            lengths[name] = len(seq)
-    # ensure every referenced chromosome has a length (fall back to max insert end)
-    for c in candidates:
-        sid = str(c.get("nuclear_seqid", ""))
-        end = int(c.get("nuclear_end", 0))
-        if sid and sid not in lengths:
-            lengths[sid] = max(end, int(c.get("nuclear_start", 0)))
-    if not lengths:
-        raise ValueError(
-            "no chromosome lengths available; pass nuclear_fasta or chromosome_lengths"
-        )
-
-    # order chromosomes by length (longest at top)
-    chroms = sorted(lengths, key=lambda s: lengths[s], reverse=True)
-    y_pos = {c: i for i, c in enumerate(chroms)}
-    max_len = max(lengths.values()) or 1
-
-    fig_h = max(3.0, 0.55 * len(chroms) + 2.0)
-    fig, ax = plt.subplots(figsize=(10.0, fig_h))
-    ax.set_title(title or "NUMT/NUPT insertions across nuclear chromosomes", loc="left")
-
-    # draw chromosome bars
-    for c in chroms:
-        y = y_pos[c]
-        L = lengths[c]
-        ax.barh(y, L, height=0.55, color="#E5E7EB", edgecolor="#9CA3AF", zorder=1)
-        # chromosome name + length label on the left
-        ax.text(-max_len * 0.02, y, c, ha="right", va="center", fontweight="bold", fontsize=8)
-        ax.text(
-            L + max_len * 0.01,
-            y,
-            _format_bp(L),
-            ha="left",
-            va="center",
-            fontsize=6,
-            color="#6B7280",
-        )
-
-    # colour mapping
-    if color_by == "organelle_gene":
-        genes = sorted({str(c.get("organelle_gene", "") or "?") for c in candidates})
-        gene_color = {g: _PALETTE[i % len(_PALETTE)] for i, g in enumerate(genes)}
-    else:  # evidence_level
-        ev_levels = sorted({int(c.get("evidence_level", 0)) for c in candidates})
-        ev_color = {lv: _PALETTE[lv % len(_PALETTE)] for lv in ev_levels}
-
-    # plot insertions
-    max_frag = max((int(c.get("length", 1)) for c in candidates), default=1) or 1
-    for c in candidates:
-        sid = str(c.get("nuclear_seqid", ""))
-        if sid not in y_pos:
-            continue
-        y = y_pos[sid]
-        start = int(c.get("nuclear_start", 0))
-        end = int(c.get("nuclear_end", start))
-        mid = (start + end) / 2
-        frag = max(1, int(c.get("length", end - start + 1)))
-        size = 20 + 80 * (frag / max_frag)  # scale marker by fragment length
-        if color_by == "organelle_gene":
-            color = gene_color.get(str(c.get("organelle_gene", "") or "?"), _NEUTRAL)
-        else:
-            color = ev_color.get(int(c.get("evidence_level", 0)), _NEUTRAL)
-        ax.scatter(
-            [mid],
-            [y],
-            color=color,
-            s=size,
-            alpha=0.85,
-            edgecolors="white",
-            linewidths=0.6,
-            zorder=3,
-        )
-        # insertion span as a short horizontal tick
-        ax.plot(
-            [start, end], [y, y], color=color, lw=2.2, alpha=0.7, zorder=2, solid_capstyle="round"
-        )
-
-    ax.set_yticks([])
-    ax.set_xlim(-max_len * 0.12, max_len * 1.08)
-    ax.set_ylim(-0.7, len(chroms) - 0.3)
-    ax.set_xlabel("Chromosome position (bp)")
-    _despine(ax)
-
-    # legend
-    if color_by == "organelle_gene":
-        from matplotlib.lines import Line2D as _L
-
-        handles = [
-            _L(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=col,
-                markersize=7,
-                label=g or "intergenic",
-            )
-            for g, col in gene_color.items()
-        ]
-        ax.legend(
-            handles=handles, title="Organelle gene", loc="upper right", framealpha=0.9, fontsize=6
-        )
-    else:
-        from matplotlib.lines import Line2D as _L
-
-        handles = [
-            _L(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=col,
-                markersize=7,
-                label=f"level {lv}",
-            )
-            for lv, col in ev_color.items()
-        ]
-        ax.legend(
-            handles=handles, title="Evidence level", loc="upper right", framealpha=0.9, fontsize=6
-        )
-    return _save(fig, out)
+    plot = plot_transfer_tracks(
+        candidates,
+        nuclear_fasta,
+        chromosome_lengths=chromosome_lengths,
+        color_by=color_by,
+        title=title,
+    )
+    renderer = plot.renderer
+    assert renderer is not None
+    return renderer(output)
 
 
 def _format_bp(length: int) -> str:
@@ -1543,6 +2228,7 @@ def _format_bp(length: int) -> str:
     return f"{length} bp"
 
 
+@validated_public('visualization.plot_splicing_schematic')
 def plot_splicing_schematic(
     genes: Sequence[Mapping[str, str | list[Mapping[str, int | float]]]],
     *,
@@ -1555,12 +2241,19 @@ def plot_splicing_schematic(
     def _render(path: str | Path) -> Path:
         return _render_splicing_schematic(genes, path, title=title)
 
-    return plot_result(
+    plot = plot_result(
         "plot_splicing_schematic",
         _render,
         metrics={"genes": len(genes)},
         summary="Splicing schematic prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+_LGA_SPLICE_EXON = _PALETTE[0]
+_LGA_SPLICE_CIS = "#8B949E"
+_LGA_SPLICE_TRANS = _PALETTE[5]
 
 
 def _render_splicing_schematic(
@@ -1569,59 +2262,148 @@ def _render_splicing_schematic(
     *,
     title: str | None = None,
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_splicing_schematic`."""
+    """Private path-taking renderer backing :func:`plot_splicing_schematic`.
+
+    One lane per gene and contig, exons at their contig coordinates. Successive
+    exons (input order) are joined by an arc within a lane or, when they lie on
+    different contigs, by an accent-coloured connector between lanes.
+    """
+    from matplotlib.path import Path as MplPath  # type: ignore
+
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
-    rows: list[tuple[str, Mapping[str, Any]]] = []
+    exons_by_gene: list[tuple[str, list[Mapping[str, Any]]]] = []
     for gene in genes:
         exons = list(gene.get("exons", []))
         if not exons:
             raise ValueError("each gene must contain at least one exon")
+        exons_by_gene.append((str(gene.get("gene", "gene")), exons))
+    contigs = {str(exon.get("contig", "contig")) for _, exons in exons_by_gene for exon in exons}
+    single_contig = len(contigs) == 1
+    lanes: list[tuple[str, str]] = []
+    for gene_name, exons in exons_by_gene:
         for exon in exons:
-            rows.append((str(gene.get("gene", "gene")), exon))
+            lane = (gene_name, str(exon.get("contig", "contig")))
+            if lane not in lanes:
+                lanes.append(lane)
+    spacing = 1.3
+    lane_y = {lane: (len(lanes) - 1 - i) * spacing for i, lane in enumerate(lanes)}
+    max_end = max(
+        1.0,
+        max(max(_float(exon.get("start", 0.0)), _float(exon.get("end", 0.0)))
+            for _, exons in exons_by_gene for exon in exons),
+    )
 
-    fig, ax = plt.subplots(figsize=(9.0, max(3.8, 0.62 * len(rows) + 1.8)))
-    ax.set_title(title or "Trans-splicing schematic", loc="left")
-    y = len(rows) - 1
-    points: dict[str, list[tuple[float, float]]] = {}
-    max_end = max(1.0, max(_float(exon.get("end", 1.0)) for _, exon in rows))
-    gene_palette = _group_palette(gene_name for gene_name, _ in rows)
-    for gene_name, exon in rows:
-        start = _float(exon.get("start", 0.0)) / max_end
-        end = _float(exon.get("end", start)) / max_end
-        width = max(0.014, end - start)
-        color = gene_palette[gene_name]
-        ax.add_patch(
-            Rectangle((start, y - 0.15), width, 0.3, facecolor=color, edgecolor="white", lw=0.8)
-        )
-        label = str(exon.get("exon", "exon"))
-        contig = str(exon.get("contig", "contig"))
-        ax.text(start, y + 0.2, label, fontsize=7, ha="left", va="bottom")
-        ax.text(-0.02, y, f"{gene_name} / {contig}", ha="right", va="center")
-        points.setdefault(gene_name, []).append((start + width / 2, y))
-        y -= 1
-    for _gene_name, coords in points.items():
-        coords = sorted(coords, key=lambda xy: xy[1], reverse=True)
-        for (x1, y1), (x2, y2) in itertools.pairwise(coords):
-            arrow = FancyArrowPatch(
-                (x1, y1 - 0.18),
-                (x2, y2 + 0.18),
-                connectionstyle="arc3,rad=-0.28",
-                arrowstyle="-",
-                lw=1.1,
-                color="#6B7280",
-                alpha=0.8,
+    fig, ax = new_axes(journal_figsize(7.2, 0.4 * len(lanes) + 0.6))
+    _panel_title(ax, title)
+    axes_width_pt = max(1.0, 0.8 * ax.get_position().width * fig.get_figwidth() * 72)
+    bp_per_pt = max_end / axes_width_pt
+    min_width = max_end * 0.004
+    label_rows: dict[tuple[str, str], list[list[tuple[float, float]]]] = {}
+    has_trans = False
+
+    for lane, y in lane_y.items():
+        gene_name, contig = lane
+        lane_exons = [exon for name, exons in exons_by_gene if name == gene_name
+                      for exon in exons if str(exon.get("contig", "contig")) == contig]
+        low = min(min(_float(e.get("start", 0.0)), _float(e.get("end", 0.0))) for e in lane_exons)
+        high = max(max(_float(e.get("start", 0.0)), _float(e.get("end", 0.0))) for e in lane_exons)
+        ax.plot([low, high], [y, y], color="#C9CED4", lw=0.6, zorder=1)
+        ax.text(-0.015 * max_end, y + (0.0 if single_contig else 0.12), gene_name,
+                ha="right", va="center" if single_contig else "bottom",
+                fontstyle="italic", fontsize=FONT_PT["body"])
+        if not single_contig:
+            ax.text(-0.015 * max_end, y - 0.04, contig, ha="right", va="top",
+                    fontsize=FONT_PT["label"], color=_NEUTRAL)
+
+    for gene_name, exons in exons_by_gene:
+        anchors: list[tuple[float, float, float, str]] = []  # (left, right, y, contig)
+        for exon in exons:
+            contig = str(exon.get("contig", "contig"))
+            y = lane_y[(gene_name, contig)]
+            start, end = sorted((_float(exon.get("start", 0.0)), _float(exon.get("end", 0.0))))
+            if end - start < min_width:
+                mid = (start + end) / 2
+                start, end = mid - min_width / 2, mid + min_width / 2
+            ax.add_patch(Rectangle((start, y - 0.17), end - start, 0.34,
+                                   facecolor=_LGA_SPLICE_EXON, edgecolor="none", zorder=3))
+            label = str(exon.get("exon", "exon"))
+            if label.lower().startswith("exon "):
+                label = label[5:]
+            width = text_width_pt(label, FONT_PT["label"]) * bp_per_pt
+            center = (start + end) / 2
+            rows = label_rows.setdefault((gene_name, contig), [[], []])
+            for tier, row in enumerate(rows):
+                if all(center + width / 2 + 2 * bp_per_pt <= a
+                       or center - width / 2 - 2 * bp_per_pt >= b for a, b in row):
+                    row.append((center - width / 2, center + width / 2))
+                    ax.text(center, y - 0.24 - 0.28 * tier, label, ha="center", va="top",
+                            fontsize=FONT_PT["label"], color="#1F2933")
+                    break
+            anchors.append((start, end, y, contig))
+        for (l1, r1, y1, c1), (l2, r2, y2, c2) in itertools.pairwise(anchors):
+            x1, x2 = (l1 + r1) / 2, (l2 + r2) / 2
+            if c1 == c2:
+                # arc over the lane; taller for more distant exons
+                h = 0.18 + 0.42 * min(1.0, abs(x2 - x1) / max_end) ** 0.5
+                verts = [(x1, y1 + 0.17), (x1, y1 + 0.17 + h),
+                         (x2, y2 + 0.17 + h), (x2, y2 + 0.17)]
+                color, style = _LGA_SPLICE_CIS, "-"
+            else:
+                has_trans = True
+                sign = 1 if y2 > y1 else -1
+                ya, yb = y1 + sign * 0.17, y2 - sign * 0.17
+                ym = (ya + yb) / 2
+                verts = [(x1, ya), (x1, ym), (x2, ym), (x2, yb)]
+                color, style = _LGA_SPLICE_TRANS, (0, (3, 1.5))
+            ax.add_patch(
+                FancyArrowPatch(
+                    path=MplPath(verts, [MplPath.MOVETO, MplPath.CURVE4,
+                                         MplPath.CURVE4, MplPath.CURVE4]),
+                    arrowstyle="-",
+                    lw=0.7,
+                    linestyle=style,
+                    color=color,
+                    zorder=2,
+                )
             )
-            ax.add_patch(arrow)
-    ax.set_xlim(-0.24, 1.03)
-    ax.set_ylim(-0.7, len(rows) - 0.25)
-    ax.set_xlabel("Scaled genomic position")
+
+    # gene names sit inside the axes, so a composed panel keeps room for them
+    widest = max(
+        text_width_pt(gene_name, FONT_PT["body"], italic=True) for gene_name, _ in lanes
+    )
+    if not single_contig:
+        widest = max(widest, *(text_width_pt(c, FONT_PT["label"]) for _, c in lanes))
+    ax.set_xlim(-(widest + 8.0) * bp_per_pt * 0.8, max_end * 1.02)
+    ax.spines["bottom"].set_bounds(0, max_end)
+    ax.set_ylim(-0.95, (len(lanes) - 1) * spacing + 0.85)
+    axis_label = f"Position on {next(iter(contigs))}" if single_contig else "Position on contig"
+    _lga_genome_axis(ax, max_end, axis_label)
     ax.set_yticks([])
     _despine(ax)
+    ax.spines["left"].set_visible(False)
+    if has_trans:
+        ax.legend(
+            handles=[
+                Line2D([0], [0], color=_LGA_SPLICE_CIS, lw=0.8, label="Same contig"),
+                Line2D([0], [0], color=_LGA_SPLICE_TRANS, lw=0.8, ls=(0, (3, 1.5)),
+                       label="Across contigs"),
+            ],
+            loc="lower right",
+            bbox_to_anchor=(1.0, 1.0),
+            ncol=2,
+            frameon=False,
+            handlelength=1.8,
+            borderaxespad=0.2,
+            fontsize=FONT_PT["label"],
+        )
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_localization_bars')
 def plot_localization_bars(
     predictions: Sequence[Mapping[str, str | Mapping[str, int | float]]],
     *,
@@ -1634,12 +2416,59 @@ def plot_localization_bars(
     def _render(path: str | Path) -> Path:
         return _render_localization_bars(predictions, path, title=title)
 
-    return plot_result(
+    plot = plot_result(
         "plot_localization_bars",
         _render,
         metrics={"proteins": len(predictions)},
         summary="Localization bar plot prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+#: Fixed compartment colours (matched by name) so one compartment keeps its colour
+#: across figures; organelles take the strong hues, the rest muted ones.
+_LOC_COMPARTMENT_COLORS = (
+    (("mito",), "#0072B2"),
+    (("plastid", "chloro", "amyloplast"), "#009E73"),
+    (("nucle",), "#E69F00"),
+    (("cyto",), "#B5BEC8"),
+    (("perox",), "#CC79A7"),
+    (("secret", "extracell", "plasma", "membrane"), "#56B4E9"),
+    (("vacuol",), "#8E6C8A"),
+    (("reticulum", "er", "golgi"), "#D55E00"),
+)
+_LOC_FALLBACK = ("#6B7280", "#A3ACB6", "#374151", "#D1D5DB")
+
+
+def _loc_compartment_order(totals: Mapping[str, float]) -> list[str]:
+    """Organelle compartments first (mitochondrion, plastid), then by mean probability."""
+
+    def rank(name: str) -> tuple[int, float, str]:
+        lowered = name.lower()
+        organelle = 0 if "mito" in lowered else 1 if ("plastid" in lowered or "chloro" in lowered) else 2
+        return organelle, -totals[name], name
+
+    return sorted(totals, key=rank)
+
+
+def _loc_palette(compartments: Sequence[str]) -> dict[str, str]:
+    palette: dict[str, str] = {}
+    spare = iter(itertools.cycle(_LOC_FALLBACK))
+    for name in compartments:
+        lowered = name.lower()
+        words = lowered.replace("-", " ").replace("_", " ").split()
+        color = next(
+            (
+                hue
+                for keys, hue in _LOC_COMPARTMENT_COLORS
+                if any((key in words) if key == "er" else (key in lowered) for key in keys)
+                and hue not in palette.values()
+            ),
+            None,
+        )
+        palette[name] = color or next(spare)
+    return palette
 
 
 def _render_localization_bars(
@@ -1649,61 +2478,109 @@ def _render_localization_bars(
     title: str | None = None,
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_localization_bars`."""
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
-    compartments = sorted(
-        {
-            str(comp)
-            for pred in predictions
-            for comp in (
-                pred.get("probabilities", {}).keys()
-                if isinstance(pred.get("probabilities", {}), Mapping)
-                else ()
-            )
-        }
-    )
-    if not compartments:
+    probabilities = [
+        pred.get("probabilities", {}) if isinstance(pred.get("probabilities", {}), Mapping) else {}
+        for pred in predictions
+    ]
+    totals: dict[str, float] = {}
+    for probs in probabilities:
+        for comp, value in probs.items():
+            totals[str(comp)] = totals.get(str(comp), 0.0) + _float(value)
+    if not totals:
         raise ValueError("predictions must include probabilities")
+    compartments = _loc_compartment_order(totals)
     proteins = [
         str(pred.get("protein", pred.get("id", f"protein {i + 1}")))
         for i, pred in enumerate(predictions)
     ]
-    palette = _group_palette(compartments)
+    palette = _loc_palette(compartments)
 
-    fig, ax = plt.subplots(figsize=(8.6, max(3.6, 0.42 * len(proteins) + 2.0)))
-    left = [0.0 for _ in predictions]
+    width_in = 120 / 25.4
+    legend_entries = [comp for comp in compartments if totals[comp] > 0]
+    legend_pt = [text_width_pt(comp, FONT_PT["label"]) + 16 for comp in legend_entries]
+    ncol = max(1, len(legend_entries))
+    while ncol > 1 and sum(sorted(legend_pt, reverse=True)[:ncol]) > width_in * 72 * 0.7:
+        ncol -= 1
+    legend_rows = -(-len(legend_entries) // ncol)
+    height_in = 0.155 * len(proteins) + 0.42 + 0.12 * legend_rows
+    fig, ax = new_axes(journal_figsize(width_in, height_in))
+
     y = list(range(len(predictions)))
+    left = [0.0 for _ in predictions]
+    segments: list[list[tuple[float, float, str]]] = [[] for _ in predictions]
     for comp in compartments:
-        values = []
-        for pred in predictions:
-            probs = pred.get("probabilities", {})
-            values.append(_float(probs.get(comp, 0.0)) if isinstance(probs, Mapping) else 0.0)
-        ax.barh(y, values, left=left, label=comp, color=palette[comp], height=0.66)
+        values = [_float(probs.get(comp, 0.0)) for probs in probabilities]
+        if not any(values):
+            continue
+        ax.barh(
+            y, values, left=left, label=comp, color=palette[comp], height=0.72,
+            edgecolor="white", linewidth=0.4,
+        )
+        for i, value in enumerate(values):
+            segments[i].append((left[i], value, palette[comp]))
         left = [a + b for a, b in zip(left, values, strict=False)]
+    # the dominant probability, written into its own segment when it fits
+    for yi, protein_segments in enumerate(segments):
+        if not protein_segments:
+            continue
+        start, value, color = max(protein_segments, key=lambda seg: seg[1])
+        if value >= 0.12:
+            ax.text(
+                start + value / 2,
+                yi,
+                f"{value:.2f}",
+                ha="center",
+                va="center",
+                fontsize=FONT_PT["label"],
+                color=_text_color_for_bar(color),
+            )
     ax.set_yticks(y, proteins)
     ax.invert_yaxis()
+    ax.set_ylim(len(proteins) - 0.5, -0.5)
     ax.set_xlim(0, max(1.0, max(left)))
-    ax.set_xlabel("Probability")
-    ax.set_title(title or "Subcellular localization probabilities", loc="left")
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.16),
-        frameon=False,
-        ncol=min(4, len(compartments)),
-    )
+    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0], ["0", "0.25", "0.50", "0.75", "1"])
+    ax.set_xlabel("Predicted probability")
+    _panel_title(ax, title)
     _despine(ax)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0, pad=2)
+    ax.legend(
+        loc="lower right",
+        bbox_to_anchor=(1.0, 1.0),
+        ncol=ncol,
+        fontsize=FONT_PT["label"],
+        handlelength=1.0,
+        handleheight=0.8,
+        handletextpad=0.4,
+        columnspacing=0.9,
+        borderaxespad=0.2,
+        frameon=False,
+    )
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_rscu_usage')
 def plot_rscu_usage(
     rscu_rows: Sequence[Mapping[str, Any]] | Mapping[str, Any] | str | Path,
     *,
     title: str | None = None,
     rna_labels: bool = True,
     include_stop: bool = False,
+    layout: str = "stacked",
 ) -> OrganellePlot:
-    """Render RSCU codon-usage bias as amino-acid grouped codon stacks (compute-only)."""
+    """Render RSCU codon-usage bias as amino-acid grouped codon stacks (compute-only).
+
+    ``layout="stacked"`` (default) stacks each amino acid's codons, preferred
+    codons (RSCU > 1) at the bottom in the accent colour; ``layout="grouped"``
+    draws one bar per codon, grouped by amino acid, against an RSCU = 1 line.
+    """
+    if layout not in {"stacked", "grouped"}:
+        raise ValueError(f"unknown layout={layout!r}; expected 'stacked' | 'grouped'")
     rows = _rscu_rows(rscu_rows)
     if not include_stop:
         rows = [row for row in rows if row["aa"] != "*"]
@@ -1711,14 +2588,105 @@ def plot_rscu_usage(
         raise ValueError("rscu_rows must contain at least one codon row")
 
     def _render(path: str | Path) -> Path:
-        return _render_rscu_usage(rows, path, title=title, rna_labels=rna_labels)
+        return _render_rscu_usage(rows, path, title=title, rna_labels=rna_labels, layout=layout)
 
-    return plot_result(
+    plot = plot_result(
         "plot_rscu_usage",
         _render,
         metrics={"codon_rows": len(rows)},
         summary="RSCU codon-usage plot prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+_RSCU_PREFERRED = _PALETTE[0]  # RSCU > 1
+_RSCU_OTHER = "#BCC8D4"  # RSCU <= 1, light member of the same blue-grey family
+_RSCU_BAND = "#F2F4F7"  # alternate amino-acid background (grouped layout)
+_RSCU_CODON_PT = FONT_PT["label"]
+
+
+def _rscu_legend(ax: Any) -> None:
+    from matplotlib.patches import Patch  # type: ignore
+
+    ax.legend(
+        handles=[
+            Patch(color=_RSCU_PREFERRED, label="RSCU > 1 (preferred)"),
+            Patch(color=_RSCU_OTHER, label="RSCU \u2264 1"),
+        ],
+        loc="lower right",
+        bbox_to_anchor=(1.0, 1.0),
+        ncol=2,
+        fontsize=FONT_PT["label"],
+        handlelength=1.0,
+        handleheight=0.8,
+        handletextpad=0.4,
+        columnspacing=1.0,
+        borderaxespad=0.2,
+        frameon=False,
+    )
+
+
+def _rscu_draw_grouped(
+    ax: Any, fig: Any, by_aa: Mapping[str, list[dict[str, Any]]], ordered_aas: Sequence[str],
+    rna_labels: bool,
+) -> float:
+    """One bar per codon, amino acids on alternating bands; returns the tallest bar."""
+    from matplotlib.transforms import ScaledTranslation, blended_transform_factory  # type: ignore
+
+    from .style import text_width_pt
+
+    gap = 0.8
+    cursor = 0.0
+    ticks: list[float] = []
+    heights: list[float] = []
+    tick_labels: list[str] = []
+    centres: list[tuple[float, str]] = []
+    tallest = 0.0
+    for index, aa in enumerate(ordered_aas):
+        family = sorted(by_aa[aa], key=lambda row: row["codon"])
+        first = cursor
+        for row in family:
+            value = max(0.0, _float(row["rscu"]))
+            ax.bar(
+                cursor, value, width=0.78, linewidth=0, zorder=2,
+                color=_RSCU_PREFERRED if value > 1.0 else _RSCU_OTHER,
+            )
+            ticks.append(cursor)
+            heights.append(value)
+            tick_labels.append(_display_codon(str(row["codon"]), rna_labels))
+            tallest = max(tallest, value)
+            cursor += 1.0
+        last = cursor - 1.0
+        if index % 2 == 1:
+            ax.axvspan(first - 0.5, last + 0.5, color=_RSCU_BAND, lw=0, zorder=0)
+        centres.append(((first + last) / 2, _AA_NAMES.get(aa, aa)))
+        cursor += gap
+    ax.set_xticks(ticks, tick_labels, rotation=90, fontsize=_RSCU_CODON_PT)
+    ax.tick_params(axis="x", length=0, pad=1.5)
+    codon_pt = max(text_width_pt(label, _RSCU_CODON_PT) for label in tick_labels)
+    drop = ScaledTranslation(0, -(1.5 + codon_pt * 1.1 + 4.5) / 72, fig.dpi_scale_trans)
+    transform = blended_transform_factory(ax.transData, ax.transAxes) + drop
+    for centre, name in centres:
+        ax.text(centre, 0, name, transform=transform, ha="center", va="top",
+                fontsize=FONT_PT["tick"])
+    ax.set_xlim(-0.9, cursor - gap - 0.1)
+    ax.axhline(1.0, color=_NEUTRAL, lw=0.6, ls=(0, (3, 2)), zorder=3)
+    # inside above the line when the last codon bar leaves room, else right of the axes
+    inside = max(heights[-5:]) < 0.8
+    ax.annotate(
+        "RSCU = 1" if inside else " RSCU = 1",
+        (1.0, 1.0),
+        xycoords=blended_transform_factory(ax.transAxes, ax.transData),
+        xytext=(0, 1.0 if inside else 0),
+        textcoords="offset points",
+        ha="right" if inside else "left",
+        va="bottom" if inside else "center",
+        fontsize=FONT_PT["tick"],
+        color=_NEUTRAL,
+        annotation_clip=False,
+    )
+    return tallest
 
 
 def _render_rscu_usage(
@@ -1727,8 +2695,13 @@ def _render_rscu_usage(
     *,
     title: str | None = None,
     rna_labels: bool = True,
+    layout: str = "stacked",
 ) -> Path:
     """Private path-taking renderer backing :func:`plot_rscu_usage`."""
+    from matplotlib.ticker import MaxNLocator  # type: ignore
+
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -1740,52 +2713,55 @@ def _render_rscu_usage(
     if not ordered_aas:
         raise ValueError("rscu_rows must contain at least one codon row")
 
-    fig, ax = plt.subplots(figsize=(max(6.8, 0.44 * len(ordered_aas) + 2.2), 4.8))
-    max_stack = 0.0
-    for xi, aa in enumerate(ordered_aas):
-        family = sorted(by_aa[aa], key=lambda row: row["codon"])
-        bottom = 0.0
-        for j, row in enumerate(family):
-            value = max(0.0, _float(row["rscu"]))
-            color = _PALETTE[j % len(_PALETTE)]
-            ax.bar(
-                xi, value, bottom=bottom, width=0.72, color=color, edgecolor="white", linewidth=0.45
-            )
-            if value >= 0.18:
-                label = _display_codon(str(row["codon"]), rna_labels)
-                ax.text(
-                    xi,
-                    bottom + value / 2,
-                    label,
-                    ha="center",
-                    va="center",
-                    fontsize=5.7,
-                    color=_text_color_for_bar(color),
+    if layout == "grouped":
+        fig, ax = new_axes(journal_figsize(183 / 25.4, 64 / 25.4))
+        top = _rscu_draw_grouped(ax, fig, by_aa, ordered_aas, rna_labels)
+        ax.set_ylim(0, max(1.2, top * 1.08))
+    else:
+        width_mm = 183.0 if len(ordered_aas) > 10 else 120.0 if len(ordered_aas) > 5 else 89.0
+        fig, ax = new_axes(journal_figsize(width_mm / 25.4, 62 / 25.4))
+        stacks = {
+            aa: sum(max(0.0, _float(row["rscu"])) for row in by_aa[aa]) for aa in ordered_aas
+        }
+        y_top = max(1.4, max(stacks.values()) * 1.04)
+        # printed size of one RSCU unit and of one bar, to decide which codons fit
+        box = ax.get_position()
+        unit_pt = box.height * fig.get_figheight() * 72 * 0.9 / y_top
+        bar_pt = box.width * fig.get_figwidth() * 72 / (len(ordered_aas) + 0.2) * 0.74 + 1.0
+        for xi, aa in enumerate(ordered_aas):
+            # preferred codons at the bottom, so the bias reads from the baseline up
+            family = sorted(by_aa[aa], key=lambda row: (-_float(row["rscu"]), row["codon"]))
+            bottom = 0.0
+            for row in family:
+                value = max(0.0, _float(row["rscu"]))
+                color = _RSCU_PREFERRED if value > 1.0 else _RSCU_OTHER
+                ax.bar(
+                    xi, value, bottom=bottom, width=0.74, color=color,
+                    edgecolor="white", linewidth=0.5, zorder=2,
                 )
-            bottom += value
-        max_stack = max(max_stack, bottom)
-
-    ax.axhline(1.0, color=_NEUTRAL, lw=0.8, ls="--", alpha=0.72)
-    ax.text(
-        len(ordered_aas) - 0.55,
-        1.04,
-        "RSCU = 1",
-        ha="right",
-        va="bottom",
-        fontsize=7,
-        color=_NEUTRAL,
-    )
-    ax.set_xticks(
-        range(len(ordered_aas)), [_AA_NAMES.get(aa, aa) for aa in ordered_aas], rotation=0
-    )
-    ax.set_xlim(-0.6, len(ordered_aas) - 0.4)
-    ax.set_ylim(0, max(1.4, max_stack * 1.08))
-    ax.set_ylabel("RSCU value")
-    ax.set_title(title or "RSCU codon usage bias", loc="left")
+                label = _display_codon(str(row["codon"]), rna_labels)
+                if (
+                    value * unit_pt >= _RSCU_CODON_PT * 1.05
+                    and text_width_pt(label, _RSCU_CODON_PT) <= bar_pt
+                ):
+                    ax.text(
+                        xi, bottom + value / 2, label, ha="center", va="center",
+                        fontsize=_RSCU_CODON_PT, color=_text_color_for_bar(color), zorder=3,
+                    )
+                bottom += value
+        ax.set_xticks(range(len(ordered_aas)), [_AA_NAMES.get(aa, aa) for aa in ordered_aas])
+        ax.tick_params(axis="x", length=0, pad=2)
+        ax.set_xlim(-0.6, len(ordered_aas) - 0.4)
+        ax.set_ylim(0, y_top)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=6, integer=True))
+    ax.set_ylabel("RSCU")
+    _panel_title(ax, title)
     _despine(ax)
+    _rscu_legend(ax)
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_rna_editing_summary')
 def plot_rna_editing_summary(
     editing_sites: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -1799,12 +2775,19 @@ def plot_rna_editing_summary(
     def _render(path: str | Path) -> Path:
         return _render_rna_editing_summary(editing_sites, path, title=title, top_n=top_n)
 
-    return plot_result(
+    plot = plot_result(
         "plot_rna_editing_summary",
         _render,
         metrics={"editing_sites": len(editing_sites)},
         summary="RNA-editing summary prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+_RNAED_COLORS = ("#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#6B7280")
+#: Locus names that are not gene symbols and therefore stay upright.
+_RNAED_UPRIGHT = frozenset({"intergenic", "unknown", "other"})
 
 
 def _render_rna_editing_summary(
@@ -1818,13 +2801,21 @@ def _render_rna_editing_summary(
     out = _prepare_output(output)
     _apply_figure_style()
 
+    from matplotlib.ticker import MaxNLocator  # type: ignore
+
     rows = [_editing_site_row(site, i) for i, site in enumerate(editing_sites)]
     gene_counts = _count_by(row["gene"] for row in rows)
-    edit_types = sorted({str(row["edit_type"]) for row in rows})
-    palette = _group_palette(edit_types)
+    type_counts = _count_by(str(row["edit_type"]) for row in rows)
+    # the most frequent class first, in the main colour; others in the next hues
+    edit_types = sorted(type_counts, key=lambda key: (-type_counts[key], key))
+    palette = {
+        edit_type: _RNAED_COLORS[i % len(_RNAED_COLORS)] for i, edit_type in enumerate(edit_types)
+    }
     top_genes = sorted(gene_counts, key=lambda key: (-gene_counts[key], key))[: max(1, top_n)]
 
-    fig, ax = plt.subplots(figsize=(7.0, max(3.8, 0.28 * len(top_genes) + 1.7)))
+    multi = len(edit_types) > 1
+    height_in = 0.125 * len(top_genes) + 0.5 + (0.12 if multi else 0.0)
+    fig, ax = new_axes(journal_figsize(89 / 25.4, height_in))
     y = list(range(len(top_genes)))
     left = [0 for _ in top_genes]
     for edit_type in edit_types:
@@ -1832,21 +2823,99 @@ def _render_rna_editing_summary(
             sum(1 for row in rows if row["gene"] == gene and row["edit_type"] == edit_type)
             for gene in top_genes
         ]
-        ax.barh(y, values, left=left, color=palette[edit_type], height=0.66, label=edit_type)
+        ax.barh(
+            y, values, left=left, color=palette[edit_type], height=0.72, label=edit_type,
+            edgecolor="white" if multi else "none", linewidth=0.4 if multi else 0,
+        )
         left = [a + b for a, b in zip(left, values, strict=False)]
     for yi, total in zip(y, left, strict=False):
-        ax.text(total + 0.2, yi, str(total), va="center", ha="left", fontsize=7)
+        ax.annotate(
+            str(total), (total, yi), xytext=(2, 0), textcoords="offset points",
+            va="center", ha="left", fontsize=FONT_PT["label"], color="#1F2933",
+        )
     ax.set_yticks(y, top_genes)
+    for tick in ax.get_yticklabels():
+        if tick.get_text() not in _RNAED_UPRIGHT:
+            tick.set_fontstyle("italic")
     ax.invert_yaxis()
+    ax.set_ylim(len(top_genes) - 0.5, -0.6)
     max_total = max(left)
-    ax.set_xlim(0, max_total + max(0.5, max_total * 0.08))
-    ax.set_xlabel("Number of RNA editing sites")
-    ax.set_title(title or "RNA editing sites by gene", loc="left")
-    ax.legend(loc="lower right", frameon=False)
+    x_max = max_total * 1.1 + 0.5
+    ax.set_xlim(0, x_max)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
+    unit = edit_types[0] if not multi else ""
+    total_sites = len(rows)
+    note = f"{total_sites:,} sites in {len(gene_counts):,} genes"
+    truncated = len(gene_counts) > len(top_genes)
+    # the summary sits in the empty lower-right corner when the shortest bars leave it free
+    corner_free = len(top_genes) >= 4 and max(left[-2:]) <= 0.45 * x_max
+    if corner_free:
+        ax.text(
+            0.98, 0.02, note + (f"\ntop {len(top_genes)} shown" if truncated else ""),
+            transform=ax.transAxes, ha="right", va="bottom",
+            fontsize=FONT_PT["label"], color=_NEUTRAL, linespacing=1.2,
+        )
+        ax.set_xlabel(f"RNA editing sites ({unit})" if unit else "RNA editing sites")
+    else:
+        details = "; ".join(
+            part for part in (unit, note, f"top {len(top_genes)} shown" if truncated else "") if part
+        )
+        ax.set_xlabel(f"RNA editing sites ({details})")
+    _panel_title(ax, title)
     _despine(ax)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0, pad=2)
+    if multi:
+        ax.legend(
+            loc="lower right",
+            bbox_to_anchor=(1.0, 1.0),
+            ncol=len(edit_types),
+            fontsize=FONT_PT["label"],
+            handlelength=1.0,
+            handleheight=0.8,
+            handletextpad=0.4,
+            columnspacing=1.0,
+            borderaxespad=0.2,
+            frameon=False,
+        )
     return _save(fig, out)
 
 
+_ERC_INK = "#1F2933"
+_ERC_GREY_MID = "#8A94A3"
+_ERC_GREY_BG = "#D5D9DF"
+_ERC_HIT_LIGHT = "#F2B48C"
+_ERC_DASH = (0, (3, 2))
+
+
+def _erc_stat_symbol(method: str) -> str:
+    return "\u03c1" if method == "spearman" else "r"
+
+
+def _erc_strength_label(method: str) -> str:
+    name = "Spearman" if method == "spearman" else "Pearson"
+    return f"ERC strength, |{name} {_erc_stat_symbol(method)}|"
+
+
+def _erc_axes_size_pt(ax: Any, *, bare: bool = False) -> tuple[float, float]:
+    """Width and height of ``ax`` in points.
+
+    A stand-alone figure still has matplotlib's default subplot box here, which
+    ``tight_layout`` later enlarges to the canvas less its tick labels; the
+    canvas is read instead (less a tick-label allowance unless ``bare``, axes
+    drawn without ticks). Inside a composed panel the axes are already final.
+    """
+    fig_w, fig_h = ax.figure.get_size_inches()
+    pos = ax.get_position()
+    default_box = abs(pos.x0 - 0.125) < 1e-6 and abs(pos.width - 0.775) < 1e-6
+    if default_box:
+        if bare:
+            return fig_w * 72.0 * 0.96, fig_h * 72.0 * 0.96
+        return max(1.0, fig_w * 72.0 - 36.0), max(1.0, fig_h * 72.0 - 34.0)
+    return pos.width * fig_w * 72.0, pos.height * fig_h * 72.0
+
+
+@validated_public('visualization.plot_erc_pair_scatter')
 def plot_erc_pair_scatter(
     points: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -1874,12 +2943,14 @@ def plot_erc_pair_scatter(
             y_key=y_key,
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_erc_pair_scatter",
         _render,
         metrics={"method": method, "points": len(points)},
         summary="ERC pair scatter prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
 
 
 def _render_erc_pair_scatter(
@@ -1893,7 +2964,11 @@ def _render_erc_pair_scatter(
     x_key: str = "rate_a",
     y_key: str = "rate_b",
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_erc_pair_scatter`."""
+    """Private path-taking renderer backing :func:`plot_erc_pair_scatter`.
+
+    One dot per branch, the least-squares line, and the correlation with its
+    branch count written in the corner the trend leaves empty.
+    """
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -1903,29 +2978,43 @@ def _render_erc_pair_scatter(
     label_a = gene_a or str(points[0].get("gene_a", "gene A"))
     label_b = gene_b or str(points[0].get("gene_b", "gene B"))
 
-    fig, ax = plt.subplots(figsize=(5.8, 4.4))
-    ax.scatter(x, y, s=26, color="#4B5563", alpha=0.86, edgecolor="white", linewidth=0.35)
+    fig, ax = new_axes(journal_figsize(3.5, 3.2))
+    ax.scatter(x, y, s=14, color=_PALETTE[0], alpha=0.8, edgecolor="white", linewidth=0.3, zorder=3)
     fit = _linear_fit(x, y)
     if fit is not None:
         slope, intercept = fit
-        xs = [min(x), max(x)]
-        ax.plot(xs, [slope * xi + intercept for xi in xs], color="#EF4444", lw=1.2)
+        x_lo, x_hi = min(x), max(x)
+        ax.plot(
+            [x_lo, x_hi],
+            [slope * x_lo + intercept, slope * x_hi + intercept],
+            color=_ERC_INK,
+            lw=0.8,
+            zorder=2,
+        )
+    # A positive trend leaves the upper-left corner empty, a negative one the upper-right.
+    corner_x, corner_ha = (0.03, "left") if r_value >= 0 else (0.97, "right")
     ax.text(
-        0.04,
-        0.92,
-        f"{method.title()} ERC r = {r_value:.2f}",
+        corner_x,
+        0.97,
+        f"{method.title()} {_erc_stat_symbol(method)} = {r_value:.2f}\nn = {len(x)} branches",
         transform=ax.transAxes,
-        ha="left",
+        ha=corner_ha,
         va="top",
-        bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": _LIGHT},
+        fontsize=FONT_PT["label"],
+        color=_ERC_INK,
+        linespacing=1.3,
     )
-    ax.set_xlabel(f"Relative branch length: {label_a}")
-    ax.set_ylabel(f"Relative branch length: {label_b}")
-    ax.set_title(title or f"ERC pair scatter: {label_a} vs {label_b}", loc="left")
+    if min(x) >= 0 and min(y) >= 0:
+        ax.set_xlim(left=0)
+        ax.set_ylim(bottom=0)
+    ax.set_xlabel(f"Relative branch length, {label_a}")
+    ax.set_ylabel(f"Relative branch length, {label_b}")
+    _panel_title(ax, title)
     _despine(ax)
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_distribution')
 def plot_erc_distribution(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -1941,12 +3030,21 @@ def plot_erc_distribution(
             rows, path, method=method, r_threshold=r_threshold, title=title
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_erc_distribution",
         _render,
         metrics={"method": method, "pairs": len(rows)},
         summary="ERC distribution prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+def _erc_pair_group_text(label: str) -> str:
+    """``"a vs b"`` group labels as ``"a-b"``; a single group reads ``"within a"``."""
+    if " vs " in label:
+        return label.replace(" vs ", "\u2013")
+    return f"within {label}"
 
 
 def _render_erc_distribution(
@@ -1957,32 +3055,60 @@ def _render_erc_distribution(
     r_threshold: float = 0.15,
     title: str | None = None,
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_erc_distribution`."""
+    """Private path-taking renderer backing :func:`plot_erc_distribution`.
+
+    Histogram density of |r| with the bins at or above the threshold in colour,
+    the median and threshold marked, and an inset counting the pairs above
+    the threshold by gene-group combination.
+    """
     out = _prepare_output(output)
     _apply_figure_style()
 
     values = [row["abs_r"] for row in rows]
-    centers, density = _hist_density(values, bins=44, low=0.0, high=1.0)
+    bins = 40
+    width = 1.0 / bins
+    centers, density = _hist_density(values, bins=bins, low=0.0, high=1.0)
     threshold = max(0.0, min(1.0, _float(r_threshold)))
+    symbol = _erc_stat_symbol(method)
 
-    fig, ax = plt.subplots(figsize=(6.8, 4.4))
-    ax.fill_between(centers, density, color="#9BD3E0", alpha=0.72)
-    ax.plot(centers, density, color="#172033", lw=0.9)
-    ax.axvline(threshold, color="white", lw=1.5, ls="--")
-    ax.axvline(threshold, color=_NEUTRAL, lw=0.7, ls="--", alpha=0.85)
-    ax.text(
-        threshold + 0.01,
-        max(density) * 0.83,
-        f"r >= {threshold:.2f}",
-        ha="left",
-        va="center",
-        fontsize=7,
-        color=_NEUTRAL,
+    fig, ax = new_axes(journal_figsize(4.72, 3.0))
+    colors = [
+        _PALETTE[0] if center - width / 2 >= threshold - 1e-9 else _ERC_GREY_BG
+        for center in centers
+    ]
+    ax.bar(centers, density, width=width, color=colors, edgecolor="white", linewidth=0.25)
+    peak = max(density) if max(density) > 0 else 1.0
+    ax.set_ylim(0, peak * 1.2)
+    label_y = peak * 1.13
+
+    median = _median(values)
+    ax.axvline(threshold, color=_ERC_INK, lw=0.6, ls=_ERC_DASH, alpha=0.85)
+    ax.axvline(median, color=_ERC_INK, lw=0.6, alpha=0.85)
+    # Labels sit on the outer side of their lines: the smaller value's to the left
+    # of its line, the larger value's to the right. A left label without room
+    # before the y axis moves one row down: right of its own line when it fits
+    # between the two lines, otherwise right of the larger value's line.
+    from .style import text_width_pt
+
+    width_pt, height_pt = _erc_axes_size_pt(ax)
+    row_step = FONT_PT["label"] * 1.5 * (peak * 1.2) / max(1.0, height_pt)
+    text_kw = {"va": "center", "fontsize": FONT_PT["label"], "color": _ERC_INK}
+    (low_x, low_text), (high_x, high_text) = sorted(
+        [(median, f"median {median:.2f}"), (threshold, f"|{symbol}| \u2265 {threshold:.2f}")],
+        key=lambda item: item[0],
     )
+    ax.text(high_x + 0.008, label_y, high_text, ha="left", **text_kw)
+    low_width_pt = text_width_pt(low_text, FONT_PT["label"]) + 2
+    if (low_x - 0.008) * width_pt >= low_width_pt:
+        ax.text(low_x - 0.008, label_y, low_text, ha="right", **text_kw)
+    elif (high_x - low_x - 0.016) * width_pt >= low_width_pt:
+        ax.text(low_x + 0.008, label_y - row_step, low_text, ha="left", **text_kw)
+    else:
+        ax.text(high_x + 0.008, label_y - row_step, low_text, ha="left", **text_kw)
     ax.set_xlim(0, 1)
-    ax.set_xlabel("ERC strength (|r|)")
+    ax.set_xlabel(_erc_strength_label(method))
     ax.set_ylabel("Density")
-    ax.set_title(title or f"Distribution of ERC strengths ({method})", loc="left")
+    _panel_title(ax, title)
 
     counts: dict[str, int] = {}
     for row in rows:
@@ -1990,29 +3116,42 @@ def _render_erc_distribution(
             label = _erc_pair_group_label(row)
             counts[label] = counts.get(label, 0) + 1
     if counts:
-        inset = ax.inset_axes([0.54, 0.46, 0.4, 0.4])
-        labels = sorted(counts, key=lambda label: counts[label], reverse=True)[:4]
+        total = sum(counts.values())
+        labels = sorted(counts, key=lambda label: (-counts[label], label))[:4]
         bars = [counts[label] for label in labels]
-        inset.bar(
-            range(len(labels)),
-            bars,
-            color=[_PALETTE[i % len(_PALETTE)] for i in range(len(labels))],
+        inset = ax.inset_axes([0.72, 0.38, 0.25, 0.4])
+        positions = list(range(len(labels)))
+        inset.barh(positions, bars, color=_PALETTE[0], height=0.62)
+        for pos, value in zip(positions, bars, strict=False):
+            inset.text(
+                value + max(bars) * 0.04,
+                pos,
+                f"{value:,}",
+                ha="left",
+                va="center",
+                fontsize=FONT_PT["label"],
+                color=_ERC_INK,
+            )
+        inset.set_yticks(
+            positions, [_erc_pair_group_text(label) for label in labels], fontsize=FONT_PT["label"]
         )
-        inset.set_title(f"{sum(counts.values())} pairs above threshold", fontsize=7)
-        inset.set_xticks(
-            range(len(labels)),
-            [_short_group_label(label) for label in labels],
-            rotation=25,
-            ha="right",
-            fontsize=6,
+        inset.invert_yaxis()
+        inset.set_xlim(0, max(bars) * 1.3)
+        inset.set_xticks([])
+        inset.tick_params(axis="y", length=0, pad=2)
+        for side in ("top", "right", "bottom"):
+            inset.spines[side].set_visible(False)
+        inset.set_title(
+            f"Pairs with |{symbol}| \u2265 {threshold:.2f} (n = {total:,})",
+            fontsize=FONT_PT["label"],
+            loc="right",
+            pad=3,
         )
-        inset.set_ylabel("Pairs", fontsize=6)
-        inset.tick_params(axis="y", labelsize=6)
-        _despine(inset)
     _despine(ax)
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_group_ridges')
 def plot_erc_group_ridges(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -2029,12 +3168,40 @@ def plot_erc_group_ridges(
             rows, path, method=method, group_order=group_order, r_threshold=r_threshold, title=title
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_erc_group_ridges",
         _render,
         metrics={"method": method, "pairs": len(rows)},
         summary="ERC group ridges prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+def _erc_unit_density(values: Sequence[float]) -> tuple[list[float], list[float]]:
+    """Gaussian kernel density of values in [0, 1], reflected at both bounds.
+
+    Binned first (0.0025 wide) and smoothed by convolution, so the cost stays
+    linear in the number of pairs of a genome-wide scan.
+    """
+    import numpy as np
+
+    data = np.clip(np.asarray(values, dtype=float), 0.0, 1.0)
+    n = int(data.size)
+    spread = float(data.std(ddof=1)) if n > 1 else 0.0
+    q75, q25 = np.percentile(data, [75, 25])
+    iqr = float(q75 - q25)
+    sigma = min(spread, iqr / 1.349) if iqr > 0 else spread
+    bandwidth = min(0.25, max(0.015, 0.9 * sigma * n ** (-0.2)))
+    edges = np.linspace(-1.0, 2.0, 1201)
+    counts, _ = np.histogram(np.concatenate([data, -data, 2.0 - data]), bins=edges)
+    step = float(edges[1] - edges[0])
+    half = int(np.ceil(4 * bandwidth / step))
+    kernel = np.exp(-0.5 * ((np.arange(-half, half + 1) * step) / bandwidth) ** 2)
+    smooth = np.convolve(counts, kernel, mode="same") / (n * bandwidth * sqrt(2 * pi))
+    centers = (edges[:-1] + edges[1:]) / 2
+    inside = (centers >= 0.0) & (centers <= 1.0)
+    return centers[inside].tolist(), smooth[inside].tolist()
 
 
 def _render_erc_group_ridges(
@@ -2046,7 +3213,13 @@ def _render_erc_group_ridges(
     r_threshold: float = 0.15,
     title: str | None = None,
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_erc_group_ridges`."""
+    """Private path-taking renderer backing :func:`plot_erc_group_ridges`.
+
+    One smoothed |r| density per gene group (a pair counts towards both of its
+    genes' groups), each scaled to the same peak height on a shared baseline
+    grid, with the group median and the threshold marked. Group colours match
+    :func:`plot_erc_network`.
+    """
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -2059,40 +3232,57 @@ def _render_erc_group_ridges(
     ordered.extend(group for group in sorted(group_values) if group not in ordered)
     if not ordered:
         raise ValueError("pairs must include at least one group label")
+    palette = _group_palette(group_values)
+    ridge_height = 0.9
 
-    fig, ax = plt.subplots(figsize=(6.8, max(3.8, 0.72 * len(ordered) + 1.4)))
+    fig, ax = new_axes(journal_figsize(4.72, max(2.0, 0.55 * len(ordered) + 0.9)))
     for i, group in enumerate(ordered):
         base = len(ordered) - i - 1
-        centers, density = _hist_density(group_values[group], bins=34, low=0.0, high=1.0)
-        max_density = max(density) if density else 1.0
-        scaled = [(value / max_density) * 0.55 if max_density else 0.0 for value in density]
-        color = _PALETTE[i % len(_PALETTE)]
-        ax.fill_between(
-            centers, [base] * len(centers), [base + v for v in scaled], color=color, alpha=0.64
-        )
-        ax.plot(centers, [base + v for v in scaled], color="#172033", lw=0.7)
-        median = _median(group_values[group])
-        ax.vlines(median, base, base + 0.48, color="#111827", lw=1.0)
-        ax.text(
-            1.02,
-            base + 0.18,
-            f"n={len(group_values[group])}",
-            ha="left",
-            va="center",
-            fontsize=7,
-            color=_NEUTRAL,
-        )
+        values = group_values[group]
+        xs, density = _erc_unit_density(values)
+        peak = max(density) if density and max(density) > 0 else 1.0
+        tops = [base + (value / peak) * ridge_height for value in density]
+        color = palette[group]
+        zorder = 2 + 2 * i  # lower ridges in front of the ones above
+        ax.fill_between(xs, base, tops, color="white", lw=0, zorder=zorder)
+        ax.fill_between(xs, base, tops, color=color, alpha=0.35, lw=0, zorder=zorder)
+        ax.plot(xs, tops, color=color, lw=0.8, zorder=zorder + 0.5)
+        ax.plot([0.0, 1.0], [base, base], color=_ERC_GREY_MID, lw=0.5, zorder=zorder + 0.5)
+        median = _median(values)
+        index = min(range(len(xs)), key=lambda k: abs(xs[k] - median))
+        ax.plot([median, median], [base, tops[index]], color=_ERC_INK, lw=0.8, zorder=zorder + 0.6)
     threshold = max(0.0, min(1.0, _float(r_threshold)))
-    ax.axvline(threshold, color=_NEUTRAL, lw=0.8, ls="--", alpha=0.8)
-    ax.set_xlim(0, 1.16)
-    ax.set_ylim(-0.25, len(ordered) - 0.35)
-    ax.set_yticks([len(ordered) - i - 1 + 0.2 for i in range(len(ordered))], ordered)
-    ax.set_xlabel("ERC strength (|r|)")
-    ax.set_title(title or f"Group-wise ERC distributions ({method})", loc="left")
+    ax.axvline(
+        threshold, color=_ERC_INK, lw=0.6, ls=_ERC_DASH, alpha=0.8, zorder=2 * len(ordered) + 3
+    )
+    symbol = _erc_stat_symbol(method)
+    ax.legend(
+        handles=[
+            Line2D([], [], color=_ERC_INK, lw=0.8, label="Median"),
+            Line2D(
+                [], [], color=_ERC_INK, lw=0.6, ls=_ERC_DASH, label=f"|{symbol}| = {threshold:.2f}"
+            ),
+        ],
+        loc="upper right",
+        fontsize=FONT_PT["label"],
+        handlelength=1.6,
+        borderaxespad=0.2,
+    )
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-0.12, len(ordered) - 1 + ridge_height + 0.2)
+    ax.set_yticks(
+        [len(ordered) - i - 1 + 0.22 for i in range(len(ordered))],
+        [f"{group}\nn = {len(group_values[group]):,}" for group in ordered],
+    )
+    ax.set_xlabel(_erc_strength_label(method))
+    _panel_title(ax, title)
     _despine(ax)
+    ax.tick_params(axis="y", length=0)
+    ax.spines["left"].set_visible(False)
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_network')
 def plot_erc_network(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -2123,12 +3313,39 @@ def plot_erc_network(
             filtered, path, method=method, label_top_n=label_top_n, title=title
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_erc_network",
         _render,
         metrics={"method": method, "edges": len(filtered)},
         summary="ERC network prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+def _erc_natural_key(label: str) -> tuple[Any, ...]:
+    """Sort ``nad2`` before ``nad10``."""
+    parts: list[Any] = []
+    for is_digit, chunk in itertools.groupby(label, str.isdigit):
+        text = "".join(chunk)
+        parts.append((0, int(text), "") if is_digit else (1, 0, text.lower()))
+    return tuple(parts)
+
+
+def _erc_circle_layout(
+    groups_in_order: Sequence[tuple[str, Sequence[str]]], gap_slots: float = 1.5
+) -> tuple[dict[str, float], float]:
+    """Angle of every node on one circle, clockwise from the top, a gap between groups."""
+    gaps = gap_slots if len(groups_in_order) > 1 else 0.0
+    total = sum(len(nodes) for _, nodes in groups_in_order) + gaps * len(groups_in_order)
+    angles: dict[str, float] = {}
+    slot = gaps / 2
+    for _, nodes in groups_in_order:
+        for node in nodes:
+            angles[node] = pi / 2 - 2 * pi * (slot + 0.5) / total
+            slot += 1
+        slot += gaps
+    return angles, total
 
 
 def _render_erc_network(
@@ -2139,7 +3356,19 @@ def _render_erc_network(
     label_top_n: int = 28,
     title: str | None = None,
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_erc_network`."""
+    """Private path-taking renderer backing :func:`plot_erc_network`.
+
+    Genes sit on one circle in gene-group blocks (natural name order inside a
+    block), sized by degree; edges bow towards the centre, wider and darker for
+    stronger |r|, coloured by group when both genes share one and grey across
+    groups, dashed for negative correlations. Labels run radially outside the
+    circle so neighbours never overlap.
+    """
+    from matplotlib.patches import PathPatch
+    from matplotlib.path import Path as MplPath
+
+    from .style import text_width_pt
+
     out = _prepare_output(output)
     _apply_figure_style()
 
@@ -2153,63 +3382,185 @@ def _render_erc_network(
         degrees[gene_b] = degrees.get(gene_b, 0) + 1
         groups.setdefault(gene_a, str(row.get("group_a", "unassigned")))
         groups.setdefault(gene_b, str(row.get("group_b", "unassigned")))
-        edges.append({"source": gene_a, "target": gene_b, "weight": row["abs_r"]})
-    node_ids = sorted(degrees, key=lambda gene: (groups.get(gene, ""), -degrees[gene], gene))
-    positions = _network_positions(node_ids, groups)
+        edges.append(
+            {
+                "source": gene_a,
+                "target": gene_b,
+                "weight": row["abs_r"],
+                "negative": _float(row.get("r", 0.0)) < 0,
+            }
+        )
     palette = _group_palette(groups.values())
+    group_names = sorted(set(groups.values()))
+    groups_in_order = [
+        (
+            group,
+            sorted((gene for gene in degrees if groups[gene] == group), key=_erc_natural_key),
+        )
+        for group in group_names
+    ]
+    angles, total_slots = _erc_circle_layout(groups_in_order)
     labelled = set(sorted(degrees, key=lambda gene: (-degrees[gene], gene))[: max(0, label_top_n)])
+    label_pt = FONT_PT["label"]
+    widest = max(
+        (text_width_pt(_compact_gene_label(gene), label_pt) for gene in labelled), default=0.0
+    )
+    max_degree = max(degrees.values())
 
-    fig, ax = plt.subplots(figsize=(8.2, 6.4))
-    for edge in edges:
+    fig, ax = new_axes(journal_figsize(4.72, 5.0))
+    width_pt, height_pt = _erc_axes_size_pt(ax, bare=True)
+    legend_pt = 34.0  # two legend rows under the circle
+    side_pt = max(60.0, min(width_pt, height_pt - legend_pt))
+    # Circle radius 1 in data units; the limit leaves room for node and radial label.
+    d_max = 10.0
+    limit = 1.2
+    for _ in range(3):
+        room_pt = d_max / 2 + 2.0 + widest + 3.0
+        limit = min(2.2, max(1.12, 1.0 / max(0.2, 1.0 - 2.0 * room_pt / side_pt)))
+        radius_pt = side_pt / (2 * limit)
+        spacing_pt = 2 * pi * radius_pt / max(1.0, total_slots)
+        d_max = max(3.0, min(10.0, 0.85 * spacing_pt))
+    d_min = max(2.5, 0.4 * d_max)
+    data_per_pt = 2 * limit / side_pt
+
+    def diameter(gene: str) -> float:
+        return d_min + (d_max - d_min) * sqrt(degrees[gene] / max_degree)
+
+    positions = {gene: (cos(theta), sin(theta)) for gene, theta in angles.items()}
+    weights = [_float(edge["weight"]) for edge in edges]
+    w_lo, w_hi = min(weights), max(weights)
+
+    def edge_width(weight: float) -> float:
+        share = (weight - w_lo) / (w_hi - w_lo) if w_hi > w_lo else 1.0
+        return 0.35 + 1.25 * share
+
+    for edge in sorted(edges, key=lambda item: _float(item["weight"])):
         source = str(edge["source"])
         target = str(edge["target"])
         x1, y1 = positions[source]
         x2, y2 = positions[target]
-        weight = _float(edge.get("weight", 0.0))
-        ax.plot(
-            [x1, x2],
-            [y1, y2],
-            color="#9CA3AF",
-            lw=max(0.45, min(2.5, 0.4 + 2.0 * weight)),
-            alpha=0.36,
-            zorder=1,
+        # Bow towards the centre, more for distant genes, so neighbours stay short arcs.
+        pull = max(0.0, 1.0 - 0.5 * sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
+        control = ((x1 + x2) / 2 * pull, (y1 + y2) / 2 * pull)
+        weight = _float(edge["weight"])
+        share = (weight - w_lo) / (w_hi - w_lo) if w_hi > w_lo else 1.0
+        same_group = groups[source] == groups[target]
+        path = MplPath(
+            [(x1, y1), control, (x2, y2)], [MplPath.MOVETO, MplPath.CURVE3, MplPath.CURVE3]
         )
-    for gene in node_ids:
-        x, y = positions[gene]
-        group = groups.get(gene, "unassigned")
-        size = 90 + min(420, degrees.get(gene, 1) * 28)
+        ax.add_patch(
+            PathPatch(
+                path,
+                facecolor="none",
+                edgecolor=palette[groups[source]] if same_group else _ERC_GREY_MID,
+                lw=edge_width(weight),
+                alpha=0.25 + 0.5 * share,
+                ls=_ERC_DASH if edge["negative"] else "-",
+                capstyle="round",
+                zorder=1,
+            )
+        )
+    for group, genes in groups_in_order:
         ax.scatter(
-            [x], [y], s=size, color=palette[group], edgecolor="white", linewidth=0.9, zorder=2
+            [positions[gene][0] for gene in genes],
+            [positions[gene][1] for gene in genes],
+            s=[diameter(gene) ** 2 for gene in genes],
+            color=palette[group],
+            edgecolor="white",
+            linewidth=0.5,
+            zorder=3,
         )
-    for gene in node_ids:
-        if gene not in labelled:
-            continue
-        x, y = positions[gene]
-        label_y = y + (0.08 if y >= 0 else -0.08)
-        va = "bottom" if y >= 0 else "top"
-        ax.text(x, label_y, _compact_gene_label(gene), ha="center", va=va, fontsize=6.5, zorder=3)
-    legend_handles = [
-        ax.scatter(
-            [], [], s=52, color=palette[group], edgecolor="white", linewidth=0.8, label=group
+    for gene in labelled:
+        theta = angles[gene]
+        offset = 1.0 + (diameter(gene) / 2 + 2.0) * data_per_pt
+        degrees_angle = theta * 180 / pi
+        right_side = cos(theta) >= -1e-9
+        ax.text(
+            offset * cos(theta),
+            offset * sin(theta),
+            _compact_gene_label(gene),
+            rotation=degrees_angle if right_side else degrees_angle + 180,
+            rotation_mode="anchor",
+            ha="left" if right_side else "right",
+            va="center",
+            fontsize=label_pt,
+            color=_ERC_INK,
+            zorder=4,
         )
-        for group in sorted(set(groups.values()))
+
+    symbol = _erc_stat_symbol(method)
+    group_handles = [
+        Line2D(
+            [],
+            [],
+            marker="o",
+            ls="",
+            markersize=5,
+            markerfacecolor=palette[group],
+            markeredgecolor="white",
+            markeredgewidth=0.5,
+            label=f"{group} ({len(genes)})",
+        )
+        for group, genes in groups_in_order
     ]
-    if legend_handles:
-        ax.legend(
-            handles=legend_handles,
-            loc="lower center",
-            bbox_to_anchor=(0.5, -0.08),
-            frameon=False,
-            ncol=min(4, len(legend_handles)),
+    encoding_handles = [
+        Line2D([], [], color=_ERC_GREY_MID, lw=edge_width(w_lo), label=f"|{symbol}| = {w_lo:.2f}")
+    ]
+    if w_hi > w_lo:
+        encoding_handles.append(
+            Line2D(
+                [], [], color=_ERC_GREY_MID, lw=edge_width(w_hi), label=f"|{symbol}| = {w_hi:.2f}"
+            )
         )
-    ax.set_title(title or f"High-ERC network ({method}, top {len(filtered)} edges)", loc="left")
+    if any(edge["negative"] for edge in edges):
+        encoding_handles.append(
+            Line2D([], [], color=_ERC_GREY_MID, lw=0.8, ls=_ERC_DASH, label=f"{symbol} < 0")
+        )
+    min_degree = min(degrees.values())
+    for degree in sorted({min_degree, max_degree}):
+        encoding_handles.append(
+            Line2D(
+                [],
+                [],
+                marker="o",
+                ls="",
+                markersize=d_min + (d_max - d_min) * sqrt(degree / max_degree),
+                markerfacecolor=_ERC_GREY_MID,
+                markeredgecolor="white",
+                markeredgewidth=0.5,
+                label=f"degree {degree}",
+            )
+        )
+    legend_kw = {
+        "loc": "lower center",
+        "fontsize": FONT_PT["label"],
+        "handlelength": 1.6,
+        "columnspacing": 1.2,
+        "handletextpad": 0.4,
+        "borderaxespad": 0.0,
+    }
+    group_legend = ax.legend(
+        handles=group_handles,
+        ncol=len(group_handles),
+        bbox_to_anchor=(0.5, 0.06),
+        **legend_kw,
+    )
+    ax.add_artist(group_legend)
+    ax.legend(
+        handles=encoding_handles,
+        ncol=len(encoding_handles),
+        bbox_to_anchor=(0.5, 0.0),
+        **legend_kw,
+    )
+    _panel_title(ax, title)
     ax.set_aspect("equal")
-    ax.set_xlim(-1.24, 1.24)
-    ax.set_ylim(-1.28, 1.36)
+    ax.set_xlim(-limit, limit)
+    ax.set_ylim(-limit - legend_pt * data_per_pt, limit)
     ax.set_axis_off()
     return _save(fig, out)
 
 
+@validated_public('visualization.plot_erc_significance')
 def plot_erc_significance(
     pairs: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
@@ -2218,8 +3569,16 @@ def plot_erc_significance(
     highlight_groups: Sequence[str] | None = None,
     q_threshold: float = 0.05,
     title: str | None = None,
+    r_threshold: float = 0.15,
+    strong_r: float | None = 0.5,
+    label_top_n: int = 4,
 ) -> OrganellePlot:
-    """Render ERC strength against significance, highlighting candidates (compute-only)."""
+    """Render ERC strength against significance, highlighting candidates (compute-only).
+
+    Pairs pass when ``q <= q_threshold`` (``p`` when a row has no q value) and
+    ``|r| >= r_threshold``; ``strong_r`` draws a lighter reference line and the
+    ``label_top_n`` most significant highlighted pairs (then strongest) are named.
+    """
     rows = _erc_rows_for_method(pairs, method)
 
     def _render(path: str | Path) -> Path:
@@ -2231,14 +3590,82 @@ def plot_erc_significance(
             highlight_groups=highlight_groups,
             q_threshold=q_threshold,
             title=title,
+            r_threshold=r_threshold,
+            strong_r=strong_r,
+            label_top_n=label_top_n,
         )
 
-    return plot_result(
+    plot = plot_result(
         "plot_erc_significance",
         _render,
         metrics={"method": method, "pairs": len(rows)},
         summary="ERC significance plot prepared.",
     )
+    plot._panel = renderer_panel(_render)
+    return plot
+
+
+def _erc_significance_score(row: Mapping[str, Any]) -> float:
+    """-log10 of the q value, or of the p value when the row has no q value."""
+    q_value = row.get("q_value")
+    p_value = row.get("p_value")
+    value = q_value if q_value is not None else p_value if p_value is not None else 1.0
+    return _neg_log10(value)
+
+
+def _erc_spread_positions(targets: Sequence[float], gap: float, low: float) -> list[float]:
+    """Move 1-D label positions apart by at least ``gap`` and keep them above ``low``."""
+    order = sorted(range(len(targets)), key=lambda i: -targets[i])
+    placed = [0.0 for _ in targets]
+    previous: float | None = None
+    for i in order:
+        value = targets[i] if previous is None else min(targets[i], previous - gap)
+        placed[i] = value
+        previous = value
+    if order:
+        shortfall = low - placed[order[-1]]
+        if shortfall > 0:
+            for i in order:
+                placed[i] += shortfall
+    return placed
+
+
+def _erc_legend_spot(
+    width: float,
+    height: float,
+    points_x: Sequence[float],
+    points_y: Sequence[float],
+    boxes: Sequence[tuple[float, float, float, float]],
+    vlines: Sequence[float],
+    hlines: Sequence[float],
+    *,
+    margin_x: float,
+    margin_y: float,
+) -> tuple[float, float] | None:
+    """Upper-left corner (axes fractions) of the first empty legend rectangle.
+
+    Scans from the top down and from the left across; a spot is empty when no
+    point, box (``x0, y0, x1, y1``) or threshold line falls inside it with its
+    margin. ``None`` when the axes have no such room.
+    """
+    import numpy as np
+
+    px = np.asarray(points_x, dtype=float)
+    py = np.asarray(points_y, dtype=float)
+    if width + 2 * margin_x > 1.0 or height + 2 * margin_y > 1.0:
+        return None
+    for top in np.linspace(1.0 - margin_y, height + margin_y, 60):
+        for left in np.linspace(margin_x, 1.0 - width - margin_x, 60):
+            x0, x1 = left - margin_x, left + width + margin_x
+            y0, y1 = top - height - margin_y, top + margin_y
+            if any(x0 < v < x1 for v in vlines) or any(y0 < h < y1 for h in hlines):
+                continue
+            if any(bx0 < x1 and bx1 > x0 and by0 < y1 and by1 > y0 for bx0, by0, bx1, by1 in boxes):
+                continue
+            if np.any((px > x0) & (px < x1) & (py > y0) & (py < y1)):
+                continue
+            return float(left), float(top)
+    return None
 
 
 def _render_erc_significance(
@@ -2250,15 +3677,30 @@ def _render_erc_significance(
     highlight_groups: Sequence[str] | None = None,
     q_threshold: float = 0.05,
     title: str | None = None,
+    r_threshold: float = 0.15,
+    strong_r: float | None = 0.5,
+    label_top_n: int = 4,
 ) -> Path:
-    """Private path-taking renderer backing :func:`plot_erc_significance`."""
+    """Private path-taking renderer backing :func:`plot_erc_significance`.
+
+    Pairs outside the thresholds are pale grey, other passing pairs mid grey,
+    highlighted pairs orange (pale when they fail). The ``label_top_n`` most
+    significant highlighted pairs are labelled in stacks beside their points
+    with leader lines; the legend takes the first empty spot of the axes.
+    """
     out = _prepare_output(output)
     _apply_figure_style()
 
     highlight_gene_set = {str(gene) for gene in highlight_genes or ()}
     highlight_group_set = {str(group) for group in highlight_groups or ()}
+    uses_q = any(row.get("q_value") is not None for row in rows)
+    stat_name = "q" if uses_q else "P"
+    symbol = _erc_stat_symbol(method)
+    q_limit = _float(q_threshold)
+    q_line = _neg_log10(q_limit)
+    r_limit = max(0.0, _float(r_threshold))
     x = [row["abs_r"] for row in rows]
-    y = [_neg_log10(row.get("q_value", row.get("p_value", 1.0))) for row in rows]
+    y = [_erc_significance_score(row) for row in rows]
     highlighted = [
         (
             str(row["gene_a"]) in highlight_gene_set
@@ -2268,59 +3710,205 @@ def _render_erc_significance(
         )
         for row in rows
     ]
+    passing = [xi >= r_limit and yi >= q_line for xi, yi in zip(x, y, strict=False)]
 
-    fig, ax = plt.subplots(figsize=(5.6, 5.2))
-    normal_x = [value for value, is_hit in zip(x, highlighted, strict=False) if not is_hit]
-    normal_y = [value for value, is_hit in zip(y, highlighted, strict=False) if not is_hit]
-    hit_x = [value for value, is_hit in zip(x, highlighted, strict=False) if is_hit]
-    hit_y = [value for value, is_hit in zip(y, highlighted, strict=False) if is_hit]
-    ax.scatter(normal_x, normal_y, s=14, color="#B8C0CC", alpha=0.72, edgecolor="none")
-    ax.scatter(hit_x, hit_y, s=32, color=_ALARM, alpha=0.9, edgecolor="white", linewidth=0.45)
-    ax.axhline(_neg_log10(q_threshold), color=_ALARM, lw=0.9, ls=(0, (5, 4)), alpha=0.85)
-    ax.axvline(0.15, color=_NEUTRAL, lw=0.8, ls="--", alpha=0.68)
-    ax.axvline(0.5, color=_NEUTRAL, lw=0.8, ls="--", alpha=0.42)
-
-    strict_labelled = [
-        row
-        for row in rows
-        if str(row["gene_a"]) in highlight_gene_set and str(row["gene_b"]) in highlight_gene_set
-    ]
-    label_candidates = strict_labelled or [
-        row for row, is_hit in zip(rows, highlighted, strict=False) if is_hit
-    ]
-    labelled = sorted(
-        label_candidates,
-        key=lambda row: (row["abs_r"], _neg_log10(row.get("q_value", row.get("p_value", 1.0)))),
-        reverse=True,
-    )[:4]
-    for i, row in enumerate(labelled):
-        label = (
-            f"{_compact_gene_label(str(row['gene_a']))}-{_compact_gene_label(str(row['gene_b']))}"
+    fig, ax = new_axes(journal_figsize(4.72, 3.7))
+    layers = (
+        (False, False, _ERC_GREY_BG, 5, "Not passing"),
+        (False, True, _ERC_GREY_MID, 8, "Passing"),
+        (True, False, _ERC_HIT_LIGHT, 8, "Highlighted, not passing"),
+        (True, True, _ALARM, 16, "Highlighted, passing"),
+    )
+    handles = []
+    for zorder, (is_hit, is_pass, color, size, label) in enumerate(layers, start=1):
+        idx = [i for i in range(len(rows)) if highlighted[i] == is_hit and passing[i] == is_pass]
+        if not idx:
+            continue
+        ax.scatter(
+            [x[i] for i in idx],
+            [y[i] for i in idx],
+            s=size,
+            color=color,
+            edgecolor="white" if is_hit and is_pass else "none",
+            linewidth=0.3,
+            zorder=zorder,
         )
-        offset = [0.11, -0.11, 0.07, -0.07][i % 4]
-        if row["abs_r"] >= 0.52:
-            label_x = row["abs_r"] - 0.018
-            ha = "right"
+        handles.append(
+            Line2D(
+                [],
+                [],
+                marker="o",
+                ls="",
+                markersize=sqrt(size),
+                markerfacecolor=color,
+                markeredgecolor="none",
+                label=label,
+            )
+        )
+    x_max = min(1.0, max(0.25, max(x) + 0.08))
+    y_max = max(2.0, max(y) * 1.12)
+    ax.set_xlim(0, x_max)
+    ax.set_ylim(0, y_max)
+
+    line_kw = {"color": _ERC_INK, "lw": 0.6, "ls": _ERC_DASH, "zorder": 0}
+    ax.axhline(q_line, alpha=0.8, **line_kw)
+    ax.annotate(
+        f"{stat_name} = {q_limit:g}",
+        xy=(1.0, q_line),
+        xycoords=ax.get_yaxis_transform(),
+        xytext=(0, 1.5),
+        textcoords="offset points",
+        ha="right",
+        va="bottom",
+        fontsize=FONT_PT["label"],
+        color=_ERC_INK,
+    )
+    vertical = [(r_limit, 0.8)]
+    if strong_r is not None and 0 < _float(strong_r) < x_max and _float(strong_r) != r_limit:
+        vertical.append((_float(strong_r), 0.4))
+    vertical_drawn: list[float] = []
+    for value, alpha in vertical:
+        if not 0 < value < x_max:
+            continue
+        vertical_drawn.append(value)
+        ax.axvline(value, alpha=alpha, **line_kw)
+        ax.annotate(
+            f"|{symbol}| = {value:g}",
+            xy=(value, 1.0),
+            xycoords=ax.get_xaxis_transform(),
+            xytext=(-1.5, -2),
+            textcoords="offset points",
+            rotation=90,
+            ha="right",
+            va="top",
+            fontsize=FONT_PT["label"],
+            color=_ERC_INK,
+        )
+
+    # Candidates: highlighted pairs that pass (all highlighted pairs when none
+    # pass), most significant first, then strongest; every one of the first
+    # label_top_n is labelled, label stacks get headroom instead of being dropped.
+    from .style import text_width_pt
+
+    candidates = [i for i in range(len(rows)) if highlighted[i] and passing[i]]
+    if not candidates:
+        candidates = [i for i in range(len(rows)) if highlighted[i]]
+    chosen = sorted(candidates, key=lambda i: (-y[i], -x[i], i))[: max(0, label_top_n)]
+    width_pt, height_pt = _erc_axes_size_pt(ax)
+    x_per_pt = x_max / max(1.0, width_pt)
+    label_pt = FONT_PT["label"]
+    obstacles: list[tuple[float, float, float, float]] = []  # boxes in axes fractions
+    sides = {
+        left_side: [i for i in chosen if (x[i] >= x_max * 0.45) == left_side]
+        for left_side in (True, False)
+    }
+    placements: dict[bool, list[float]] = {}
+    gap = 0.0
+    for _ in range(3):
+        y_per_pt = y_max / max(1.0, height_pt)
+        gap = label_pt * 1.45 * y_per_pt
+        placements = {
+            left_side: _erc_spread_positions([y[i] for i in side], gap, gap / 2)
+            for left_side, side in sides.items()
+            if side
+        }
+        top = max((max(placed) for placed in placements.values()), default=0.0)
+        if top <= y_max - gap / 2:
+            break
+        y_max = top + gap
+    ax.set_ylim(0, y_max)
+    shift = 9.0 * x_per_pt
+    for left_side, placed in placements.items():
+        side = sides[left_side]
+        column_x = min(x[i] for i in side) - shift if left_side else max(x[i] for i in side) + shift
+        for i, label_y in zip(side, placed, strict=False):
+            row = rows[i]
+            text = (
+                f"{_compact_gene_label(str(row['gene_a']))}\u2013"
+                f"{_compact_gene_label(str(row['gene_b']))}"
+            )
+            ax.annotate(
+                text,
+                xy=(x[i], y[i]),
+                xytext=(column_x, label_y),
+                ha="right" if left_side else "left",
+                va="center",
+                fontsize=label_pt,
+                color=_ERC_INK,
+                zorder=6,
+                bbox={"boxstyle": "square,pad=0.1", "fc": "white", "ec": "none", "alpha": 0.85},
+                arrowprops={
+                    "arrowstyle": "-",
+                    "color": _ERC_GREY_MID,
+                    "lw": 0.4,
+                    "shrinkA": 1.0,
+                    "shrinkB": 2.5,
+                },
+            )
+            text_w = text_width_pt(text, label_pt) * x_per_pt
+            x_lo = column_x - text_w if left_side else column_x
+            x_hi = column_x if left_side else column_x + text_w
+            obstacles.append(
+                (
+                    min(x_lo, x[i]) / x_max,
+                    (min(label_y, y[i]) - gap / 2) / y_max,
+                    max(x_hi, x[i]) / x_max,
+                    (max(label_y, y[i]) + gap / 2) / y_max,
+                )
+            )
+
+    # Threshold-line labels are obstacles for the legend as well.
+    line_text_h = (label_pt * 1.2 + 2.0) / max(1.0, width_pt)
+    for value in vertical_drawn:
+        frac = value / x_max
+        length = (text_width_pt(f"|{symbol}| = {value:g}", label_pt) + 3.0) / max(1.0, height_pt)
+        obstacles.append((frac - line_text_h, 1.0 - length, frac, 1.0))
+    q_frac = q_line / y_max
+    q_text_w = (text_width_pt(f"{stat_name} = {q_limit:g}", label_pt) + 2.0) / max(1.0, width_pt)
+    obstacles.append(
+        (1.0 - q_text_w, q_frac, 1.0, q_frac + (label_pt * 1.2 + 2.0) / max(1.0, height_pt))
+    )
+
+    if handles:
+        legend_kw = {
+            "handles": handles,
+            "loc": "upper left",
+            "fontsize": label_pt,
+            "handletextpad": 0.3,
+            "handlelength": 1.2,
+            "borderaxespad": 0.0,
+            "frameon": False,
+        }
+        # Legend size from its text; then the first empty spot, top to bottom and
+        # left to right, that crosses no point, line, label or line label.
+        legend_w = (
+            max(text_width_pt(str(handle.get_label()), label_pt) for handle in handles)
+            + label_pt * (1.2 + 0.3 + 0.8)
+        ) / max(1.0, width_pt)
+        legend_h = (label_pt * (1.5 * len(handles) - 0.5 + 0.8)) / max(1.0, height_pt)
+        spot = _erc_legend_spot(
+            legend_w,
+            legend_h,
+            [xi / x_max for xi in x],
+            [yi / y_max for yi in y],
+            obstacles,
+            [value / x_max for value in vertical_drawn],
+            [q_frac],
+            margin_x=3.0 / max(1.0, width_pt),
+            margin_y=3.0 / max(1.0, height_pt),
+        )
+        if spot is None:  # no room inside: beside the plot
+            ax.legend(bbox_to_anchor=(1.02, 1.0), **legend_kw)
         else:
-            label_x = row["abs_r"] + 0.014
-            ha = "left"
-        ax.text(
-            label_x,
-            _neg_log10(row.get("q_value", row.get("p_value", 1.0))) + offset,
-            label,
-            fontsize=6.2,
-            ha=ha,
-            va="center",
-        )
-    ax.set_xlim(0, min(1.0, max(0.25, max(x) + 0.08)))
-    ax.set_ylim(0, max(2.0, max(y) * 1.15))
-    ax.set_xlabel("ERC strength (|r|)")
-    ax.set_ylabel("-log10(q-value)")
-    ax.set_title(title or f"ERC significance screen ({method})", loc="left")
+            ax.legend(bbox_to_anchor=spot, **legend_kw)
+    ax.set_xlabel(_erc_strength_label(method))
+    ax.set_ylabel(f"\u2212log10 {stat_name}")
+    _panel_title(ax, title)
     _despine(ax)
     return _save(fig, out)
 
 
+@validated_public('visualization.write_erc_visualization_report')
 def write_erc_visualization_report(
     figures: Sequence[Mapping[str, str]],
     output_html: str | Path,
@@ -2368,6 +3956,7 @@ def write_erc_visualization_report(
     return out
 
 
+@validated_public('visualization.write_visualization_preview_report')
 def write_visualization_preview_report(
     figures: Sequence[Mapping[str, str]],
     output_html: str | Path,
@@ -2416,27 +4005,26 @@ def _prepare_output(output: str | Path) -> Path:
 
 
 def _apply_figure_style() -> None:
+    """Journal typography (``style.publication_rc``) with open top/right spines."""
     plt.rcParams.update(
-        {
-            "figure.dpi": 120,
-            "savefig.dpi": 300,
-            "font.size": 8,
-            "axes.titlesize": 9,
-            "axes.labelsize": 8,
-            "xtick.labelsize": 7,
-            "ytick.labelsize": 7,
-            "legend.fontsize": 7,
-            "axes.spines.top": False,
-            "axes.spines.right": False,
-        }
+        {**publication_rc(), "figure.dpi": 120,
+         "axes.spines.top": False, "axes.spines.right": False}
     )
 
 
 def _save(fig: Any, output: Path) -> Path:
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
-    fig.savefig(output, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    return output
+    return finish(fig, output)
+
+
+def _panel_title(ax: Any, title: str | None) -> None:
+    """A left-aligned panel title only when the caller gives one (no default titles)."""
+    if title:
+        ax.set_title(title, loc="left", fontsize=FONT_PT["title"], pad=3)
+
+
+def _figure_title(fig: Any, title: str | None) -> None:
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", fontsize=FONT_PT["title"])
 
 
 def _figure_size(
@@ -2445,6 +4033,8 @@ def _figure_size(
     width: float | None = None,
     height: float | None = None,
 ) -> tuple[float, float]:
+    # defaults are mapped to the journal width; explicit sizes are the caller's
+    default_width, default_height = journal_figsize(default_width, default_height)
     resolved_width = default_width if width is None else float(width)
     resolved_height = default_height if height is None else float(height)
     if resolved_width <= 0 or resolved_height <= 0:
@@ -3001,8 +4591,8 @@ def _draw_ideogram_marker_labels(
             [leader_start_x, leader_end_x],
             [observed_y, display_y],
             color=style["color"],
-            lw=0.34,
-            alpha=0.55,
+            lw=0.4,
+            alpha=0.6,
             zorder=4.6,
             solid_capstyle="round",
         )
@@ -3010,7 +4600,7 @@ def _draw_ideogram_marker_labels(
             [base_x],
             [display_y],
             marker=style["marker"],
-            s=5.8,
+            s=9,
             color=style["color"],
             linewidths=0,
             alpha=0.95,
@@ -3129,44 +4719,6 @@ def _ideogram_marker_vertical_gap(length: float) -> float:
     return max(0.18, min(0.42, max(1.0, length) * 0.01))
 
 
-def _draw_ideogram_marker_legend(
-    ax: Any,
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    below_density: bool = False,
-    label_names: Mapping[str, str] | None = None,
-) -> None:
-    if not rows:
-        return
-    resolved_label_names = _ideogram_label_names(rows, label_names)
-    handles = []
-    for label_type in _ideogram_marker_types(rows):
-        style = _ideogram_marker_style(label_type)
-        handles.append(
-            Line2D(
-                [0],
-                [0],
-                marker=style["marker"],
-                color="none",
-                markerfacecolor=style["color"],
-                markeredgewidth=0,
-                markersize=3.6,
-                label=resolved_label_names.get(label_type, label_type),
-            )
-        )
-    anchor_y = 0.805 if below_density else 0.88
-    ax.legend(
-        handles=handles,
-        loc="upper right",
-        bbox_to_anchor=(0.84, anchor_y),
-        frameon=False,
-        handlelength=0.65,
-        handletextpad=0.22,
-        labelspacing=0.06,
-        fontsize=5.6,
-    )
-
-
 def _ideogram_marker_types(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     present = {str(row.get("type", "marker")) for row in rows}
     return sorted(present, key=_ideogram_marker_type_sort_key)
@@ -3183,8 +4735,22 @@ def _ideogram_marker_type_sort_key(label: str) -> tuple[int, int, str]:
     return (2, 0, label)
 
 
+# Okabe-Ito hues for the up-to-ten marker classes (shapes stay as in
+# _IDEOGRAM_LABEL_STYLES); green is left to the density heatmap.
+_LGA_IDEOGRAM_MARKER_COLORS = (
+    "#D55E00", "#0072B2", "#CC79A7", "#E69F00", "#56B4E9",
+    "#000000", "#8C6D31", "#6B7280", "#B8860B", "#7B3294",
+)
+_LGA_PROFILE_AREA = "#F0B37E"
+_LGA_PROFILE_LINE = _PALETTE[0]
+
+
 def _ideogram_marker_style(label_type: str) -> dict[str, str]:
-    return _IDEOGRAM_MARKERS.get(label_type, {"color": _NEUTRAL, "marker": "o"})
+    style = _IDEOGRAM_MARKERS.get(label_type)
+    if style is None:
+        return {"color": _NEUTRAL, "marker": "o"}
+    index = next(i for i, known in enumerate(_IDEOGRAM_LABEL_STYLES) if known is style)
+    return {"color": _LGA_IDEOGRAM_MARKER_COLORS[index], "marker": style["marker"]}
 
 
 def _draw_ideogram_profile(
@@ -3215,38 +4781,13 @@ def _draw_ideogram_profile(
     area_x = [base_x + width * 0.78 * (row["area"] / area_max) for row in prepared]
     line_x = [base_x + width * (0.28 + 0.72 * (row["line"] / line_max)) for row in prepared]
     ax.fill_betweenx(
-        y, [base_x] * len(y), area_x, color="#FB8D62", alpha=0.94, linewidth=0, zorder=2.3
+        y, [base_x] * len(y), area_x, color=_LGA_PROFILE_AREA, linewidth=0, zorder=2.3
     )
-    ax.plot(line_x, y, color="#7597C7", lw=1.6, zorder=3.2, solid_capstyle="round")
-
-
-def _draw_ideogram_density_legend(ax: Any) -> None:
-    x, y, width, height = _ideogram_density_legend_bounds()
-    legend_ax = ax.inset_axes([x, y, width, height])
-    steps = 28
-    for i in range(steps):
-        legend_ax.add_patch(
-            Rectangle(
-                (i / steps, 0),
-                1 / steps,
-                1,
-                transform=legend_ax.transAxes,
-                facecolor=_ideogram_density_color(i / max(1, steps - 1)),
-                edgecolor="none",
-            )
-        )
-    legend_ax.set_axis_off()
-    label_y = y - 0.012
-    ax.text(x, label_y, "Low", transform=ax.transAxes, ha="left", va="top", fontsize=5.8)
-    ax.text(x + width, label_y, "High", transform=ax.transAxes, ha="right", va="top", fontsize=5.8)
-
-
-def _ideogram_density_legend_bounds() -> tuple[float, float, float, float]:
-    return (0.735, 0.885, 0.105, 0.030)
+    ax.plot(line_x, y, color=_LGA_PROFILE_LINE, lw=0.8, zorder=3.2, solid_capstyle="round")
 
 
 def _ideogram_density_color(value: float) -> str:
-    return _blend_hex("#EAF7F4", "#2BA36A", max(0.0, min(1.0, value)))
+    return _blend_hex("#EDF6F2", "#00785A", max(0.0, min(1.0, value)))
 
 
 def _ideogram_length_ticks(max_y: float) -> list[int]:
@@ -3382,12 +4923,6 @@ def _entity_maxima(
         maxima[donor] = max(maxima[donor], _float(event.get("donor_end", 1.0)))
         maxima[recipient] = max(maxima[recipient], _float(event.get("recipient_end", 1.0)))
     return maxima
-
-
-def _scaled_mid(event: Mapping[str, Any], role: str, maximum: float) -> float:
-    start = _float(event.get(f"{role}_start", 0.0))
-    end = _float(event.get(f"{role}_end", start))
-    return max(0.0, min(1.0, ((start + end) / 2) / max(1.0, maximum)))
 
 
 def _editing_site_row(site: Mapping[str, Any], index: int) -> dict[str, Any]:
@@ -3649,6 +5184,7 @@ def _window_category(
     return "noncoding"
 
 
+@validated_public('visualization.plot_genome_identity')
 def plot_genome_identity(
     windows: Sequence[Mapping[str, str | int | float | bool | None]],
     features: Sequence[Mapping[str, str | int | float | bool | None]] = (),
@@ -3718,6 +5254,16 @@ def plot_genome_identity(
     )
 
 
+_LGA_IDENTITY_LABELS = {
+    "cds": "Coding",
+    "utr": "UTR",
+    "intron": "Intron",
+    "nc_gene": "Non-coding gene",
+    "noncoding": "Conserved non-coding",
+}
+_LGA_GENE_LABEL_PT = FONT_PT["label"]
+
+
 def _render_genome_identity(
     windows: list[dict[str, Any]],
     features: list[dict[str, Any]],
@@ -3758,18 +5304,24 @@ def _render_genome_identity(
 
     show_features = bool(region_features)
     panel_count = len(samples) + (1 if show_features else 0)
-    fig_height = max(3.0, 0.72 * len(samples) + (1.7 if show_features else 1.0))
+    gene_height = 0.85 if show_features else 0.0
+    fig_height = min(6.6, 0.5 * len(samples) + gene_height + 0.55)
     fig, axes = plt.subplots(
         panel_count,
         1,
-        figsize=(11.5, fig_height),
+        figsize=journal_figsize(7.2, fig_height),
         sharex=True,
-        gridspec_kw={"height_ratios": [1.0] * panel_count},
+        gridspec_kw={
+            "height_ratios": ([2.1] if show_features else []) + [1.0] * len(samples)
+        },
     )
     axes_list = list(axes) if isinstance(axes, Iterable) and not hasattr(axes, "plot") else [axes]
     track_axes = axes_list[1:] if show_features else axes_list
+    present: set[str] = set()
     if show_features:
-        _render_identity_gene_track(axes_list[0], region_features, region_start, region_end)
+        present.update(
+            _render_identity_gene_track(axes_list[0], region_features, region_start, region_end)
+        )
 
     for ax, sample in zip(track_axes, samples, strict=True):
         sample_rows = sorted((row for row in region_windows if row["sample"] == sample),
@@ -3798,47 +5350,46 @@ def _render_genome_identity(
                 polygons.append([(start, min_identity), (start, identity),
                                  (end, identity), (end, min_identity)])
                 colors.append(_IDENTITY_CATEGORY_COLORS[category])
+                present.add(category)
         ax.add_collection(PolyCollection(polygons, facecolors=colors, alpha=0.85, linewidths=0))
-        ax.plot(x_steps, y_steps, color=_IDENTITY_CURVE, lw=0.7)
-        ax.axhline(conserved_threshold, color="#9CA3AF", lw=0.6, ls="--")
+        ax.plot(x_steps, y_steps, color=_IDENTITY_CURVE, lw=0.45, solid_joinstyle="miter")
+        ax.axhline(conserved_threshold, color="#8B949E", lw=0.5, ls=(0, (3, 2)), zorder=3)
         ax.set_ylim(min_identity, 100.0)
         ax.set_yticks([min_identity, conserved_threshold, 100.0])
         ax.set_yticklabels(
             [f"{min_identity:.0f}", f"{conserved_threshold:.0f}", "100"],
-            fontsize=6,
+            fontsize=FONT_PT["tick"],
         )
         ax.set_xlim(region_start, region_end)
-        ax.text(
-            1.005,
-            0.5,
-            sample,
-            transform=ax.transAxes,
-            va="center",
-            ha="left",
-            fontsize=7,
-        )
+        # sample name as a small left-aligned header: no extra right margin
+        ax.set_title(sample, loc="left", fontsize=FONT_PT["label"], pad=1.5, color="#1F2933")
         _despine(ax)
-    track_axes[0].set_ylabel("Identity (%)")
-    track_axes[-1].set_xlabel("Reference position (bp)")
-    default_title = "Genome identity"
-    if reference_name:
-        default_title = f"Identity to {reference_name}"
-    fig.suptitle(title or default_title, x=0.02, ha="left", fontsize=10)
-    if show_features:
+    track_axes[len(track_axes) // 2].set_ylabel("Identity (%)")
+    axis_label = f"Position on {reference_name}" if reference_name else "Reference position"
+    _lga_genome_axis(track_axes[-1], region_end, axis_label)
+    track_axes[-1].set_xlim(region_start, region_end)
+    fig.align_ylabels(axes_list)
+    _figure_title(fig, title)
+    order = [category for category in ("cds", "utr", "intron", "nc_gene", "noncoding")
+             if category in present]
+    if order:
         handles = [
-            Rectangle((0, 0), 1, 1, color=_IDENTITY_CATEGORY_COLORS[category], lw=0)
-            for category in ("cds", "utr", "intron", "nc_gene", "noncoding")
+            Rectangle((0, 0), 1, 1, color=_IDENTITY_CATEGORY_COLORS[category], lw=0, alpha=0.85)
+            for category in order
         ]
-        labels = ["Coding", "UTR", "Intron", "Non-coding gene", "Conserved non-coding"]
         axes_list[0].legend(
             handles,
-            labels,
+            [_LGA_IDENTITY_LABELS[category] for category in order],
             loc="lower left",
-            bbox_to_anchor=(0.0, 1.02),
-            ncol=5,
+            bbox_to_anchor=(0.0, 1.02 if show_features else 1.12),
+            ncol=len(order),
             frameon=False,
-            handlelength=1.2,
-            columnspacing=0.9,
+            handlelength=1.0,
+            handleheight=0.8,
+            handletextpad=0.4,
+            columnspacing=1.0,
+            borderaxespad=0.0,
+            fontsize=FONT_PT["label"],
         )
     return _save(fig, out)
 
@@ -3848,8 +5399,15 @@ def _render_identity_gene_track(
     features: list[dict[str, Any]],
     region_start: float,
     region_end: float,
-) -> None:
-    """Draw the mVISTA gene-arrow track: two lanes by strand, labeled arrows."""
+) -> set[str]:
+    """Draw the mVISTA gene-arrow track: two lanes by strand, labeled arrows.
+
+    A gene is labeled only where its name fits without touching a neighbour
+    (two label rows per strand, longest genes first); returns the categories
+    drawn so the legend lists only those.
+    """
+    from .style import text_width_pt
+
     groups: dict[str, dict[str, Any]] = {}
     for row in features:
         group = groups.setdefault(
@@ -3862,21 +5420,27 @@ def _render_identity_gene_track(
             },
         )
         group["parts"].append((row["start"], row["end"]))
-    forward_labels: list[list[float]] = [[], []]
-    reverse_labels: list[list[float]] = [[], []]
+    span = max(1.0, region_end - region_start)
+    fig = ax.figure
+    axes_width_pt = max(1.0, 0.92 * ax.get_position().width * fig.get_figwidth() * 72)
+    bp_per_pt = span / axes_width_pt
+    head_cap = span * 0.006
+    drawn: set[str] = set()
     for group in groups.values():
         parts = sorted(group["parts"])
         start = parts[0][0]
         end = parts[-1][1]
         strand = group["strand"]
+        drawn.add(group["category"])
         color = _IDENTITY_CATEGORY_COLORS.get(group["category"], _IDENTITY_CATEGORY_COLORS["noncoding"])
         y = 1.0 if strand == 1 else 0.0
-        ax.add_patch(Rectangle((start, y - 0.055), end - start, 0.11, color=color, lw=0))
+        # thin line across introns, thick boxes on the exons/parts
+        ax.add_patch(Rectangle((start, y - 0.04), end - start, 0.08, color=color, lw=0))
         for part_start, part_end in parts:
             ax.add_patch(
-                Rectangle((part_start, y - 0.17), part_end - part_start, 0.34, color=color, lw=0)
+                Rectangle((part_start, y - 0.16), part_end - part_start, 0.32, color=color, lw=0)
             )
-        head = min(900.0, (end - start) * 0.15)
+        head = min(head_cap, (end - start) * 0.35)
         if head > 0:
             if strand == 1:
                 tip, base = end, end - head
@@ -3890,37 +5454,45 @@ def _render_identity_gene_track(
                     lw=0,
                 )
             )
-        label_rows = forward_labels if strand == 1 else reverse_labels
-        label_y_options = (1.42, 1.78) if strand == 1 else (-0.78, -1.14)
-        label = group["name"]
-        label_width = max(0.01, len(label) * 0.0045) * (region_end - region_start)
-        placed = False
-        for row_index in (0, 1):
-            row = label_rows[row_index]
-            if not row or start > row[-1] + (region_end - region_start) * 0.002:
-                row.extend((start, start + label_width))
+        group["span"] = (start, end)
+    # Label placement: longest genes first, two rows per strand, measured widths.
+    label_rows = {1: ([], []), -1: ([], [])}
+    label_y = {1: (1.58, 2.3), -1: (-0.58, -1.3)}
+    gap = 2.0 * bp_per_pt
+    for group in sorted(groups.values(), key=lambda g: g["span"][0] - g["span"][1]):
+        start, end = group["span"]
+        label = str(group["name"])
+        width = text_width_pt(label, _LGA_GENE_LABEL_PT) * bp_per_pt
+        center = (max(start, region_start) + min(end, region_end)) / 2
+        center = min(max(center, region_start + width / 2), region_end - width / 2)
+        left, right = center - width / 2 - gap, center + width / 2 + gap
+        for row_index, placed in enumerate(label_rows[group["strand"]]):
+            if all(right <= a or left >= b for a, b in placed):
+                placed.append((left, right))
                 ax.text(
-                    (start + end) / 2,
-                    label_y_options[row_index],
+                    center,
+                    label_y[group["strand"]][row_index],
                     label,
                     ha="center",
                     va="center",
-                    fontsize=5.2,
+                    fontsize=_LGA_GENE_LABEL_PT,
+                    fontstyle="italic",
                     color="#374151",
                 )
-                placed = True
                 break
-        if not placed:
-            # Both label rows are busy here: draw the arrow without a label.
-            label_rows[0].extend((start, start + label_width))
-    ax.axhline(1.0, color="#D1D5DB", lw=0.8)
-    ax.axhline(0.0, color="#D1D5DB", lw=0.8)
-    ax.set_ylim(-1.6, 2.2)
+    ax.axhline(1.0, color="#D1D5DB", lw=0.5, zorder=0)
+    ax.axhline(0.0, color="#D1D5DB", lw=0.5, zorder=0)
+    ax.set_ylim(-1.65, 2.65)
     ax.set_yticks([0.0, 1.0])
-    ax.set_yticklabels(["-", "+"], fontsize=7)
-    ax.set_ylabel("Genes", fontsize=7)
+    ax.set_yticklabels(["−", "+"], fontsize=FONT_PT["tick"])
+    ax.set_ylabel("Genes")
     ax.set_xlim(region_start, region_end)
     _despine(ax)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.tick_params(axis="y", length=0)
+    ax.tick_params(axis="x", length=0)
+    return drawn
 
 
 __all__ = [

@@ -34,6 +34,7 @@ def run_plastome_blasts(
     min_identity: float,
     qcoverage_range: tuple[float, float],
     threads: int = 1,
+    retain_exon_hsps: bool = False,
 ) -> dict[str, BlastHit]:
     """Reference transfer searches; a LOSAT failure falls back to NCBI BLAST+ when installed.
 
@@ -43,14 +44,14 @@ def run_plastome_blasts(
     """
     try:
         return _run_plastome_blasts(target_seq, queries, work_dir=work_dir, tools=tools, min_identity=min_identity,
-                                    qcoverage_range=qcoverage_range, threads=threads)
+                                    qcoverage_range=qcoverage_range, threads=threads, retain_exon_hsps=retain_exon_hsps)
     except OrganelleExecutionError as exc:
         fallback = _ncbi_fallback(tools, need_tblastn=True)
         if fallback is None:
             raise
         logger.warning("LOSAT failed (%s); repeating the plastome searches with NCBI BLAST+", exc)
         return _run_plastome_blasts(target_seq, queries, work_dir=work_dir, tools=fallback,
-                                    min_identity=min_identity, qcoverage_range=qcoverage_range, threads=threads)
+                                    min_identity=min_identity, qcoverage_range=qcoverage_range, threads=threads, retain_exon_hsps=retain_exon_hsps)
 
 
 def _run_plastome_blasts(
@@ -62,6 +63,7 @@ def _run_plastome_blasts(
     min_identity: float,
     qcoverage_range: tuple[float, float],
     threads: int = 1,
+    retain_exon_hsps: bool = False,
 ) -> dict[str, BlastHit]:
     use_losat = tools.losat is not None
     if not use_losat and (
@@ -122,8 +124,7 @@ def _run_plastome_blasts(
                 str(db_prefix),
                 "-outfmt",
                 "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen",
-                "-max_hsps",
-                "1",
+                *([] if retain_exon_hsps else ["-max_hsps", "1"]),
                 "-max_target_seqs",
                 "1",
                 *_thread_args(threads),
@@ -343,14 +344,28 @@ def parse_blast_hits(
     qcoverage_range: tuple[float, float],
     queries: list[ReferenceQuery],
 ) -> dict[str, BlastHit]:
+    """Choose the legacy single best hit from the shared eligibility parser."""
+    eligible = parse_blast_hit_lists(path, min_identity, qcoverage_range, queries)
+    return {
+        qid: max(hits, key=lambda hit: (hit.bitscore, hit.qcov, hit.pident))
+        for qid, hits in eligible.items()
+    }
+
+
+def parse_blast_hit_lists(
+    path: Path,
+    min_identity: float,
+    qcoverage_range: tuple[float, float],
+    queries: list[ReferenceQuery],
+) -> dict[str, list[BlastHit]]:
     query_by_id = {query.query_id: query for query in queries}
     # LOSAT tabular output is the fixed NCBI default 12 columns (no qlen/slen
     # columns); the query length is identical to the sequence we wrote, so it
     # is recovered from the query map instead.
     qlen_by_id = {query.query_id: len(query.sequence) for query in queries}
-    best: dict[str, BlastHit] = {}
+    eligible: dict[str, list[BlastHit]] = {}
     if not path.exists():
-        return best
+        return eligible
     for line in path.read_text().splitlines():
         if not line.strip():
             continue
@@ -392,14 +407,8 @@ def parse_blast_hits(
             qend=qend,
             qlen=qlen,
         )
-        previous = best.get(qid)
-        if previous is None or (hit.bitscore, hit.qcov, hit.pident) > (
-            previous.bitscore,
-            previous.qcov,
-            previous.pident,
-        ):
-            best[qid] = hit
-    return best
+        eligible.setdefault(qid, []).append(hit)
+    return eligible
 
 
 def write_fasta(path: Path, records: Iterable[tuple[str, str]], *, clean: bool) -> bool:

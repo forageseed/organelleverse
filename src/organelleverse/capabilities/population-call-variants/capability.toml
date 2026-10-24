@@ -28,3 +28,15 @@ result_codec = "canonical"
 name = "bam_dir"
 codec = "directory"
 path_role = "input"
+
+[[contract.binding.parameters]]
+name = "ref_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ploidy"
+codec = "json"

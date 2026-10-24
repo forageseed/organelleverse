@@ -6,8 +6,9 @@ callable, that the 15 historically-exported-but-currently-missing package
 attributes (across selection, phylogeny, morphology, localization, pangenome,
 and population) are restored, and that none of this touched the
 already-correct root-level mechanisms: the 22 canonical domains, the 20
-short-name lazy aliases, the Registry (still exactly 20 operations), and
-``CONTRACTED_SUITES`` (still empty). See ``tests/contracts/test_legacy_removed.py``
+short-name lazy aliases, the Registry (still serving the 20 core operations;
+with advisory first-party verification it also serves the contracted suites),
+and the ``CONTRACTED_SUITES`` ledger. See ``tests/contracts/test_legacy_removed.py``
 for the pre-existing, unmodified assertions this file deliberately does not
 duplicate (short-name identity for every attribute, the Registry catalog
 guard, ``CONTRACTED_SUITES``).
@@ -38,6 +39,10 @@ CANONICAL_DOMAINS = {
     "composition",
     "diversity",
     "format_conversion",
+    # heteroplasmy, ppr and rna_seq registered operations before they were
+    # reachable from the root; made public 2026-10-16 so every one of their
+    # operations has an ov.<suite>.<function> (tests/operations/test_public_functions.py).
+    "heteroplasmy",
     "hgt",
     "ir_boundary",
     "localization",
@@ -46,7 +51,9 @@ CANONICAL_DOMAINS = {
     "phenotype",
     "phylogeny",
     "population",
+    "ppr",
     "rna_editing",
+    "rna_seq",
     "selection",
     "structure",
     "trans_splicing",
@@ -129,9 +136,12 @@ def test_canonical_domains_and_aliases_match_the_established_mechanism() -> None
         "io",
         "qc",
         "report",
+        # Execution entry point kept when the desktop layer retired:
+        # ov.workbench.run runs a built-in workbench analysis by name.
+        "workbench",
     }
     assert set(public_modules) - non_domain_facades == CANONICAL_DOMAINS
-    assert len(CANONICAL_DOMAINS) == 22
+    assert len(CANONICAL_DOMAINS) == 25
 
     short_aliases: dict[str, str] = getattr(ov, "_SHORT_MODULE_ALIASES", {})
     assert dict(short_aliases) == ALIASES
@@ -161,7 +171,12 @@ def test_every_ledger_locator_is_importable_and_callable(record: dict[str, Any])
 def test_ledger_covers_exactly_255_locators_across_22_domains() -> None:
     records = _load_ledger_records()
     assert len(records) == 255
-    assert {record["domain"] for record in records} == CANONICAL_DOMAINS
+    # The ledger predates the three suites made public on 2026-10-16.
+    assert {record["domain"] for record in records} == CANONICAL_DOMAINS - {
+        "heteroplasmy",
+        "ppr",
+        "rna_seq",
+    }
 
 
 # --- the 15 restored historical package-level exports -----------------------
@@ -316,14 +331,20 @@ def test_accessing_a_domain_twice_returns_the_cached_module() -> None:
 # --- unchanged surrounding contracts -----------------------------------------
 
 
-def test_registry_still_has_exactly_the_twenty_core_operations() -> None:
-    assert len({spec.operation_id for spec in ov.operations.list()}) == 20
+def test_registry_still_serves_the_twenty_core_operations() -> None:
+    # The exact catalog (core plus contracted suites) is pinned in
+    # test_legacy_removed; here only the 20 core operations must remain.
+    from tests.contracts.test_legacy_removed import CORE_OPERATIONS
+
+    assert CORE_OPERATIONS <= {spec.operation_id for spec in ov.operations.list()}
 
 
-def test_contracted_suites_still_empty() -> None:
-    from tests.contracts.test_legacy_removed import CONTRACTED_SUITES
+def test_contracted_suite_ledger_is_sorted_unique_and_outside_the_core() -> None:
+    from tests.contracts.test_legacy_removed import CONTRACTED_SUITES, CORE_OPERATIONS
 
-    assert CONTRACTED_SUITES == []
+    assert CONTRACTED_SUITES == sorted(set(CONTRACTED_SUITES))
+    core_suites = {operation_id.split(".")[0] for operation_id in CORE_OPERATIONS}
+    assert core_suites.isdisjoint(CONTRACTED_SUITES)
 
 
 def test_save_root_alias_still_forbidden() -> None:

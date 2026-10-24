@@ -12,6 +12,7 @@ description = "TCS statistical-parsimony network (Clement, Posada & Crandall 200
 keywords = ["analyze", "build", "network", "phylogeny", "restored", "result", "tcs"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.hapnet:build_tcs_network"
@@ -30,4 +31,16 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "members"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "connection_limit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "infer_intermediates"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collapse_degree2"
 codec = "json"

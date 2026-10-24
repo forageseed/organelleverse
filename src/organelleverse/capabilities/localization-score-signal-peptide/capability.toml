@@ -12,6 +12,7 @@ description = "Predict a signal peptide (SP) via the von Heijne (1986) weight ma
 keywords = ["analyze", "localization", "peptide", "restored", "result", "score", "signal"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.localization.localize_core:score_signal_peptide"
@@ -26,4 +27,12 @@ result_key = "signal_peptide"
 
 [[contract.binding.parameters]]
 name = "seq"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "minscore"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organism"
 codec = "json"

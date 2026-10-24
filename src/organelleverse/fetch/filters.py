@@ -66,16 +66,40 @@ _AMBIGUOUS = re.compile(r"[^ACGTacgt]")
 # 10 kb: genes, introns and intergenic spacers, not genomes. Counting one as a
 # genome is the same class of error as counting one chromosome as a genome — the
 # number is wrong and nothing complains.
+#
+# Viridiplantae mitochondria add their own fragment vocabulary (esummary titles,
+# 2026-10-16): ~700 "orf42 pseudogene, complete sequence; mitochondrial" records
+# (Daucus), "rps10-like mRNA, complete sequence", exon-only records, and Beta
+# vulgaris "cox2-cox1 space, complete sequence" spacer records.
+_GENE_RECORD_WORDS = (
+    "gene",
+    "genes",
+    "pseudogene",
+    "pseudogenes",
+    "cds",
+    "mrna",
+    "spacer",
+    "space",
+    "intergenic",
+    "intron",
+    "exon",
+    "exons",
+    "rrna",
+    "trna",
+    "barcode",
+    "region",
+)
 _GENE_RECORD = re.compile(
     r"\b("
-    r"gene|genes|gene\s+for|cds|"
-    r"spacer|intergenic|intron|"
-    r"rrna|trna|ribosomal\s+rna|transfer\s+rna|"
-    r"barcode|region"
+    + "|".join(_GENE_RECORD_WORDS)
+    # orf\w* is Entrez's orf* wildcard, so the mitochondrion search term can
+    # exclude exactly what this pattern does.
+    + r"|ribosomal\s+rna|transfer\s+rna|orf\w*"
     r")\b",
     re.IGNORECASE,
 )
-_GENOME_WORD = re.compile(r"\b(genome|chromosome|plasmid)\b", re.IGNORECASE)
+_GENOME_WORDS = ("genome", "chromosome", "plasmid")
+_GENOME_WORD = re.compile(r"\b(" + "|".join(_GENOME_WORDS) + r")\b", re.IGNORECASE)
 
 
 def looks_like_gene_record(title: str) -> bool:

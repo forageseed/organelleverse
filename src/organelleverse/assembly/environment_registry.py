@@ -2,7 +2,7 @@
 
 The registry is the single source of truth for which backend providers have been
 installed and verified. It stores canonical JSON protected by an advisory
-POSIX lock and atomically replaces the registry file from a sibling temporary
+file lock (POSIX ``flock``; a one-byte ``msvcrt`` lock on Windows) and atomically replaces the registry file from a sibling temporary
 file so concurrent writers and crash-interrupted writes can never produce a
 truncated or interleaved registry.
 
@@ -14,10 +14,32 @@ the lock, and the registry file.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
+import sys
 import tempfile
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
+
+
+def _lock_exclusive(fd: int) -> None:
+    """Exclusive advisory file lock (flock on POSIX; one byte on Windows)."""
+    if sys.platform == "win32":
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+
+def _lock_release(fd: int) -> None:
+    if sys.platform == "win32":
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
 from pathlib import Path
 from typing import Literal, TextIO, cast
 
@@ -108,12 +130,12 @@ class _AdvisoryLock:
     def __enter__(self) -> _AdvisoryLock:
         handle = self._lock_path.open("a+", encoding="utf-8")
         self._handle = handle
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        _lock_exclusive(handle.fileno())
         return self
 
     def __exit__(self, *exc: object) -> None:
         if self._handle is not None:
-            fcntl.flock(self._handle.fileno(), fcntl.LOCK_UN)
+            _lock_release(self._handle.fileno())
             self._handle.close()
             self._handle = None
 

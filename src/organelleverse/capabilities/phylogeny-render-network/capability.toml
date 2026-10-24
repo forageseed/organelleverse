@@ -12,6 +12,7 @@ description = "Prepare a haplotype-network figure for explicit materialization."
 keywords = ["analyze", "network", "phylogeny", "render", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.hapnet:render_network"
@@ -42,4 +43,12 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "edges"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "freq_by_pop"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
 codec = "json"

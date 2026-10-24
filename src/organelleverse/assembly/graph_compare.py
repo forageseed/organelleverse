@@ -5,7 +5,7 @@ each link rather than by name: every GFA ``L`` record is one oriented junction, 
 oriented segment end with exactly two outgoing junctions is a two-way branch (the
 definitions of the Nipponbare gold standard, Zhang et al. 2026, Plant Cell koag283). Used by
 the gold mode (external assemblers against ovasm) and by
-a graph-against-gold-graph scorer,
+``scripts/assembly_benchmarks/score_mito_graph_benchmark.py`` (a graph against a gold graph),
 which loads this file by path so it runs without the package's dependencies.
 """
 
@@ -36,7 +36,17 @@ class Link:
 
 def _run(argv: list[str]) -> str:
     """Run a command and return its standard output (tests replace this)."""
-    return subprocess.run(argv, check=True, capture_output=True, text=True).stdout
+    # Use bounded native diagnostics when installed, while keeping the independent
+    # scorer usable with a bare Python interpreter and an external aligner.
+    try:
+        from organelleverse.core.external import run_external
+    except ImportError:
+        completed = subprocess.run(argv, check=False, capture_output=True, text=True)
+        if completed.returncode:
+            raise RuntimeError(f"{Path(argv[0]).name} failed ({completed.returncode}): "
+                               + completed.stderr[-4000:])
+        return completed.stdout
+    return run_external(argv).stdout
 
 
 def parse_gfa(path: Path) -> tuple[dict[str, str], list[Link]]:

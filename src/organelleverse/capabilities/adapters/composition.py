@@ -9,7 +9,7 @@ Ledger records for this domain (``docs/operations/restored-capabilities.toml``):
   implementation reads via ``read_fasta``); the implementation already
   returns a real ``OrganelleResult`` it built itself, so
   ``result_codec = "canonical"`` revalidates it unchanged. ``window_size``
-  keeps its own default (not exposed).
+  is exposed with the same positive-integer annotation and default as Python.
 * ``composition.compute_gc_content`` - the ``json`` twin of ``gc_content``
   (``composition/gc_core.py``, no ``organelleverse.core`` types at all):
   same ``fasta_path: str | Path`` first parameter gets ``path``; its
@@ -67,13 +67,19 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "composition.gc_content": NamedParameterOverride(
-        parameters=(ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "composition.compute_gc_content": NamedParameterOverride(
-        parameters=(ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),
+            ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="gc_metrics",
         side_effects=(SideEffect.READ_FILES,),

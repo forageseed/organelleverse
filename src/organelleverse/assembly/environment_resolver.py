@@ -415,7 +415,10 @@ class EnvironmentResolver:
         self._is_file: Callable[[Path], bool] = overrides.get("_is_file", _fs_is_file)  # type: ignore[assignment]
         self._is_dir: Callable[[Path], bool] = overrides.get("_is_dir", _fs_is_dir)  # type: ignore[assignment]
         self._exists: Callable[[Path], bool] = overrides.get("_exists", _fs_exists)  # type: ignore[assignment]
-        self._getuid: Callable[[], int] = overrides.get("_getuid", os.getuid)  # type: ignore[assignment]
+        # os.getuid is POSIX-only; on Windows resolve() refuses before any
+        # ownership check, so the fallback is never consulted there.
+        self._getuid: Callable[[], int] = overrides.get("_getuid", getattr(os, "getuid", lambda: -1))  # type: ignore[assignment]
+        self._host_os: str = str(overrides.get("_host_os", os.name))
         self._hash_path: Callable[[Path], str] = overrides.get("_hash_path", _default_hash_path)  # type: ignore[assignment]
         self._trusted_runner: Callable[..., tuple[int, str, str]] = overrides.get(
             "_trusted_runner", _default_trusted_runner
@@ -462,6 +465,12 @@ class EnvironmentResolver:
         """
         resolved_platform = platform if platform is not None else self._default_platform()
         backend_id = capability_contract.backend_id
+        if self._host_os == "nt":
+            # Assembly backends are Linux programs (conda/micromamba, bwrap probes).
+            # A Windows service can neither verify nor prepare them locally, so it
+            # routes to a configured Linux target (remote SSH first, then WSL) and
+            # otherwise says exactly what is missing.
+            return self._resolve_on_windows(backend_id, request)
 
         # Validate resolved_version.backend_id matches capability contract.
         if resolved_version.backend_id != backend_id:
@@ -525,6 +534,18 @@ class EnvironmentResolver:
                 },
             )
 
+        # A caller may execute elsewhere before local materialization. OV only
+        # describes the scientific requirement; it does not select a machine.
+        from organelleverse.operations.execution_hooks import (
+            ExecutionDelegated, ExecutionRequirement, select_execution,
+        )
+        selection = select_execution(ExecutionRequirement(
+            reason='environment_unavailable', backend_id=backend_id,
+            details={'environment_source': request.environment_source},
+        ))
+        if selection is not None:
+            raise ExecutionDelegated(selection, reason=f'{backend_id} environment')
+
         # auto: fall back to managed plan.
         return EnvironmentResolution(
             managed_plan=ManagedProviderPlan(
@@ -533,6 +554,22 @@ class EnvironmentResolver:
                 platform=resolved_platform,
             ),
             rejections=tuple(rejections),
+        )
+
+    def _resolve_on_windows(self, backend_id: str, request: EnvironmentRequest) -> EnvironmentResolution:
+        from organelleverse.operations.execution_hooks import (
+            ExecutionDelegated, ExecutionRequirement, select_execution,
+        )
+        selection = select_execution(ExecutionRequirement(
+            reason='unsupported_platform', backend_id=backend_id,
+            details={'host_os': 'windows', 'environment_source': request.environment_source},
+        ))
+        if selection is not None:
+            raise ExecutionDelegated(selection, reason=f'{backend_id} environment')
+        raise OrganelleDependencyError(
+            code='assembly.environment_unavailable',
+            message=f'{backend_id} requires a Linux scientific environment; this process runs on Windows',
+            details={'backend_id': backend_id, 'host_os': 'windows', 'needs': 'linux_environment'},
         )
 
     # ------------------------------------------------------------------
@@ -1683,3 +1720,16 @@ def _active_profiles_for_request(request: EnvironmentRequest) -> set[str]:
         return set()
     profile = classify_profile(request.data)
     return {profile.value}
+
+
+def require_local_resolution(resolution: EnvironmentResolution, *, backend_id: str) -> EnvironmentResolution:
+    """Decode an old external selection without importing its former application.
+
+    New external choices unwind through the installed requirement hook earlier.
+    Historic records remain opaque and can only execute with their caller hook.
+    """
+    if resolution.compute_target is not None:
+        from organelleverse.operations.execution_hooks import ExecutionDelegated
+
+        raise ExecutionDelegated(resolution.compute_target, reason=f'{backend_id} environment')
+    return resolution

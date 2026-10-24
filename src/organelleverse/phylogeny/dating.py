@@ -22,6 +22,8 @@ from ..core.errors import OrganelleDependencyError, OrganelleExecutionError, Org
 from ..core.external import run_external
 from ..core.result import OrganelleResult
 from ..operations.parameters import OperationParameterModel
+from ..sequences import Sequences, as_path
+from ..inputs import Tree as TreeInput
 from ._results import artifact_for, ok_result, provenance
 from .partition import resolve_iqtree
 
@@ -181,8 +183,8 @@ def _date_bound(c: Calibration, *, date_file: bool = False) -> str:
 
 
 def date_tree(
-    tree_newick: str | Path,
-    alignment_fasta: str | Path,
+    tree_newick: str | Path | TreeInput,
+    alignment_fasta: str | Path | Sequences,
     calibrations: list[Calibration],
     *,
     output_dir: str | Path,
@@ -213,6 +215,8 @@ def date_tree(
     extant (age zero). LSD2 may optimize root position along the chosen edge.
     ``ci_replicates=0`` disables intervals (reported as null). No tool fallback.
     """
+    tree_newick = as_path(tree_newick)
+    alignment_fasta = as_path(alignment_fasta)
     tree, rooting, n_sites = _read_input(tree_newick, alignment_fasta, outgroup)
     rows = _calibrations(tree, calibrations)
     if backend == "mcmctree":

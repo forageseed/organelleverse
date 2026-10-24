@@ -35,7 +35,7 @@ from organelleverse.assembly.contracts import (
 )
 from organelleverse.assembly.data_contract import validate_assembly_data
 from organelleverse.assembly.environment_capabilities import runtime_capabilities
-from organelleverse.assembly.environment_resolver import EnvironmentResolver
+from organelleverse.assembly.environment_resolver import EnvironmentResolver, require_local_resolution
 from organelleverse.assembly.environment_versions import (
     environment_spec_for_version,
     resolve_backend_version,
@@ -168,7 +168,7 @@ def execute_assembly(
 
     routing_evidence = _routing_evidence(route, routing_context)
     native = runtime.environment_manager_factory
-    manager = environment_manager or (native() if native is not None else EnvironmentManager())
+    manager = environment_manager or (native(effective) if native is not None else EnvironmentManager())
     # a native runtime has no provider to resolve: its manager names the binary itself
     resolve_providers = (
         environment_manager is None and native is None
@@ -196,11 +196,14 @@ def execute_assembly(
     if resolve_providers:
         resolved_version = resolve_backend_version(selected_backend, request.backend_version)
         capability_contract = runtime_capabilities(runtime, effective, resolved_version)
-        resolution = (environment_resolver or EnvironmentResolver()).resolve(
-            request=request,
-            capability_contract=capability_contract,
-            resolved_version=resolved_version,
-            effective_parameters=effective,
+        resolution = require_local_resolution(
+            (environment_resolver or EnvironmentResolver()).resolve(
+                request=request,
+                capability_contract=capability_contract,
+                resolved_version=resolved_version,
+                effective_parameters=effective,
+            ),
+            backend_id=selected_backend,
         )
         if resolution.selected_provider is not None:
             provider_environment = manager.prepare_provider(resolution.selected_provider)
@@ -893,6 +896,21 @@ def _build_success_result(
         operation_version=_OPERATION_VERSION,
         scope=context.request.organelle,
         status="ok",
+        summary_text=(
+            f"Assembled {normalized.record_count} sequences totaling "
+            f"{normalized.total_bases} bp with {context.route.selected_backend}. "
+            "Topology and assembly quality require separate assessment."
+        ),
+        metrics=FrozenMap(
+            {
+                "backend": context.route.selected_backend,
+                "record_count": normalized.record_count,
+                "total_bases": normalized.total_bases,
+                "gene_markers": normalized.gene_markers,
+            }
+        ),
+        flags=("assembly_completed",)
+        + (("multi_sequence_output",) if normalized.record_count > 1 else ()),
         artifacts=tuple(artifacts),
         provenance=provenance,
     )

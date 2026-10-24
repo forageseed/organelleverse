@@ -21,6 +21,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
 from ..annotation.genbank import parse_genbank
@@ -30,6 +32,8 @@ from ..core.frozen import thaw_json
 from ..core.genome import OrganelleGenome
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult, ResultScope
+from ..inputs import Graph
+from ..sequences import Sequences, as_path
 
 _OPERATION_VERSION = "1.0"
 
@@ -99,8 +103,9 @@ def _provenance(
     )
 
 
+@validated_public('structure.multiconf')
 def multiconf(
-    genome_fasta: str | Path,
+    genome_fasta: str | Path | Sequences,
     *,
     min_repeat_len: int = 50,
     max_mismatches: int = 0,
@@ -117,9 +122,13 @@ def multiconf(
     two potential outcomes per repeat pair, not distinct validated genomic
     configurations. Repeat positions are 1-based within ``sequence_id``;
     separate FASTA records are never joined or treated as one molecule.
+    Repeats are also tallied by size class (large >= 1 kb, medium 100-999 bp,
+    small < 100 bp) in ``repeat_size_classes``, because repeat size drives
+    recombination behaviour.
     ``max_mismatches`` permits that many substitutions between exact k-mer
     seeds on one repeat-pair diagonal; the default reports exact repeats.
     """
+    genome_fasta = as_path(genome_fasta)
     started_at = datetime.now(UTC)
     fasta_path = Path(genome_fasta)
     seqs = read_fasta(fasta_path)
@@ -143,6 +152,7 @@ def multiconf(
             "inverted_repeat_pairs": inverted_pairs,
             "candidate_configs": predicted_configs,
             "predicted_configs": predicted_configs,
+            "repeat_size_classes": _repeat_size_classes(repeats),
             "repeats": repeats,
             "sequence_count": len(seqs),
         },
@@ -174,6 +184,7 @@ def multiconf(
     )
 
 
+@validated_public('structure.introns')
 def introns(genome: OrganelleGenome) -> OrganelleResult:
     """Analyze explicitly annotated intron features (GenBank ``intron`` only).
 
@@ -240,33 +251,45 @@ def introns(genome: OrganelleGenome) -> OrganelleResult:
     )
 
 
+@validated_public('structure.repeats')
 def repeats(
-    genome_fasta: str | Path,
+    genome_fasta: str | Path | Sequences,
     *,
     min_ssr_unit: int = 1,
     max_ssr_unit: int = 6,
     min_copy: int = 3,
+    unit_thresholds: Mapping[int, int] | None = None,
 ) -> OrganelleResult:
     """Detect SSR (simple sequence repeat) motifs in a FASTA.
 
     Uses MISA copy thresholds (10/5/4/3/3/3 for unit lengths 1-6).
-    ``min_copy`` can raise, but not lower, the threshold for any unit.
+    ``unit_thresholds`` overrides individual units (e.g. ``{1: 12, 2: 6}``);
+    units it does not name keep the MISA default. ``min_copy`` can raise, but
+    not lower, the threshold for any unit.
     """
+    genome_fasta = as_path(genome_fasta)
     started_at = datetime.now(UTC)
     fasta_path = Path(genome_fasta)
     seqs = read_fasta(fasta_path)
     ssrs = [
         {"sequence_id": seq_id, **ssr}
         for seq_id, seq in seqs
-        for ssr in _find_ssrs(seq.upper(), min_ssr_unit, max_ssr_unit, min_copy)
+        for ssr in _find_ssrs(
+            seq.upper(), min_ssr_unit, max_ssr_unit, min_copy, unit_thresholds=unit_thresholds
+        )
     ]
+    by_unit = _ssr_counts_by_unit(ssrs)
+    summary = f"{len(ssrs)} SSR motifs detected."
+    if by_unit:
+        breakdown = ", ".join(f"{key}-mer: {by_unit[key]}" for key in sorted(by_unit, key=int))
+        summary = f"{len(ssrs)} SSR motifs detected ({breakdown})."
     return OrganelleResult(
         operation_id="structure.repeats",
         operation_version=_OPERATION_VERSION,
         scope="mitochondrion",
         status="ok",
-        summary_text=f"{len(ssrs)} SSR motifs detected.",
-        metrics={"ssr_count": len(ssrs), "ssrs": ssrs},
+        summary_text=summary,
+        metrics={"ssr_count": len(ssrs), "ssr_by_unit": by_unit, "ssrs": ssrs},
         findings=(Finding(code="structure.ssr_count", metric="ssr_count", value=len(ssrs)),),
         flags=(),
         provenance=_provenance(
@@ -275,6 +298,7 @@ def repeats(
                 "min_ssr_unit": min_ssr_unit,
                 "max_ssr_unit": max_ssr_unit,
                 "min_copy": min_copy,
+                "unit_thresholds": dict(unit_thresholds) if unit_thresholds else None,
             },
             input_artifact_hashes=(_sha256_file(fasta_path),),
             started_at=started_at,
@@ -396,17 +420,50 @@ def _find_repeats(seq: str, min_len: int, *, max_mismatches: int = 0) -> list[di
     return out
 
 
-def _find_ssrs(seq: str, min_u: int, max_u: int, min_copy: int) -> list[dict]:
+def _repeat_size_classes(repeats: list[dict]) -> dict[str, int]:
+    """Tally repeats by size class (large >= 1 kb, medium 100-999, small < 100 bp)."""
+    classes = {"large_ge_1000": 0, "medium_100_999": 0, "small_lt_100": 0}
+    for repeat in repeats:
+        length = repeat["length"]
+        if length >= 1000:
+            classes["large_ge_1000"] += 1
+        elif length >= 100:
+            classes["medium_100_999"] += 1
+        else:
+            classes["small_lt_100"] += 1
+    return classes
+
+
+def _ssr_counts_by_unit(ssrs: list[dict]) -> dict[str, int]:
+    """Count SSR calls per unit length (keys are unit lengths as strings)."""
+    counts: dict[str, int] = {}
+    for ssr in ssrs:
+        key = str(len(ssr["unit"]))
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _find_ssrs(
+    seq: str,
+    min_u: int,
+    max_u: int,
+    min_copy: int,
+    *,
+    unit_thresholds: Mapping[int, int] | None = None,
+) -> list[dict]:
     """Find exact tandem SSRs with MISA's per-unit copy thresholds.
 
     Scan each unit length independently, as MISA does. Regex matches are
     maximal and non-overlapping within a unit length; loci may be reported for
     more than one unit length when both motifs meet their own thresholds.
+    ``unit_thresholds`` overrides the MISA default for the units it names;
+    ``min_copy`` still acts as a floor on every unit.
     """
     thresholds = (10, 5, 4, 3, 3, 3)
+    overrides = dict(unit_thresholds) if unit_thresholds else {}
     out: list[dict] = []
     for unit_len in range(max(1, min_u), min(6, max_u) + 1):
-        copies_required = max(thresholds[unit_len - 1], min_copy)
+        copies_required = max(overrides.get(unit_len, thresholds[unit_len - 1]), min_copy)
         pattern = re.compile(rf"([ACGT]{{{unit_len}}})\1{{{copies_required - 1},}}")
         for match in pattern.finditer(seq):
             motif = match.group(1)
@@ -428,10 +485,11 @@ def _find_ssrs(seq: str, min_u: int, max_u: int, min_copy: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+@validated_public('structure.resolve_configs')
 def resolve_configs(
-    genome_fasta: str | Path,
+    genome_fasta: str | Path | Sequences,
     *,
-    gfa_path: str | Path | None = None,
+    gfa_path: str | Path | Graph | None = None,
     min_repeat_len: int = 50,
     max_mismatches: int = 0,
     organelle: str = "mito",
@@ -445,6 +503,8 @@ def resolve_configs(
     inverted -> 2 isomers; Gualberto 2014, Wang 2024).
     ``max_mismatches`` applies only to repeat inference, not GFA parsing.
     """
+    genome_fasta = as_path(genome_fasta)
+    gfa_path = as_path(gfa_path)
     started_at = datetime.now(UTC)
     scope = _scope(organelle)
     fasta_path = Path(genome_fasta)
@@ -542,11 +602,11 @@ def write_repeats(
     metrics = _result_metrics(result)
     ssrs = list(metrics.get("ssrs", ()))
     path = _resolve_output_path(output, "ssr_repeats.tsv")
-    lines = ["start\tend\tunit\tlength\tcopies"]
+    lines = ["sequence_id\tstart\tend\tunit\tlength\tcopies"]
     for ssr in ssrs:
         lines.append(
-            f"{ssr.get('start', '')}\t{ssr.get('end', '')}\t{ssr.get('unit', '')}"
-            f"\t{ssr.get('length', '')}\t{ssr.get('copies', '')}"
+            f"{ssr.get('sequence_id', '')}\t{ssr.get('start', '')}\t{ssr.get('end', '')}"
+            f"\t{ssr.get('unit', '')}\t{ssr.get('length', '')}\t{ssr.get('copies', '')}"
         )
     path.write_text("\n".join(lines) + "\n")
     return path

@@ -1,0 +1,58 @@
+LOCUS       REF                     2000 bp    DNA     circular PLN 11-OCT-2026
+DEFINITION  Toy plant mitochondrion, complete genome.
+ACCESSION   REF
+VERSION     REF
+SOURCE      mitochondrion Toy plant
+  ORGANISM  Toy plant
+FEATURES             Location/Qualifiers
+     source          1..2000
+                     /organism="Toy plant"
+                     /organelle="mitochondrion"
+     gene            101..400
+                     /gene="geneA"
+     CDS             101..400
+                     /gene="geneA"
+     gene            complement(1001..1300)
+                     /gene="geneB"
+     CDS             complement(1001..1300)
+                     /gene="geneB"
+     gene            1501..1572
+                     /gene="trnX"
+     tRNA            1501..1572
+                     /gene="trnX"
+ORIGIN
+        1 tgtggaagta agcctaaccc cgtgacgtgc gcgactatgg gggtccaaca ctcgggggct
+       61 gtgaagtacg gctatgcatt agcgtgatct ggaattttgc atggacggga catgagggag
+      121 ttctgctcga ttgttggcat tcctacacga gcgcaagcaa gccgtcaggt tgtagcttgt
+      181 gtcgtacttc caggttggtt atgcattacg actacttaga cacagtacga cctggcttgt
+      241 aggaagtacg ccgcacaaca ttgcttcata gaagggttga aagccggtac actctgttgc
+      301 tgtaatctca ctccgtttgt caagggcatt aatgaggggc taaggacaga tccggatacg
+      361 cgggagtaaa taagatccgg gagtaaagca ctcctaggtc tatcacggaa ttcacaaacg
+      421 ggcgatatat ccaagagtgg tttatattta tagcttttgc gtcgaacgaa ccgcgcaaag
+      481 atctacaacc tttatccatt ccacagtaac acggcaacta gccaggattg acgtttaatt
+      541 agccgtcggt cttgcgtcag gggtaagcgg gttgaagatt tcgtctgtta ataaagtatc
+      601 gcaaccaccc atcatcttct gagacctagt aagcagaaca accagtgagt agaatacata
+      661 aagagagcga attactgttc tccgattacc ccctctgaac aaggggattc acatgcgatc
+      721 agtgacgtcg gacggggcgt gagctcaggt ataatggccg tattacgaca caactcgccc
+      781 gtattgcaaa acttcgacgt acaagtacta tctcagggac ccgggccgtg ggcaaagggg
+      841 ccggtaatat attgaatgag acgaacaatt gggcgtgtga tgtttggcgg ggtctacaaa
+      901 tcaggtatgt aatgcgacat atgtcgtatt accttacggt ctctctgtta ttggctattc
+      961 tcaccagagg ttcggctcag aagtcttggc gggcacgtta aacgttcagc aaggcgccgg
+     1021 aacccactct gacaccatcg gcagcaccct cgaggggatc tagtacataa ggatgaatca
+     1081 aggacaggcc aatatctgaa ctacaagcgc ttcaatctgg catcacttca gtatattatg
+     1141 acacgaccga tgtaaatatc tgtgagtata tgtcagagaa ttttagtact tgagagcgcc
+     1201 ttgagtccgt gcctcggacg cgatttgata ctttggtcga caaaagtgct actcgatttg
+     1261 cgtcaaacac ccaacgcaca gggatgtgtg attcgaatta acacggatgc cgttgcaact
+     1321 catgagtatt cccaaagcgg actagggaag gagagaagca gaccaccacg catcgcttgg
+     1381 agagttgttt ttcattgctt cccggtacat tggagcataa cgccaaatct tgacagcaac
+     1441 acggccatga gacataggtc aagaagctgg gatactccgg tacctgagag gtctcgagaa
+     1501 acagcattac ggcggcacgg gaggggggtg aggcaatcaa aagccgcctg gtaacatttt
+     1561 ttctatgttt gaacatacca gtaacggtct ggacccctag cccgactgac atctggaacg
+     1621 gtatccggat atcagtcgta gtacacgttt tgagactgtc aattagttac tgtgttgctt
+     1681 gatgcgtttt atggtaccta agctatacca gagtgtataa gccgaaagat tttgaacgtg
+     1741 aagcttttat tcttgaataa tcgacatgga tagtcaatac gatgcacaga ggaactgagt
+     1801 agattcacaa gcaactcgcg cgtaacctga aaagctgttt ttattcatgc gccttgctca
+     1861 tgactttccg gtgcaccggc gcccatggtg cgagtaatgt acgccagtga cgtatggacg
+     1921 gcgcgacgac tcgccctggc cgccaagtaa cggatctaca gggcgactca tcttgaacct
+     1981 aaacgtgtat tcgtggacac
+//

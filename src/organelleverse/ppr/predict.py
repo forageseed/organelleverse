@@ -10,11 +10,14 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 SUPPORTED_PPR_CODES = {"TN": "A", "TD": "G", "NS": "C", "ND": "U"}
 _OPERATION_ID = "ppr.predict_binding_sites"
 _OPERATION_VERSION = "1.0"
 
 
+@validated_public('ppr.predict_binding_sites')
 def predict_binding_sites(
     repeat_tsv: Path,
     transcript_fasta: Path,

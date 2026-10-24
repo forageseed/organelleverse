@@ -59,6 +59,8 @@ class RoutingContext(StrictSpecModel):
     threshold_multiplier: int | None = None
     genome_size_evidence: GenomeSizeEvidence | None = None
     read_statistics: tuple[ReadStatistics, ...] = ()
+    #: ovasm, the native Rust assembler, is the automatic choice for this request.
+    ovasm_default: bool = False
 
 
 class AutoRouteRule(StrictSpecModel):
@@ -89,6 +91,7 @@ _HYBRID_PROFILES = {
 }
 
 _AUXILIARY_FIELDS = {
+    AuxiliaryRole.READ_ORIGINS: "read_origins_artifact",
     AuxiliaryRole.SEED_FASTA: "seed_fasta_artifact",
     AuxiliaryRole.REFERENCE_FASTA: "reference_fasta_artifact",
     AuxiliaryRole.REFERENCE_GENBANK: "reference_genbank_artifact",
@@ -227,6 +230,48 @@ def _genome_size_evidence(payload: AssemblyInputPayload) -> GenomeSizeEvidence |
     return payload.auxiliary.genome_size_evidence
 
 
+#: Rule id recorded when ``method="auto"`` selects ovasm.
+OVASM_AUTO_RULE_ID = "auto.plant_ovasm"
+#: Set to ``legacy`` to route ``method="auto"`` through Oatk/PMAT/GetOrganelle only.
+AUTO_ASSEMBLER_ENV = "ORGANELLEVERSE_AUTO_ASSEMBLER"
+
+
+def _ovasm_is_default(
+    request: AssemblyRequest,
+    payload: AssemblyInputPayload,
+    profile: AssemblyProfile,
+    released: Collection[str],
+) -> bool:
+    """True when ``method="auto"`` should assemble with ovasm.
+
+    ovasm is chosen for plant data it can run end to end: exactly one read library, no
+    request options meant for another backend, every required input present and the
+    binary available. Anything else keeps the Oatk/PMAT/GetOrganelle rules.
+    """
+
+    import os
+
+    from organelleverse import _ovasm
+
+    if request.method != "auto" or request.taxon_group != "plant" or "ovasm" not in released:
+        return False
+    if os.environ.get(AUTO_ASSEMBLER_ENV, "").strip().casefold() == "legacy":
+        return False
+    parameters = request.backend_parameters
+    if parameters is not None and parameters.backend != "ovasm":
+        return False
+    if request.environment_hint is not None or request.backend_version != "tested":
+        return False
+    if payload.contig_inputs or len(payload.long_libraries) + len(payload.short_libraries) != 1:
+        return False
+    spec = BACKENDS["ovasm"]
+    if request.organelle not in spec.organelles or profile not in spec.profiles:
+        return False
+    if _missing_requirements(payload, spec, request.organelle, profile):
+        return False
+    return _ovasm.resolve_ovasm() is not None
+
+
 def _is_plant_mito_hifi_auto(
     request: AssemblyRequest,
     profile: AssemblyProfile,
@@ -253,7 +298,10 @@ def _genome_size_required_error(
     return OrganelleNeedsInput(
         needs_input=needs_input,
         code="assembly.genome_size_required",
-        message="nuclear genome size is required for coverage routing",
+        message=(
+            "nuclear genome size is required for coverage routing between PMAT and Oatk "
+            "(method='ovasm' needs none)"
+        ),
         details={
             "organelle": organelle,
             "profile": AssemblyProfile.PACBIO_HIFI.value,
@@ -288,7 +336,11 @@ def prepare_routing_context(
         if released_backend_ids is not None
         else set(_released_backend_ids())
     )
-    coverage_routing_active = "pmat" in released and _is_plant_mito_hifi_auto(request, profile)
+    ovasm_default = _ovasm_is_default(request, payload, profile, released)
+    # ovasm needs no nuclear genome size: coverage routing between PMAT and Oatk is moot.
+    coverage_routing_active = (
+        not ovasm_default and "pmat" in released and _is_plant_mito_hifi_auto(request, profile)
+    )
     if coverage_routing_active and genome_size_bp is None:
         raise _genome_size_required_error(
             request.semantic_payload(),
@@ -314,6 +366,7 @@ def prepare_routing_context(
         threshold_multiplier=threshold_multiplier,
         genome_size_evidence=evidence,
         read_statistics=tuple(read_statistics),
+        ovasm_default=ovasm_default,
     )
 
 
@@ -595,6 +648,18 @@ def resolve_backend(
             payload=payload,
             candidates=candidates,
             released=released,
+        )
+
+    if context is not None and context.ovasm_default and "ovasm" in candidates:
+        return AssemblyRoute(
+            requested_method="auto",
+            selected_backend="ovasm",
+            profile=profile,
+            rule_id=OVASM_AUTO_RULE_ID,
+            compatible_candidates=candidates,
+            rejected_candidates=_rejected_candidates(
+                payload, profile, organelle, "ovasm", released
+            ),
         )
 
     selected_rule = _select_auto_rule(

@@ -3,8 +3,9 @@
 After ``assemble()``, long reads can check the graph itself: ``ovasm evidence`` counts the
 reads that cross each link, and ``ovasm linearize`` threads one sequence through the
 read-supported phased paths. A link no read crosses is a likely assembly error, and a
-linearization that is not decisive means the reads support several configurations about
-equally (common in plant mitochondria), so the sequence is one representative of them.
+linearization that is not decisive can reflect competing configurations, unphased junctions,
+or a search that omitted larger cover sizes. The sequence is a representative under those
+evidence and search limits, rather than a certified chromosome configuration.
 
 Typical use::
 
@@ -119,6 +120,8 @@ def findings_for(evidence: dict[str, Any], linear: dict[str, Any] | None) -> lis
     ]
     if linear["margin_ln"] is not None:
         lin.append(("margin_ln", round(linear["margin_ln"], 4), "ln likelihood"))
+    if "cover_size_limited" in linear:
+        lin.append(("cover_size_limited", bool(linear["cover_size_limited"]), ""))
     out += [
         Finding(code="assembly.graph_linearization", metric=m, value=v, unit=u) for m, v, u in lin
     ]

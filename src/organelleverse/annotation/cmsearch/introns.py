@@ -19,7 +19,8 @@ from dataclasses import dataclass
 from .cyk import cyk_align
 from .models import CovarianceModel
 from .naming import name_trna
-from .search import _cyk_window, _flatten_model, _rust_cm_cyk
+from .parallel import pmap
+from .search import _cyk_window, _flatten_model, _rust_cm_cyk, rust_cyk_memo
 
 
 @dataclass
@@ -44,7 +45,7 @@ def _rc(seq: str) -> str:
 
 def _score(model: CovarianceModel, flat, seq: str) -> float | None:
     if _rust_cm_cyk is not None and flat is not None:
-        res = _rust_cm_cyk(seq, *flat, float("-inf"))
+        res = rust_cyk_memo(model, flat, seq, float("-inf"))
         return res[2] if res is not None else None
     hit = cyk_align(model, seq, min_score=float("-inf"))
     return hit.score if hit is not None else None
@@ -202,7 +203,7 @@ def recover_spliced_trna_from_exon_pair(
     from .search import _flatten_model, _rust_cm_cyk
 
     flat = _flatten_model(model) if _rust_cm_cyk is not None else None
-    candidates = []  # (score, e1s, e1e, e2s, e2e, strand)
+    jobs = []  # (strand, mature, e1s, e1e, e2s, e2e) in the order the serial loop scored them
     for p1 in range(-pad, pad + 1):
         for p2 in range(-pad, pad + 1):
             e1s, e1e = a1s, a1e + p1
@@ -216,16 +217,24 @@ def recover_spliced_trna_from_exon_pair(
             for strand, mat in ((1, mature_fwd), (-1, mature_rev)):
                 if not (60 <= len(mat) <= 95):
                     continue
-                sc = _score(model, flat, mat)
-                if sc is not None and sc >= min_bits:
-                    candidates.append((sc, e1s, e1e, e2s, e2e, strand))
+                jobs.append((strand, mat, e1s, e1e, e2s, e2e))
+    scores = pmap(lambda job: _score(model, flat, job[1]), jobs)
+    candidates = [  # (score, e1s, e1e, e2s, e2e, strand)
+        (sc, e1s, e1e, e2s, e2e, strand)
+        for (strand, _, e1s, e1e, e2s, e2e), sc in zip(jobs, scores, strict=True)
+        if sc is not None and sc >= min_bits
+    ]
 
     # The outer ends are HMM window edges; a local alignment places them.
-    splices = []
-    for _, e1s, e1e, e2s, e2e, strand in sorted(candidates, reverse=True)[:_NAMING_TRIES]:
-        refined = _splice_with_local_ends(genome, e1e, e2s, e1s, e2e, strand, model, flat)
-        if refined is not None and refined[0] >= min_bits:
-            splices.append((*refined, strand))
+    top = sorted(candidates, reverse=True)[:_NAMING_TRIES]
+    refined_all = pmap(
+        lambda c: _splice_with_local_ends(genome, c[2], c[3], c[1], c[4], c[5], model, flat), top
+    )
+    splices = [
+        (*refined, c[5])
+        for c, refined in zip(top, refined_all, strict=True)
+        if refined is not None and refined[0] >= min_bits
+    ]
     chosen = _pick_named(splices, model)
     if chosen is None:
         return None
@@ -319,9 +328,9 @@ def _pick_named(
     plastomes names, while unreadable splices were spurious).
     """
     ranked = sorted(splices, key=lambda item: item[0], reverse=True)[:_NAMING_TRIES]
+    names = pmap(lambda splice: name_trna(model, splice[3]), ranked)  # every ranked splice is named; order kept
     matching, named_any = [], None
-    for splice in ranked:
-        named = name_trna(model, splice[3])
+    for splice, named in zip(ranked, names, strict=True):
         if named is None:
             continue
         if expected_aa is None or named[1] == expected_aa:
@@ -368,18 +377,18 @@ def splice_trna_in_span(
     five, three = exon_lengths
     low_len, high_len = (five, three) if strand == 1 else (three, five)
     flat = _flatten_model(model) if _rust_cm_cyk is not None else None
-    splices = []
     low_guess = start + low_len - 1
     high_guess = end - high_len + 1
-    for low_end in range(low_guess - slack, low_guess + slack + 1):
-        for high_start in range(high_guess - slack, high_guess + slack + 1):
-            if high_start - low_end - 1 < min_intron:
-                continue
-            got = _splice_with_local_ends(
-                genome, low_end, high_start, start, end, strand, model, flat
-            )
-            if got is not None and got[0] >= min_bits:
-                splices.append((*got, strand))
+    sites = [
+        (low_end, high_start)
+        for low_end in range(low_guess - slack, low_guess + slack + 1)
+        for high_start in range(high_guess - slack, high_guess + slack + 1)
+        if high_start - low_end - 1 >= min_intron
+    ]
+    found = pmap(
+        lambda site: _splice_with_local_ends(genome, site[0], site[1], start, end, strand, model, flat), sites
+    )
+    splices = [(*got, strand) for got in found if got is not None and got[0] >= min_bits]
     chosen = _pick_named(splices, model, expected_aa, exon_lengths)
     if chosen is None:
         return None

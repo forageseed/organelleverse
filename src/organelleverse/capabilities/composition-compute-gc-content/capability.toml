@@ -12,6 +12,8 @@ description = "Compute GC content + GC skew. Returns dict (not OrganelleResult).
 keywords = ["analyze", "composition", "compute", "content", "gc", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
+superseded_by = "composition.gc_content"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.composition.gc_core:compute_gc_content"
@@ -28,6 +30,10 @@ result_key = "gc_metrics"
 [[contract.binding.parameters]]
 name = "fasta_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "window_size"
+codec = "json"
 
 [[fixture]]
 case = "basic"

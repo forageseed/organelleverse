@@ -27,3 +27,15 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "genome_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_ssr_unit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_ssr_unit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_copy"
+codec = "json"

@@ -12,6 +12,7 @@ description = "Project gene-tree branch lengths onto master-tree edge space (roo
 keywords = ["analyze", "coevolution", "paths", "project", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution.erc_engine:project_paths"

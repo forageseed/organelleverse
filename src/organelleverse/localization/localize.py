@@ -36,11 +36,14 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..core.frozen import FrozenMap
 from ..core.provenance import ResultProvenance
 from ..core.result import Finding, OrganelleResult, ResultStatus
 from ..runtime import managed_run_path
+from ..sequences import Sequences, as_path
 from .localize_core import COMPARTMENTS, LocalizationScores, predict_heuristic
 
 __all__ = ["predict", "localize", "COMPARTMENTS"]
@@ -332,8 +335,9 @@ def _run_external(
         return False, str(exc)
 
 
+@validated_public('localization.predict', python_only=('executor',))
 def predict(
-    fasta: str | Path,
+    fasta: str | Path | Sequences,
     *,
     backend: str = "auto",
     executor: Callable[[list[str]], Any] | None = None,
@@ -369,6 +373,7 @@ def predict(
         ``suite="localization"``, ``op="localize"``. ``key_findings`` list one
         entry per protein (id + top compartment + probability).
     """
+    fasta = as_path(fasta)
     from .install import check_backend, install_hint
 
     fasta_path = Path(fasta)

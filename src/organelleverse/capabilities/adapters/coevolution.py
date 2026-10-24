@@ -177,7 +177,11 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     # Zero-out batch: the row shapes are all JSON primitives (gene names,
     # r floats, significant flags), verified against the consumption loop.
     "coevolution.coevolution_network": NamedParameterOverride(
-        parameters=(ParameterOverride(name="correlations", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="correlations", codec=ParameterCodec.JSON),
+            ParameterOverride(name='r_threshold', codec=ParameterCodec.JSON),
+            ParameterOverride(name='use_fdr', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(),
@@ -231,13 +235,18 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="genes", codec=ParameterCodec.JSON),
             ParameterOverride(name="prefix_rules", codec=ParameterCodec.JSON),
+            ParameterOverride(name='default', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="compartment_map",
         side_effects=(),
     ),
     "coevolution.correlation_matrix": NamedParameterOverride(
-        parameters=(ParameterOverride(name="residuals", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="residuals", codec=ParameterCodec.JSON),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_overlap', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="correlation_matrix",
         side_effects=(),
@@ -255,6 +264,8 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="gene_set", codec=ParameterCodec.JSON),
             ParameterOverride(name="cor", codec=ParameterCodec.JSON),
+            ParameterOverride(name='n_perms', codec=ParameterCodec.JSON),
+            ParameterOverride(name='seed', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="perm_test",
@@ -270,19 +281,39 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(),
     ),
     "coevolution.residual_matrix": NamedParameterOverride(
-        parameters=(ParameterOverride(name="path_matrix", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="path_matrix", codec=ParameterCodec.JSON),
+            ParameterOverride(name='transform', codec=ParameterCodec.JSON),
+            ParameterOverride(name='trim_prop', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="residual_matrix",
         side_effects=(),
     ),
     "coevolution.extract_branch_lengths": NamedParameterOverride(
-        parameters=(ParameterOverride(name="gene_trees", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="gene_trees", codec=ParameterCodec.JSON),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='species_tree', codec=ParameterCodec.JSON),
+            ParameterOverride(name='species_map', codec=ParameterCodec.JSON),
+            ParameterOverride(name='reconciliation', codec=ParameterCodec.JSON),
+            ParameterOverride(name='dlcpar_dir', codec=ParameterCodec.DIRECTORY, path_role="input"),
+            ParameterOverride(name='bxb_normalization', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(),
     ),
     "coevolution.rate_covariation": NamedParameterOverride(
-        parameters=(ParameterOverride(name="branch_lengths", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="branch_lengths", codec=ParameterCodec.JSON),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='transform', codec=ParameterCodec.JSON),
+            ParameterOverride(name='variance_weight', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_overlap', codec=ParameterCodec.JSON),
+            ParameterOverride(name='fdr_threshold', codec=ParameterCodec.JSON),
+            ParameterOverride(name='restrict', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(),
@@ -291,6 +322,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="gene_tree_newick", codec=ParameterCodec.JSON),
             ParameterOverride(name="species_tree_newick", codec=ParameterCodec.JSON),
+            ParameterOverride(name='species_map', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -300,6 +332,11 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="gene_trees", codec=ParameterCodec.JSON),
             ParameterOverride(name="species_tree_newick", codec=ParameterCodec.JSON),
+            ParameterOverride(name='transform', codec=ParameterCodec.JSON),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_overlap', codec=ParameterCodec.JSON),
+            ParameterOverride(name='gene_sets', codec=ParameterCodec.JSON),
+            ParameterOverride(name='n_perms', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -310,6 +347,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(
                 name="orthofinder_dir", codec=ParameterCodec.DIRECTORY, path_role="input"
             ),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -320,6 +358,9 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(
                 name="proteome_dir", codec=ParameterCodec.DIRECTORY, path_role="input"
             ),
+            ParameterOverride(name='threads', codec=ParameterCodec.JSON),
+            ParameterOverride(name='msa', codec=ParameterCodec.JSON),
+            ParameterOverride(name='search', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -330,6 +371,12 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(
                 name="proteome_dir", codec=ParameterCodec.DIRECTORY, path_role="input"
             ),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='threads', codec=ParameterCodec.JSON),
+            ParameterOverride(name='results_dir', codec=ParameterCodec.DIRECTORY, path_role="input"),
+            ParameterOverride(name='transform', codec=ParameterCodec.JSON),
+            ParameterOverride(name='fdr_threshold', codec=ParameterCodec.JSON),
+            ParameterOverride(name='r_threshold', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,

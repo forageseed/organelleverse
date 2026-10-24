@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from organelleverse._public_validation import validated_public
+
 __all__ = ["BatchItem", "batch_measure", "batch_measure_dir"]
 
 
@@ -212,6 +214,7 @@ def batch_measure(
     return summary
 
 
+@validated_public('morphology.batch_measure')
 def batch_measure_dir(
     label_dir: str,
     state_dir: str,

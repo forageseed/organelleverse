@@ -6,8 +6,9 @@ merged coordinates. Two directions live here:
 - :func:`split_document_by_contigs` replaces the single merged record with one
   record per input contig, in contig-local coordinates. A feature whose parts
   fall on different contigs (a trans-spliced gene such as nad5 with exons on
-  two contigs) cannot be one GenBank join, so each contig receives the parts it
-  holds. A CDS piece keeps the reading frame it has in the whole gene
+  two contigs) cannot be one GenBank join, so each run of consecutive parts on
+  one contig becomes a piece (a contig can hold two runs when the part between
+  them lies on another contig). A CDS piece keeps the reading frame it has in the whole gene
   (``codon_start``), is partial at the end where the gene continues on another
   contig, and carries a note naming those contigs.
 - :func:`merge_document_by_contigs` concatenates per-contig records back into
@@ -152,21 +153,27 @@ def split_document_by_contigs(
     buckets: list[list[AnnotationFeature]] = [[] for _ in layout]
     cross: list[dict[str, object]] = []
     for feature in merged.features:
-        placed: dict[int, list[tuple[int, LocationPart]]] = {}
-        prefixes: dict[int, int] = {}
+        # Runs of consecutive parts on one contig. A contig can hold several runs
+        # (nad5 exons 1-2 and 4-5 on one contig, exon 3 on another): each run is
+        # its own piece, so every piece has one reading frame and open ends exactly
+        # where the gene continues elsewhere.
+        runs: list[tuple[int, int, list[tuple[int, LocationPart]]]] = []
         consumed = 0
         for position, part in enumerate(feature.parts):
             index = _locate(part, layout)
             if index is not None:
                 _, offset, length = layout[index]
-                placed.setdefault(index, []).append((position, _shift(part, offset, length)))
-                prefixes.setdefault(index, consumed)
+                located = (position, _shift(part, offset, length))
+                if runs and runs[-1][0] == index and runs[-1][2][-1][0] == position - 1:
+                    runs[-1][2].append(located)
+                else:
+                    runs.append((index, consumed, [located]))
             consumed += part.end - part.start
-        if not placed:
+        if not runs:
             continue
-        for index, parts in placed.items():
+        for run_no, (index, prefix, parts) in enumerate(runs):
             contig_id = layout[index][0]
-            if len(placed) == 1:
+            if len(runs) == 1:
                 buckets[index].append(
                     feature.evolve(
                         feature_id=f"{contig_id}:{len(buckets[index])}:{feature.type}",
@@ -176,24 +183,27 @@ def split_document_by_contigs(
                     )
                 )
             else:
+                others = list(
+                    dict.fromkeys(layout[i][0] for n, (i, _, _) in enumerate(runs) if n != run_no)
+                )
                 buckets[index].append(
                     _piece(
                         feature,
                         parts,
-                        prefixes[index],
+                        prefix,
                         len(feature.parts),
                         contig_id,
-                        [layout[i][0] for i in placed if i != index],
+                        others,
                         contig_id,
                         len(buckets[index]),
                     )
                 )
-        if len(placed) > 1:
+        if len(runs) > 1:
             cross.append(
                 {
                     "gene": (feature.qualifier_values("gene") or ("",))[0],
                     "type": feature.type,
-                    "contigs": [layout[i][0] for i in placed],
+                    "contigs": list(dict.fromkeys(layout[i][0] for i, _, _ in runs)),
                 }
             )
     records = tuple(
@@ -321,4 +331,156 @@ def apply_molecule_headers(
         records.append(record.evolve(description=description))
     metadata = dict(document.source_metadata)
     metadata["record_topology"] = topology
+    return document.evolve(records=tuple(records), source_metadata=metadata)
+
+
+#: Longest copy of a circular molecule's start that is appended before the search.
+_ORIGIN_FLANK = 15_000
+
+
+def circular_flank(length: int) -> int:
+    """Bases of a circular molecule's start to append: room for any gene across the origin."""
+    return min(_ORIGIN_FLANK, length // 2)
+
+
+def extend_circular_molecules(
+    fasta_in: Path | str,
+    fasta_out: Path | str,
+    headers: list[tuple[str, str, bool | None]],
+) -> list[int]:
+    """Write ``fasta_out`` with each circular molecule followed by a copy of its first bases.
+
+    The annotation search reads a linear sequence, so a gene that straddles the origin of a
+    circular molecule is cut in two. With the start repeated at the end the gene is whole;
+    :func:`fold_circular_flank` then turns it back into a join across the origin. Returns
+    the flank length per record (0 for a molecule that is not circular).
+    """
+    records = list(SeqIO.parse(str(fasta_in), "fasta"))
+    if len(records) != len(headers):
+        raise ValueError("FASTA records and headers do not pair")
+    flanks: list[int] = []
+    with Path(fasta_out).open("w") as handle:
+        for record, (_, _, circular) in zip(records, headers, strict=True):
+            sequence = str(record.seq)
+            flank = circular_flank(len(sequence)) if circular else 0
+            flanks.append(flank)
+            handle.write(f">{record.id}\n{sequence}{sequence[:flank]}\n")
+    return flanks
+
+
+def _wrap_part(part: LocationPart, length: int) -> list[LocationPart]:
+    """The part in a circular molecule of ``length``, lower genomic piece first.
+
+    A part that ends past ``length`` lies (wholly or partly) in the appended copy of the
+    molecule start: the piece beyond ``length`` moves back to the start.
+    """
+    if part.end <= length:
+        return [part]
+    if part.start >= length:
+        return [part.evolve(start=part.start - length, end=part.end - length)]
+    return [
+        part.evolve(end=length, end_status="exact"),
+        part.evolve(start=0, end=part.end - length, start_status="exact"),
+    ]
+
+
+def _fold_feature(feature: AnnotationFeature, length: int) -> AnnotationFeature | None:
+    """The feature inside a circular molecule, or None when it lies in the appended copy."""
+    if min(p.start for p in feature.parts) >= length:
+        return None
+    if max(p.end for p in feature.parts) <= length:
+        return feature
+    parts: list[LocationPart] = []
+    for part in feature.parts:
+        pieces = _wrap_part(part, length)
+        # biological order runs from the high coordinate to the low one on the minus strand
+        parts.extend(pieces if part.strand == 1 else reversed(pieces))
+    return feature.evolve(operator="join", parts=tuple(parts))
+
+
+def _from_flank(feature: AnnotationFeature, length: int) -> AnnotationFeature | None:
+    """A feature found only in the appended copy, moved back onto the molecule start.
+
+    One that the end of the copy cut (an open end, or a ``partial`` qualifier) is an
+    artifact of the extension, not a gene, and gives None.
+    """
+    if any(p.start_status != "exact" or p.end_status != "exact" for p in feature.parts):
+        return None
+    if any(q.name == "partial" for q in feature.qualifiers):
+        return None
+    return feature.evolve(
+        parts=tuple(p.evolve(start=p.start - length, end=p.end - length) for p in feature.parts)
+    )
+
+
+def _covered_by(feature: AnnotationFeature, others: list[AnnotationFeature]) -> bool:
+    """True when ``others`` holds the same gene over at least half of ``feature``."""
+    return any(
+        _name_key(feature) == _name_key(other) and _shared(feature, other) >= 0.5 * _covered(feature)
+        for other in others
+    )
+
+
+def _name_key(feature: AnnotationFeature) -> tuple[str, tuple[str, ...]]:
+    return feature.type, feature.qualifier_values("gene")
+
+
+def _covered(feature: AnnotationFeature) -> int:
+    return sum(p.end - p.start for p in feature.parts)
+
+
+def _shared(a: AnnotationFeature, b: AnnotationFeature) -> int:
+    total = 0
+    for p in a.parts:
+        for q in b.parts:
+            total += max(0, min(p.end, q.end) - max(p.start, q.start))
+    return total
+
+
+def fold_circular_flank(
+    document: AnnotationDocument, lengths: list[int | None]
+) -> AnnotationDocument:
+    """Fold the appended start copy of each circular record back onto the molecule.
+
+    ``lengths`` gives the true length of each record, or None for a record that was not
+    extended. A feature that runs past the end of the molecule becomes a join across the
+    origin, and a copy of the same gene that the search left at the very start of the
+    molecule (the cut remainder of a spanning gene) is dropped when the spanning gene already
+    covers it. A feature wholly inside the copy moves back onto the molecule start, unless
+    the original is already annotated there or the end of the copy cut it.
+    """
+    if len(document.records) != len(lengths) or all(n is None for n in lengths):
+        return document
+    records: list[AnnotationRecord] = []
+    for record, length in zip(document.records, lengths, strict=True):
+        if length is None or length >= len(record.sequence):
+            records.append(record)
+            continue
+        folded: list[tuple[AnnotationFeature, str]] = []
+        for original in record.features:
+            if min(p.start for p in original.parts) >= length:
+                moved = _from_flank(original, length)
+                if moved is not None:
+                    folded.append((moved, "flank"))
+                continue
+            feature = _fold_feature(original, length)
+            if feature is not None:
+                folded.append((feature, "wrapped" if feature is not original else "plain"))
+        spanning = [feature for feature, kind in folded if kind == "wrapped"]
+        anchors = [feature for feature, kind in folded if kind != "flank"]
+        kept: list[AnnotationFeature] = []
+        for feature, kind in folded:
+            if kind == "flank":
+                # the search may keep only the appended copy of a gene near the molecule
+                # start; it stands in for the original unless that is already annotated
+                if not _covered_by(feature, anchors):
+                    kept.append(feature)
+            elif kind == "wrapped" or not _covered_by(feature, spanning):
+                kept.append(feature)
+        records.append(
+            record.evolve(sequence=record.sequence[:length], features=tuple(kept))
+        )
+    metadata = dict(document.source_metadata)
+    if "contig_map" in metadata:
+        metadata["contig_map"] = _contig_map(merged_layout(tuple(records)))
     return document.evolve(records=tuple(records), source_metadata=metadata)

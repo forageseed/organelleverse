@@ -12,6 +12,7 @@ description = "Classify reference graph placements against independently supplie
 keywords = ["graph", "pangenome", "report"]
 execution_mode = "inline"
 stage = "consume"
+visibility = "step"
 input_kind = "result"
 output_kind = "result"
 callable_locator = "organelleverse.pangenome.block_benchmark:evaluate_block_benchmark"

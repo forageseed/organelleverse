@@ -42,13 +42,15 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
 from ..core.external import run_external
 from ..core.result import OrganelleResult
 from . import _contract
 from ._tree import (
-    _Node,
     _label_tips,
+    _Node,
     _parse_newick,
     _propagate_clade_marks,
     _smallest_clade,
@@ -140,6 +142,7 @@ def _parse_version(text: str) -> tuple[int, int, int] | None:
     return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
 
+@validated_public('selection.check_hyphy')
 def check_hyphy(hyphy_path: str | Path | None = None) -> dict[str, Any]:
     """Locate HyPhy, report its version and which selection batch files exist.
 
@@ -638,6 +641,7 @@ def _detect_method(data: Mapping[str, Any]) -> str:
     )
 
 
+@validated_public('selection.parse_hyphy_json')
 def parse_hyphy_json(
     json_path: str | Path,
     *,
@@ -863,6 +867,7 @@ def _common_parameters(**values: Any) -> dict[str, Any]:
     return {k: (list(v) if isinstance(v, (list, tuple)) else v) for k, v in values.items()}
 
 
+@validated_public('selection.hyphy_busted')
 def hyphy_busted(
     *,
     alignment: str | Path,
@@ -897,6 +902,7 @@ def hyphy_busted(
     )
 
 
+@validated_public('selection.hyphy_absrel')
 def hyphy_absrel(
     *,
     alignment: str | Path,
@@ -928,6 +934,7 @@ def hyphy_absrel(
     )
 
 
+@validated_public('selection.hyphy_relax')
 def hyphy_relax(
     *,
     alignment: str | Path,
@@ -966,6 +973,7 @@ def hyphy_relax(
     )
 
 
+@validated_public('selection.hyphy_meme')
 def hyphy_meme(
     *,
     alignment: str | Path,
@@ -991,6 +999,7 @@ def hyphy_meme(
     )
 
 
+@validated_public('selection.hyphy_fel')
 def hyphy_fel(
     *,
     alignment: str | Path,

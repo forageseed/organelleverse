@@ -52,3 +52,11 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "models"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "genetic_code"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "timeout"
+codec = "json"

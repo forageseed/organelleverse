@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="retrieval-title retrieval-desc">
+  <title id="retrieval-title">Data retrieval</title>
+  <desc id="retrieval-desc">A sequence database with a download arrow.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="26" cy="15" rx="16" ry="6" fill="#e9efe5"/><path d="M10 15v27c0 8 32 8 32 0V15 M10 25c0 8 32 8 32 0 M10 35c0 8 32 8 32 0" stroke="#355b43" /><path d="M49 30v24 M42 47l7 7 7-7" stroke="#d9a33b" />
+  </g>
+</svg>

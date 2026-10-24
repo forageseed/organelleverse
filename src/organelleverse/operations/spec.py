@@ -10,8 +10,10 @@ from pydantic import (
     ConfigDict,
     Field,
     JsonValue,
+    SerializerFunctionWrapHandler,
     ValidationInfo,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from pydantic.main import IncEx
@@ -20,6 +22,7 @@ _KEYWORD_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 AbstractSetIntStr: TypeAlias = Set[int] | Set[str]
 MappingIntStrAny: TypeAlias = Mapping[int, Any] | Mapping[str, Any]
+OperationVisibility: TypeAlias = Literal["primary", "step", "internal"]
 
 
 class OperationStage(StrEnum):
@@ -435,6 +438,12 @@ class OperationSpec(StrictSpecModel):
     organelle_types: tuple[Literal["mitochondrion", "plastid"], ...] = ()
     input_modalities: tuple[str, ...] = ()
     output_modalities: tuple[str, ...] = ()
+    #: ArtifactRef kinds of an upstream Result from which this operation's
+    #: GENOME/DATA input is read (e.g. ``io.read_assembly`` turns an assembly
+    #: Result's ``primary_genome_manifest`` into annotate's Genome). A Result
+    #: carrying one of these kinds may suggest this operation although its
+    #: input_kind is not the Result's own.
+    result_artifact_inputs: tuple[str, ...] = ()
     callable_locator: str | None = Field(default=None, pattern=r"^[a-zA-Z_][\w.]*:[a-zA-Z_]\w*$")
     binding: PythonBindingSpec = PythonBindingSpec()
     dependencies: tuple[DependencySpec, ...] = ()
@@ -447,6 +456,15 @@ class OperationSpec(StrictSpecModel):
     retry: RetryPolicy = RetryPolicy()
     fallback: FallbackPolicy = FallbackPolicy()
     references: tuple[str, ...] = ()
+    #: How an Agent should meet this operation when choosing a tool.
+    #: ``primary`` is one complete scientific analysis and is what operation
+    #: search offers first; ``step`` is a pipeline stage (parsers, format
+    #: converters, plan builders) offered only when the query asks for it;
+    #: ``internal`` (install hints, backend probes, model paths, dict-returning
+    #: twins) is never offered to an Agent. The Python callable is unaffected.
+    visibility: OperationVisibility = "primary"
+    #: The operation an Agent should call instead; requires ``internal``.
+    superseded_by: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")
 
     @field_validator("references")
     @classmethod
@@ -476,6 +494,45 @@ class OperationSpec(StrictSpecModel):
         if invalid:
             raise ValueError(f"keywords must match {_KEYWORD_PATTERN.pattern!r}: {invalid}")
         return keywords
+
+    @model_serializer(mode="wrap")
+    def omit_empty_result_artifact_inputs(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, Any]:
+        """Keep every contract that does not declare the field byte-for-byte as released."""
+        document = cast(dict[str, Any], handler(self))
+        if not self.result_artifact_inputs:
+            document.pop("result_artifact_inputs", None)
+        if self.visibility == "primary":
+            document.pop("visibility", None)
+        if self.superseded_by is None:
+            document.pop("superseded_by", None)
+        return document
+
+    @model_validator(mode="after")
+    def validate_superseded_by(self) -> "OperationSpec":
+        if self.superseded_by is not None:
+            if self.visibility != "internal":
+                raise ValueError("superseded_by requires visibility 'internal'")
+            if self.superseded_by == self.operation_id:
+                raise ValueError("an operation cannot supersede itself")
+        return self
+
+    @field_validator("result_artifact_inputs")
+    @classmethod
+    def validate_result_artifact_inputs(cls, kinds: tuple[str, ...]) -> tuple[str, ...]:
+        if tuple(sorted(set(kinds))) != kinds:
+            raise ValueError("result_artifact_inputs must be unique and already sorted")
+        invalid = [kind for kind in kinds if re.fullmatch(r"[a-z][a-z0-9_]+", kind) is None]
+        if invalid:
+            raise ValueError(f"result_artifact_inputs must be artifact kinds: {invalid}")
+        return kinds
+
+    @model_validator(mode="after")
+    def validate_result_artifact_input_kind(self) -> "OperationSpec":
+        if self.result_artifact_inputs and self.input_kind not in {CoreKind.GENOME, CoreKind.DATA}:
+            raise ValueError("result_artifact_inputs requires GENOME or DATA input")
+        return self
 
     @model_validator(mode="after")
     def validate_input_sequence(self) -> "OperationSpec":

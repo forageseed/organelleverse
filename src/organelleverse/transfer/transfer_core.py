@@ -20,8 +20,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from .._sequtil import reverse_complement
+from ..sequences import Sequences, as_path
 
 #: ``blastn`` task word size. The NCBI default for the sensitive task; reaches
 #: the 80-90% identity copies that megablast (28) misses.
@@ -82,20 +85,36 @@ def _ncbi_rows(source: Path, target: Path, evalue: float, blastn: str) -> list[l
 
 
 def _hits(rows: list[list[str]], *, min_identity: float, min_len: int) -> list[tuple]:
-    """Keep HSPs passing the thresholds as ``(seqid, lo, hi, identity, strand)`` on the target."""
+    """Keep HSPs passing the thresholds as ``(seqid, lo, hi, identity, strand, hsp)``.
+
+    ``lo``/``hi`` are on the target; ``hsp`` is the HSP's own record with its
+    donor (query) coordinates, kept so a merged fragment can say where it came from.
+    """
     hits = []
     for cells in rows:
         if len(cells) < 12:
             continue
         try:
             identity, length = float(cells[2]), int(cells[3])
+            qstart, qend = int(cells[6]), int(cells[7])
             sstart, send = int(cells[8]), int(cells[9])
         except ValueError:
             continue
         if identity < min_identity or length < min_len:
             continue
         strand = "+" if sstart <= send else "-"
-        hits.append((cells[1], min(sstart, send), max(sstart, send), identity, strand))
+        lo, hi = min(sstart, send), max(sstart, send)
+        hsp = {
+            "source_seqid": cells[0],
+            "source_start": min(qstart, qend),
+            "source_end": max(qstart, qend),
+            "start": lo,
+            "end": hi,
+            "identity": round(identity, 2),
+            "strand": strand,
+            "alignment_length": length,
+        }
+        hits.append((cells[1], lo, hi, identity, strand, hsp))
     return hits
 
 
@@ -105,6 +124,8 @@ def _merge_hits(hits: list[tuple]) -> list[dict]:
     Only the target coordinates are merged, so the result never claims donor
     coverage; identity is the span-weighted mean of the merged HSPs and the
     strand is the one covering more of the merged bases (``+`` donor-forward).
+    ``hsps`` lists the merged HSPs with their donor coordinates (a copy of a
+    plastid inverted repeat aligns to both IR arms, so it carries two).
     """
     by_seq: dict[str, list[tuple]] = {}
     for hit in hits:
@@ -112,7 +133,7 @@ def _merge_hits(hits: list[tuple]) -> list[dict]:
     fragments: list[dict] = []
     for seqid, group in by_seq.items():
         current: dict | None = None
-        for _, lo, hi, identity, strand in sorted(group, key=lambda h: (h[1], h[2])):
+        for _, lo, hi, identity, strand, hsp in sorted(group, key=lambda h: (h[1], h[2])):
             span = hi - lo + 1
             if current is not None and lo <= current["end"] + 1:
                 current["end"] = max(current["end"], hi)
@@ -126,7 +147,9 @@ def _merge_hits(hits: list[tuple]) -> list[dict]:
                     "_ident": 0.0,
                     "_span": 0,
                     "_strand": {"+": 0, "-": 0},
+                    "hsps": [],
                 }
+            current["hsps"].append(hsp)
             current["_ident"] += identity * span
             current["_span"] += span
             current["_strand"][strand] += span
@@ -137,12 +160,15 @@ def _merge_hits(hits: list[tuple]) -> list[dict]:
         f["identity"] = round(f.pop("_ident") / f.pop("_span"), 2)
         strands = f.pop("_strand")
         f["strand"] = "-" if strands["-"] > strands["+"] else "+"
+        f["hsps"] = sorted(
+            f.pop("hsps"), key=lambda h: (h["start"], h["source_seqid"], h["source_start"])
+        )
     return fragments
 
 
 def alignment_transfer(
-    target_fasta: str | Path,
-    source_fasta: str | Path,
+    target_fasta: str | Path | Sequences,
+    source_fasta: str | Path | Sequences,
     *,
     min_len: int = 100,
     min_identity: float = DEFAULT_MIN_IDENTITY,
@@ -156,31 +182,11 @@ def alignment_transfer(
     tried first, NCBI ``blastn`` second; a backend that is missing or fails is
     recorded in ``attempted`` and the next one is tried.
     """
-    from .._losat import resolve_losat
-    from ..core.errors import OrganelleDependencyError, OrganelleExecutionError
-
-    target, source = Path(target_fasta), Path(source_fasta)
-    attempted: list[str] = []
-    rows: list[list[str]] | None = None
-    backend = ""
-    if resolve_losat() is not None:
-        attempted.append("losat")
-        try:
-            rows = _losat_rows(source, target, evalue)
-            backend = "losat"
-        except (OrganelleDependencyError, OrganelleExecutionError):
-            rows = None
-    if rows is None:
-        blastn = shutil.which("blastn")
-        if blastn:
-            attempted.append("ncbi_blastn")
-            try:
-                rows = _ncbi_rows(source, target, evalue, blastn)
-                backend = "ncbi_blastn"
-            except (RuntimeError, OSError):
-                rows = None
-    if rows is None:
+    target = Path(as_path(target_fasta))
+    aligned = _aligned_rows(target, Path(as_path(source_fasta)), evalue)
+    if aligned is None:
         return None
+    rows, backend, attempted = aligned
     fragments = _merge_hits(_hits(rows, min_identity=min_identity, min_len=min_len))
     lengths = target_lengths if target_lengths is not None else _fasta_lengths(target)
     return {
@@ -192,9 +198,73 @@ def alignment_transfer(
     }
 
 
-def compute_transfer(
+def alignment_hsps(
     target_fasta: str | Path,
     source_fasta: str | Path,
+    *,
+    min_len: int = 100,
+    min_identity: float = DEFAULT_MIN_IDENTITY,
+    evalue: float = DEFAULT_EVALUE,
+) -> dict | None:
+    """Unmerged HSPs with both target and source coordinates; ``None`` without an aligner.
+
+    Same aligner order and thresholds as :func:`alignment_transfer`; use it
+    when a figure has to connect each transferred piece to its donor position.
+    Coordinates are 1-based inclusive; ``strand`` is ``-`` when the target
+    copy is the reverse complement of the source.
+    """
+    aligned = _aligned_rows(Path(target_fasta), Path(source_fasta), evalue)
+    if aligned is None:
+        return None
+    rows, backend, attempted = aligned
+    hsps = []
+    for cells in rows:
+        identity, length = float(cells[2]), int(cells[3])
+        if identity < min_identity or length < min_len:
+            continue
+        qstart, qend, sstart, send = (int(cells[i]) for i in (6, 7, 8, 9))
+        hsps.append(
+            {
+                "seqid": cells[1],
+                "start": min(sstart, send),
+                "end": max(sstart, send),
+                "source_id": cells[0],
+                "source_start": min(qstart, qend),
+                "source_end": max(qstart, qend),
+                "identity": identity,
+                "length": length,
+                "strand": "+" if (sstart <= send) == (qstart <= qend) else "-",
+            }
+        )
+    return {"hsps": hsps, "backend": backend, "attempted": attempted}
+
+
+def _aligned_rows(target: Path, source: Path, evalue: float):
+    """Tabular rows from LOSAT, then NCBI ``blastn``; ``None`` when neither ran."""
+    from .._losat import resolve_losat
+    from ..core.errors import OrganelleDependencyError, OrganelleExecutionError
+
+    attempted: list[str] = []
+    if resolve_losat() is not None:
+        attempted.append("losat")
+        try:
+            return _losat_rows(source, target, evalue), "losat", attempted
+        except (OrganelleDependencyError, OrganelleExecutionError):
+            pass
+    blastn = shutil.which("blastn")
+    if blastn:
+        attempted.append("ncbi_blastn")
+        try:
+            return _ncbi_rows(source, target, evalue, blastn), "ncbi_blastn", attempted
+        except (RuntimeError, OSError):
+            pass
+    return None
+
+
+@validated_public('transfer.compute_transfer')
+def compute_transfer(
+    target_fasta: str | Path | Sequences,
+    source_fasta: str | Path | Sequences,
     k: int = 31,
     min_len: int = 100,
     min_identity: float = DEFAULT_MIN_IDENTITY,
@@ -206,10 +276,13 @@ def compute_transfer(
     percent identity on either strand. Reports fragment count, total bp,
     per-strand bp, the fraction of the target covered, and ``backend``. Each
     fragment carries ``seqid``, 1-based inclusive ``start``/``end`` in that
-    target record, ``strand`` (``-`` = integrated as reverse complement) and
-    ``identity``. ``k`` only applies to the exact-k-mer last-resort fallback
+    target record, ``strand`` (``-`` = integrated as reverse complement),
+    ``identity`` and ``hsps`` (each merged HSP with its donor ``source_seqid``/
+    ``source_start``/``source_end``; the k-mer fallback has none). ``k`` only applies to the exact-k-mer last-resort fallback
     used when neither aligner is installed (``backend == "kmer_fallback"``).
     """
+    target_fasta = as_path(target_fasta)
+    source_fasta = as_path(source_fasta)
     found = alignment_transfer(target_fasta, source_fasta, min_len=min_len, min_identity=min_identity)
     if found is None:
         result = _compute_transfer_kmer(target_fasta, source_fasta, k, min_len)

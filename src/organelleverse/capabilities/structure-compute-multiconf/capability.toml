@@ -12,6 +12,8 @@ description = "Detect repeat-mediated multi-configurations. Returns dict."
 keywords = ["analyze", "compute", "multiconf", "restored", "result", "structure"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
+superseded_by = "structure.multiconf"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.structure.structure_core:compute_multiconf"
@@ -28,6 +30,14 @@ result_key = "multiconf"
 [[contract.binding.parameters]]
 name = "fasta_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_repeat_len"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_mismatches"
+codec = "json"
 
 [[fixture]]
 case = "basic"

@@ -7,6 +7,10 @@ detect_transfers_evidence) for NUMT/NUPT.
 """
 
 from __future__ import annotations
+
+from ..writer import deprecated_alias
+
+from ..inputs import make_reader
 from .transfer import (
     detect,
     detect_mtpt,
@@ -21,11 +25,14 @@ from .transfer import (
 from ..writer import write
 
 mtpt = detect_mtpt
-save = write
+save = deprecated_alias(write, "save")
 
 from .transfer_core import compute_transfer
 
+read = make_reader("transfer", "fasta", "bam")
+
 __all__ = [
+    "read",
     "detect",
     "mtpt",
     "detect_mtpt",

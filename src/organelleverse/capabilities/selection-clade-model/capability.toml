@@ -12,6 +12,7 @@ description = "Plan clade-model codeml inputs without writing user-facing files.
 keywords = ["analyze", "clade", "model", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.models:clade_model"
@@ -34,4 +35,20 @@ codec = "path"
 
 [[contract.binding.parameters]]
 name = "run"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "clade1_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "clade2_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seqfile"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "treefile"
 codec = "json"

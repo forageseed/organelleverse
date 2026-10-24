@@ -25,7 +25,7 @@ from organelleverse.assembly.environment_contracts import (
     EnvironmentHint,
     EnvironmentSource,
 )
-from organelleverse.assembly.environment_resolver import EnvironmentResolver
+from organelleverse.assembly.environment_resolver import EnvironmentResolver, require_local_resolution
 from organelleverse.assembly.environment_versions import (
     environment_spec_for_version,
     resolve_backend_version,
@@ -181,11 +181,14 @@ def execute_pmat_graph_build(
                 )
             }
         )
-        resolution = (environment_resolver or EnvironmentResolver()).resolve(
-            request=request,
-            capability_contract=capabilities,
-            resolved_version=resolved_version,
-            effective_parameters=effective,
+        resolution = require_local_resolution(
+            (environment_resolver or EnvironmentResolver()).resolve(
+                request=request,
+                capability_contract=capabilities,
+                resolved_version=resolved_version,
+                effective_parameters=effective,
+            ),
+            backend_id="pmat",
         )
         if resolution.selected_provider is not None:
             environment = manager.prepare_provider(resolution.selected_provider)

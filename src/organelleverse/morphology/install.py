@@ -2,10 +2,9 @@
 
 OrgSegNet is a fork of MMSegmentation v1.0.0 and requires an old stack
 (Python 3.8, torch 1.13.1, mmcv 2.0.0rc4, mmseg 1.0.0) that is not pip-
-installable into modern environments. Its trained checkpoint is released under
-an academic license (non-commercial, no redistribution), so neither the code
-nor the weights are bundled here -- this module auto-locates an installed
-OrgSegNet repo / mmseg and gives the real setup guide when absent.
+installable into modern environments. The official checkpoint is published
+under CC BY 4.0; the application can fetch and verify it independently of
+the separately distributed OrgSegNet source and Python environment.
 
 The built-in :func:`.measure` morphometric quantifier needs none of this and
 runs offline on any label map.
@@ -14,6 +13,9 @@ runs offline on any label map.
 from __future__ import annotations
 
 import shutil
+import os
+import tempfile
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +27,8 @@ __all__ = [
     "ORGSEG_CHECKPOINT_MD5",
     "ORGSEG_CHECKPOINT_NAME",
     "ORGSEG_CHECKPOINT_SIZE",
+    "orgseg_model_path",
+    "download_orgseg_checkpoint",
     "check_all_backends",
     "check_backend",
     "install_hint",
@@ -32,12 +36,60 @@ __all__ = [
 ]
 
 #: The released OrgSegNet checkpoint (Zenodo record 8419877), with the
-#: publisher-provided size and md5 (Zenodo publishes md5). The license is
-#: academic non-redistributable: the app guides the user to the official
-#: page and verifies what they placed — it never downloads it for them.
+#: publisher-provided size and md5. The Zenodo record licenses the weight
+#: file CC BY 4.0; attribution to Feng et al. and the record is required.
 ORGSEG_CHECKPOINT_NAME = "OrgSegNet_iter_Version1.pth"
 ORGSEG_CHECKPOINT_SIZE = 489_381_591
 ORGSEG_CHECKPOINT_MD5 = "9c91a0f5e1eb90beac7e320c4e1ae3e7"
+ORGSEG_CHECKPOINT_URL = (
+    "https://zenodo.org/api/records/8419877/files/"
+    "OrgSegNet_iter_Version1.pth/content"
+)
+ORGSEG_ATTRIBUTION = (
+    "OrgSegNet_iter_Version1.pth — Zeyu Yu (2023), Plantorganelle Hunter model. "
+    "https://doi.org/10.5281/zenodo.8419877\n"
+    "Checkpoint license: Creative Commons Attribution 4.0 International "
+    "(CC BY 4.0). https://creativecommons.org/licenses/by/4.0/\n"
+)
+
+
+def orgseg_model_path() -> Path:
+    """Managed model location, overrideable for installations and tests."""
+    root = os.environ.get("ORGANELLEVERSE_MODEL_DIR")
+    if root:
+        base = Path(root)
+    else:
+        cache = os.environ.get("ORGANELLEVERSE_CACHE_ROOT")
+        base = Path(cache) / "models" if cache else Path.home() / ".cache" / "organelleverse" / "models"
+    return base / "orgsegnet" / ORGSEG_CHECKPOINT_NAME
+
+
+def download_orgseg_checkpoint(destination: str | Path | None = None) -> Path:
+    """Fetch the official CC BY 4.0 weight atomically and verify its MD5.
+
+    A completed file is never replaced by a partial or mismatched download.
+    The source code and its separate environment are not installed here.
+    """
+    target = Path(destination) if destination else orgseg_model_path()
+    if verify_orgseg_checkpoint(target)["ok"]:
+        (target.parent / "ATTRIBUTION.txt").write_text(ORGSEG_ATTRIBUTION, encoding="utf-8")
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".orgsegnet-", suffix=".pth", dir=target.parent)
+    try:
+        with os.fdopen(fd, "wb") as output, urllib.request.urlopen(
+            ORGSEG_CHECKPOINT_URL, timeout=60
+        ) as response:
+            shutil.copyfileobj(response, output, length=1024 * 1024)
+        result = verify_orgseg_checkpoint(temporary)
+        if not result["ok"]:
+            raise ValueError(f"OrgSegNet checkpoint verification failed: {result['reason']}")
+        os.replace(temporary, target)
+        (target.parent / "ATTRIBUTION.txt").write_text(ORGSEG_ATTRIBUTION, encoding="utf-8")
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return target
 
 
 MORPHOLOGY_BACKEND_INFO: dict[str, dict[str, str]] = {
@@ -54,8 +106,8 @@ MORPHOLOGY_BACKEND_INFO: dict[str, dict[str, str]] = {
             "`pip install -v -e .` in the repo to register the custom "
             "OrgSeg_Head / PlantCellDataset with mmseg. Checkpoint: "
             "OrgSegNet_iter_Version1.pth (Zenodo DOI 10.5281/zenodo.8419877, "
-            "~489 MB). Academic license (non-commercial, no redistribution) -- "
-            "weights/code are NOT bundled into OrganelleVerse."
+            "~489 MB, CC BY 4.0). The app downloads and verifies this weight; "
+            "the OrgSegNet source and Python environment are separate."
         ),
         "tier": "manual",
     },
@@ -77,6 +129,25 @@ MORPHOLOGY_BACKEND_INFO: dict[str, dict[str, str]] = {
         ),
         "tier": "pip",
     },
+    "fusion3": {
+        "url": "internal delivery (experiments/plant-sam/delivery-fusion3-v1)",
+        "cli": "scripts/plant-sam/deliver_fusion3.py",
+        "probe": "fusion3-remote",
+        "note": (
+            "fusion3-v1 -- delivered three-member geometric fusion (our "
+            "multi-scale U-Net + official OrgSegNet + fine-tuned Mask2Former) "
+            "with fixed per-class fusion weights and shared post-processing; "
+            "5 classes (background, chloroplast, mitochondria, vacuole, "
+            "nucleus). Best-validated pipeline on the held-out OrgSegNet V6 "
+            "test set. It runs remotely over SSH on the compute host where "
+            "the delivery lives (see ORGANELLEVERSE_FUSION3_HOST / "
+            "ORGANELLEVERSE_FUSION3_ROOT); member weights are sha256-verified "
+            "by the entry script on every run. Validated on V6-corpus images "
+            "only -- not a replacement for the lab fine-tuned model on the "
+            "lab's own samples."
+        ),
+        "tier": "remote",
+    },
 }
 
 #: Backward-compatible alias: the registry started OrgSegNet-only.
@@ -84,17 +155,48 @@ ORGSEG_BACKEND_INFO = MORPHOLOGY_BACKEND_INFO
 
 
 def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
-    """Check if the OrgSegNet backend is available.
+    """Check if a morphology segmentation backend is available.
 
-    Looks for an importable ``mmseg`` (with the OrgSegNet custom registrations)
-    in the current env + all conda/micromamba envs. Returns
-    {name, installed, path, env, note}.
+    ``orgseg`` / ``micro_sam`` look for an importable probe module in the
+    current env + all conda/micromamba envs. ``fusion3`` is different: it is
+    a delivered pipeline that runs remotely over SSH, so availability means
+    the delivery config, entry script, and both venvs are reachable on the
+    compute host (see :mod:`organelleverse.morphology.fusion3`).
 
-    Note: importing mmseg only confirms the framework; whether the OrgSegNet
-    custom head is registered depends on the repo being pip-installed. The
-    caller must pass the correct ``config`` / ``checkpoint`` to :func:`.segment`.
+    Returns ``{name, installed, path, env, note}`` for the local backends and
+    ``{name, installed, host, root, path, note}`` for fusion3.
     """
+    if name == "fusion3":
+        from .fusion3 import check_fusion3_remote
+
+        return check_fusion3_remote()
+
     info = ORGSEG_BACKEND_INFO.get(name)
+    if name == "orgseg":
+        # Priority: a local pip mmseg stack, then the delivered pipeline on
+        # THIS machine (no network), then the delivery host over SSH. Any of
+        # the three counts as installed so callers can execute instead of
+        # being shown an install guide.
+        from .orgseg_remote import check_orgseg_local, check_orgseg_remote
+
+        local_delivery = check_orgseg_local()
+        if local_delivery["installed"]:
+            return {
+                "name": name,
+                "installed": True,
+                "path": local_delivery.get("path"),
+                "env": "local-delivery",
+                "note": f"{info.get('note', '')} [local delivery: {local_delivery.get('path')}]".strip(),
+            }
+        remote = check_orgseg_remote()
+        if remote["installed"]:
+            return {
+                "name": name,
+                "installed": True,
+                "path": remote.get("path"),
+                "env": "remote",
+                "note": f"{info.get('note', '')} [remote: {remote.get('host')}]".strip(),
+            }
     if not info:
         return {
             "name": name,
@@ -234,9 +336,9 @@ def install_hint(name: str) -> str:
         lines.append("  env:  conda create -n orgseg python=3.8 -y && conda activate orgseg")
         lines.append(
             "  deps: pip install torch==1.13.1 torchvision==0.14.1 "
-            "(+cu116 if GPU); pip install mmcv-full==1.7.0 mmseg==0.30.0"
+            "(+cu116 if GPU); install mmcv==2.0.0rc4 and mmseg==1.0.0"
         )
-        lines.append("        (or the exact pins in repo markdowns/PrepareEnvironment.md)")
+        lines.append("        (confirm platform-specific build steps in repo markdowns/PrepareEnvironment.md)")
         lines.append(
             "  code: git clone https://github.com/yzy0102/OrgSegNet && "
             "cd OrgSegNet && pip install -v -e ."
@@ -249,8 +351,8 @@ def install_hint(name: str) -> str:
             "  run:  deeploc2-style: init_model(cfg, ckpt, device) -> inference_model(model, img)"
         )
         lines.append(
-            "  license: academic (non-commercial, no redistribution -- "
-            "weights/code NOT bundled here)"
+            "  license: official weight CC BY 4.0 (Zeyu Yu, Zenodo record 8419877); "
+            "check the source repository separately for code terms"
         )
     elif name == "micro_sam":
         lines.append("  env:  pip install micro-sam  (modern stack; no conda pin needed)")
@@ -260,6 +362,14 @@ def install_hint(name: str) -> str:
         )
         lines.append("  batch entry: micro_sam.automatic_segmentation (console script)")
         lines.append("  license: MIT (code); model weights per micro-SAM release notes")
+    elif name == "fusion3":
+        lines.append("  remote: runs over SSH on the compute host (no local install)")
+        lines.append(
+            "  needs: delivery config + entry script + both venvs on the host; "
+            "set ORGANELLEVERSE_FUSION3_HOST / ORGANELLEVERSE_FUSION3_ROOT to point elsewhere"
+        )
+        lines.append("  weights: member sha256 verified by the entry script every run")
+        lines.append("  scope: OrgSegNet V6-corpus images; lab samples keep the lab fine-tuned model")
     if info.get("note"):
         lines.append(f"  note: {info['note']}")
     lines.append("  fallback: ov.morph.measure() runs offline on any label map")

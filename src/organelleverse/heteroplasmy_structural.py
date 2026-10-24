@@ -20,6 +20,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Literal
 
+from organelleverse._public_validation import validated_public
 from organelleverse.core.provenance import ResultProvenance
 from organelleverse.core.result import ErrorDetail, Finding, OrganelleResult
 
@@ -28,6 +29,7 @@ _VERSION = "1.0"
 _TOKEN = re.compile(r"([><])([^><]+)")
 
 
+@validated_public('heteroplasmy.estimate_structural_fractions')
 def estimate_structural_fractions(
     gaf_path: str | Path,
     configurations_tsv: str | Path,
@@ -181,9 +183,7 @@ def _read_configurations(path: str | Path) -> dict[str, tuple[tuple[str, str], .
             branch = (row.get("branch_id") or "").strip()
             config = (row.get("configuration_id") or "").strip()
             signature = (row.get("path_signature") or "").strip()
-            tokens = _parse_walk(signature)
-            if len(tokens) < 2:
-                raise ValueError(f"line {line}: configuration needs two flanking anchors")
+            tokens = _parse_walk(signature, minimum_segments=2)
             if not branch or not config:
                 raise ValueError(f"line {line}: branch_id and configuration_id are required")
             if (branch, config) in seen:
@@ -208,9 +208,9 @@ def _read_configurations(path: str | Path) -> dict[str, tuple[tuple[str, str], .
     return result
 
 
-def _parse_walk(path: str) -> tuple[str, ...]:
+def _parse_walk(path: str, *, minimum_segments: int = 2) -> tuple[str, ...]:
     tokens = tuple(f"{orientation}{name}" for orientation, name in _TOKEN.findall(path))
-    if not tokens or "".join(tokens) != path:
+    if not tokens or "".join(tokens) != path or len(tokens) < minimum_segments:
         raise ValueError(f"invalid oriented GAF path signature {path!r}")
     return tokens
 
@@ -246,7 +246,7 @@ def _read_gaf(
             if path_field == "*":
                 continue
             try:
-                walk = _parse_walk(path_field)
+                walk = _parse_walk(path_field, minimum_segments=1)
             except ValueError as exc:
                 raise ValueError(f"line {line_number}: {exc}") from exc
             for branch, alternatives in token_configs.items():

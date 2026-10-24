@@ -33,6 +33,9 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "population.call_variants": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="bam_dir", codec=ParameterCodec.DIRECTORY, path_role="input"),
+            ParameterOverride(name='ref_path', codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='ploidy', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -48,13 +51,18 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(SideEffect.SUBPROCESS, SideEffect.WRITE_FILES),
     ),
     "population.check_backend": NamedParameterOverride(
-        parameters=(ParameterOverride(name="name", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="name", codec=ParameterCodec.JSON),
+            ParameterOverride(name='scan_envs', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="backend_status",
         side_effects=(SideEffect.SUBPROCESS,),
     ),
     "population.check_all_backends": NamedParameterOverride(
-        parameters=(),
+        parameters=(
+            ParameterOverride(name='scan_envs', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="backend_status",
         side_effects=(SideEffect.SUBPROCESS,),
@@ -69,6 +77,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="vcf_path", codec=ParameterCodec.PATH),
             ParameterOverride(name="pop_assignments", codec=ParameterCodec.JSON),
+            ParameterOverride(name='estimator', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="fst",
@@ -78,6 +87,10 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="vcf_path", codec=ParameterCodec.PATH),
             ParameterOverride(name="pop_assignments", codec=ParameterCodec.JSON),
+            ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+            ParameterOverride(name='step', codec=ParameterCodec.JSON),
+            ParameterOverride(name='top_fraction', codec=ParameterCodec.JSON),
+            ParameterOverride(name='estimator', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -87,6 +100,9 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="nuclear_fasta", codec=ParameterCodec.PATH),
             ParameterOverride(name="mito_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='k', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_len', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_identity', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -96,6 +112,8 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="vcf_path", codec=ParameterCodec.PATH),
             ParameterOverride(name="phenotype", codec=ParameterCodec.PATH),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='prepare_input', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,

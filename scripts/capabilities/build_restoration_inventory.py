@@ -277,7 +277,7 @@ def _resolve_current_relpath(current_root: Path, domain: str, archive_relpath: P
         raise InventoryValidationError(
             f"unresolvable archived capability: {domain}.{name} (archived at "
             f"{archive_relpath}) has no matching callable anywhere under current "
-            f"src/organelleverse/{domain}/"
+            f"src/{domain}/"
         )
     raise InventoryValidationError(
         f"ambiguous archived capability: {domain}.{name} (archived at "
@@ -376,7 +376,7 @@ def render_toml(records: list[dict]) -> str:
 
 
 def _default_current_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "src" / "organelleverse"
+    return Path(__file__).resolve().parents[2] / "src"
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1,4 +1,4 @@
-"""Plant organelle assembly, annotation, fetch, and QC."""
+"""Agent-ready plant organelle assembly, annotation, fetch, and QC."""
 
 from __future__ import annotations
 
@@ -30,8 +30,9 @@ if TYPE_CHECKING:
         operations,
         qc,
         report,
+        workbench,
     )
-    from .io import read
+    from .read_facade import read
 
 __version__ = "1.0.0"
 
@@ -80,6 +81,7 @@ _PUBLIC_MODULES = frozenset(
         "environments",
         "fetch",
         "format_conversion",
+        "heteroplasmy",
         "hgt",
         "io",
         "ir_boundary",
@@ -90,15 +92,18 @@ _PUBLIC_MODULES = frozenset(
         "phenotype",
         "phylogeny",
         "population",
+        "ppr",
         "qc",
         "report",
         "rna_editing",
+        "rna_seq",
         "selection",
         "structure",
         "trans_splicing",
         "transfer",
         "variation",
         "visualization",
+        "workbench",
     }
 )
 
@@ -135,6 +140,7 @@ __all__ = [
     "fmt",
     "format_conversion",
     "gc",
+    "heteroplasmy",
     "hgt",
     "io",
     "ir",
@@ -152,10 +158,12 @@ __all__ = [
     "phylogeny",
     "pop",
     "population",
+    "ppr",
     "qc",
     "read",
     "report",
     "rna_editing",
+    "rna_seq",
     "selection",
     "splicing",
     "structure",
@@ -166,9 +174,10 @@ __all__ = [
     "visualization",
     "viz",
     "write",
+    "workbench",
 ]
 
-_PUBLIC_ATTRIBUTES = {"read": (".io", "read")}
+_PUBLIC_ATTRIBUTES = {"read": (".read_facade", "read")}
 
 
 def __getattr__(name: str) -> object:

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from ..writer import deprecated_alias
+
+from ..inputs import make_reader
+
 from .structure import (
     introns,
     materialize_result,
@@ -20,9 +24,12 @@ from .structure_core import compute_multiconf, compute_repeats
 # a ``structure.`` branch this materializer is the suite-local entry point, with
 # the same signature as the released ones: (OrganelleResult, output) -> Result.
 write = materialize_result
-save = write
+save = deprecated_alias(write, "save")
+
+read = make_reader("structure", "fasta", "gfa", genome=True)
 
 __all__ = [
+    "read",
     "compute_multiconf",
     "compute_repeats",
     "introns",

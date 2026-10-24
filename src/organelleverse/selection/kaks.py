@@ -27,8 +27,11 @@ from itertools import permutations
 from pathlib import Path
 from typing import Any
 
-from .._bio import get_codon_table, read_fasta
+from organelleverse._public_validation import validated_public
+
+from .._bio import get_codon_table
 from ..core.result import OrganelleResult
+from ..sequences import Sequences, as_records
 from . import _contract
 
 _CODONS: dict[str, str] = get_codon_table(1)  # NCBI table 1 (standard)
@@ -36,8 +39,9 @@ _CODONS: dict[str, str] = get_codon_table(1)  # NCBI table 1 (standard)
 _STOP_CODONS = {"TAA", "TAG", "TGA"}
 
 
+@validated_public('selection.kaks')
 def kaks(
-    cds_pairs_fasta: str | Path,
+    cds_pairs_fasta: str | Path | Sequences,
     *,
     jukes_cantor: bool = False,
 ) -> OrganelleResult:
@@ -52,7 +56,7 @@ def kaks(
                    — use ``jukes_cantor=True`` to match it numerically.
     """
     parameters = {"jukes_cantor": jukes_cantor}
-    seqs = read_fasta(Path(cds_pairs_fasta))
+    seqs = as_records(cds_pairs_fasta)
     if len(seqs) < 2:
         return _contract.failed(
             "kaks",

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="pangenome-title pangenome-desc">
+  <title id="pangenome-title">Pangenome</title>
+  <desc id="pangenome-desc">Alternate genome paths in a pangenome graph.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 32h12l12-17 12 17h12 M20 32l12 17 12-17" stroke="#d9a33b" /><path d="M20 32h24" stroke="#355b43" /><circle cx="8" cy="32" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="20" cy="32" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="32" cy="15" r="4" fill="#d9a33b" stroke="white" stroke-width="1.4"/><circle cx="32" cy="49" r="4" fill="#dc7147" stroke="white" stroke-width="1.4"/><circle cx="44" cy="32" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="56" cy="32" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/>
+  </g>
+</svg>

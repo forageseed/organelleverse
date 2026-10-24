@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
+from organelleverse._public_validation import validated_public
 
 from .._bio import read_fasta, write_fasta
 from ..core.artifacts import ArtifactRef
@@ -17,6 +18,7 @@ from ..core.frozen import thaw_json
 from ..core.result import OrganelleResult
 
 
+@validated_public('annotation.find_orfs')
 def find_orfs(
     genome_fasta: Path,
     *,
@@ -196,6 +198,7 @@ def find_orfs(
     )
 
 
+@validated_public('annotation.write_orfs')
 def write_orfs(result: OrganelleResult, *, output: str | Path) -> OrganelleResult:
     """Write candidate CDS/protein FASTA and GFF3 from annotation.find_orfs results."""
     if result.operation_id != "annotation.find_orfs" or result.status != "ok":

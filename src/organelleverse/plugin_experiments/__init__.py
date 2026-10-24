@@ -1,10 +1,10 @@
-"""Plugin-04: declared-score experiments and framework-neutral Agent tools.
+"""Plugin-04: declared-score experiments.
 
 This package adds no new registry, discovery channel, trust state, execution
 provider, run callable, or scientific result type. Experiments invoke the same
 admitted Registry binding once per explicit candidate; scores come only from
 the plugin's declared ``score_locator`` hook via the reserved L6 metric.
-Normal GUI/Agent plugin runs live in :mod:`organelleverse.plugin_runs`.
+Agent tool projection and normal GUI/Agent plugin runs belong to the host application.
 """
 
 from organelleverse.plugin_experiments.adaptive_models import (
@@ -18,10 +18,6 @@ from organelleverse.plugin_experiments.adaptive_models import (
     FinalExecutionLink,
     MetricAggregate,
     RepeatEvidence,
-)
-from organelleverse.plugin_experiments.agent_tools import (
-    CapabilityAgentTool,
-    CapabilityAgentToolCatalog,
 )
 from organelleverse.plugin_experiments.models import (
     ExperimentRecord,
@@ -37,8 +33,6 @@ __all__ = [
     "AttemptIdentity",
     "BudgetAccount",
     "CandidateAggregate",
-    "CapabilityAgentTool",
-    "CapabilityAgentToolCatalog",
     "ExecutionSelection",
     "ExperimentRecord",
     "ExperimentRequest",

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from organelleverse._public_validation import validated_public
+
 from ..core.errors import OrganelleExecutionError
 from .phylo import (
     _build_fasttree_argv,
@@ -13,6 +15,7 @@ from .phylo import (
 )
 
 
+@validated_public('phylogeny.compute_alignment')
 def compute_alignment(input_fasta: str | Path) -> dict:
     """Compute a real alignment with the same backend contract as align()."""
     result = align(input_fasta)
@@ -31,6 +34,7 @@ def compute_alignment(input_fasta: str | Path) -> dict:
     }
 
 
+@validated_public('phylogeny.plan_tree_build')
 def plan_tree_build(
     alignment_fasta: str | Path,
     method: str = "iqtree",

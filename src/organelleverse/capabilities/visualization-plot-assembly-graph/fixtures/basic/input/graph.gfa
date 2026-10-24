@@ -1,0 +1,9 @@
+H	VN:Z:1.0
+S	A	*	LN:i:40000	dp:f:40.0
+S	B	*	LN:i:25000	dp:f:42.0
+S	R	*	LN:i:3000	dp:f:81.0
+L	A	+	R	+	0M
+L	R	+	B	+	0M
+L	B	+	R	+	0M
+L	R	+	A	+	0M
+P	mt	A+,R+,B+,R+	*

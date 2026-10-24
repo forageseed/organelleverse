@@ -27,3 +27,19 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "inputs"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "protein_blastp_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_search_scope"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_color_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "pairwise_match_style"
+codec = "json"

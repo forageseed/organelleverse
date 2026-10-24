@@ -7,6 +7,10 @@ genomes, and generates an SVG visualization. Pure Python.
 
 from __future__ import annotations
 
+from ..writer import deprecated_alias
+
+from ..inputs import make_reader
+
 from .ir_boundary import ir_boundary, materialize_result, write_boundary_svg
 from .ir_boundary_core import compute_ir_boundary
 
@@ -15,9 +19,12 @@ from .ir_boundary_core import compute_ir_boundary
 # an ``ir_boundary.`` branch this materializer is the suite-local entry point,
 # with the same signature: (OrganelleResult, output) -> OrganelleResult.
 write = materialize_result
-save = write
+save = deprecated_alias(write, "save")
+
+read = make_reader("ir_boundary", genome=True)
 
 __all__ = [
+    "read",
     "compute_ir_boundary",
     "ir_boundary",
     "materialize_result",

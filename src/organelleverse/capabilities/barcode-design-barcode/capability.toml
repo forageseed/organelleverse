@@ -27,3 +27,11 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "alignment_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_p_variability"
+codec = "json"

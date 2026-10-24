@@ -302,9 +302,12 @@ def _patched_trnascan_conf(
     if not conf.exists() or not cmsearch:
         return None
     text = conf.read_text()
+    line = f"infernal_dir: {Path(cmsearch).parent}"
     patched = re.sub(
         r"^infernal_dir:\s*.*$",
-        f"infernal_dir: {Path(cmsearch).parent}",
+        # A function, not a template: a Windows path's backslashes (\U, \u)
+        # would otherwise be parsed as regex escapes.
+        lambda _match: line,
         text,
         count=1,
         flags=re.MULTILINE,

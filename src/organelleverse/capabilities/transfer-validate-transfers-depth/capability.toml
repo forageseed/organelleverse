@@ -12,6 +12,7 @@ description = "Validate transfer candidates by read depth (layer 2)."
 keywords = ["analyze", "depth", "restored", "result", "transfer", "transfers", "validate"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.transfer.transfer:validate_transfers_depth"
@@ -31,3 +32,23 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "bam_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "nuclear_mean_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle_mean_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "flank"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "tolerance"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"

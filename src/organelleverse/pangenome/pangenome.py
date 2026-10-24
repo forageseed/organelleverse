@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..annotation.genbank import parse_genbank
 from ..core.artifacts import ArtifactRef
@@ -275,6 +277,7 @@ def build_graph(
     raise AssertionError(f"validated backend was not dispatched: {method}")
 
 
+@validated_public('pangenome.classify_sequences')
 def classify_sequences(
     genomes: list[OrganelleGenome],
     *,
@@ -351,6 +354,7 @@ def classify_sequences(
     )
 
 
+@validated_public('pangenome.gene_pav')
 def gene_pav(
     genomes: list[OrganelleGenome],
 ) -> OrganelleResult:
@@ -413,6 +417,7 @@ def write_pav(
     return path
 
 
+@validated_public('pangenome.pan_repeats')
 def pan_repeats(
     genomes: list[OrganelleGenome],
     *,

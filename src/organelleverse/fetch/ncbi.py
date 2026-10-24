@@ -22,10 +22,12 @@ from __future__ import annotations
 import gzip
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 from xml.etree import ElementTree
+
+from organelleverse._public_validation import validated_public
 
 from ..core.artifacts import ArtifactRef
 from ..core.data import OrganelleData
@@ -40,7 +42,14 @@ from ._http import (
 from .assembly import group_records
 from .cache import read_baseline, write_jsonl
 from .export import genbank_to_fasta, write_metadata_csv
-from .filters import FetchFilters, apply_filters, apply_filters_to_units
+from .filters import (
+    _GENE_RECORD_WORDS,
+    _GENOME_WORDS,
+    FetchFilters,
+    apply_filters,
+    apply_filters_to_units,
+    looks_like_gene_record,
+)
 from .genbank_meta import enrich_with_genbank_metadata
 from .manifest import build_manifest
 
@@ -55,6 +64,7 @@ __all__ = [
     "parse_history_xml",
     "parse_release_number",
     "refseq_snapshot",
+    "source_qualifiers",
 ]
 
 Organelle = Literal["mitochondrion", "plastid"]
@@ -85,9 +95,51 @@ _ORGANELLE_FILTER = {
 # Plastids are also titled in ways that never say "complete": `genome assembly,
 # organelle: plastid:chloroplast` and whole-genome-shotgun submissions are real
 # 154 kb plastomes. Those are worth 3,136 genomes the old clause silently missed.
+#
+# For mitochondria "complete sequence" alone is still not enough (re-checked
+# 2026-10-16): of 15,191 Viridiplantae hits, 4,748 are gene, pseudogene, mRNA
+# and spacer records that say "complete sequence" about the gene ("Abies
+# bracteata nad3 gene, partial cds; nad3-rps12 intergenic spacer, complete
+# sequence; mitochondrial", ~700 Daucus "orf42 pseudogene, complete sequence")
+# and 91 more say "partial sequence" or "partial genome" about the molecule. A length floor cannot
+# separate them: green-algal mitogenomes are 15-45 kb (Chlamydomonas reinhardtii
+# 15.8 kb) and real chromosomes of multichromosomal mitogenomes go below 2 kb
+# ("Lophophytum mirabile chromosome 82 mitochondrion, complete sequence",
+# 1,978 bp). The title has to be read.
+#
+# Where to read it — in the Entrez term or after esummary — trades two things:
+#
+#   term       fewer records cross the wire, and callers that use only
+#              build_organelle_term get the right set; but Entrez matching is
+#              token-level and opaque (wildcards truncate, punctuation is
+#              dropped), so the term cannot be the only guard.
+#   esummary   exact, testable offline; but every fragment is still paged in.
+#
+# So both, with one rule: the term excludes exactly what looks_like_gene_record
+# and _PARTIAL_MOLECULE reject — gene vocabulary unless the title also names a
+# genome, chromosome or plasmid (a chromosome titled by its gene content, as in
+# "Cymbidium kanran chromosome 23 tRNA-His (trnH-GUG) gene, complete sequence;
+# mitochondrial", is a molecule) — and entrez_query applies the same predicates
+# to every summary. If Entrez under-excludes, the post-filter removes the rest; an
+# exclusion the post-filter would not make is a bug in the term.
+_PARTIAL_MOLECULE_PHRASES = ("partial genome", "partial sequence")
+_PARTIAL_MOLECULE = re.compile(r"\bpartial\s+(genome|sequence)\b", re.IGNORECASE)
+
+
+def _any_title(words: Sequence[str]) -> str:
+    return "(" + " OR ".join(f'"{w}"[Title]' if " " in w else f"{w}[Title]" for w in words) + ")"
+
+
+_MITO_GENE_RECORD_CLAUSE = (
+    f"({_any_title((*_GENE_RECORD_WORDS, 'ribosomal rna', 'transfer rna', 'orf*'))} "
+    f"NOT {_any_title(_GENOME_WORDS)})"
+)
+
 _COMPLETENESS_CLAUSE = {
     "mitochondrion": (
-        '("complete genome"[Title] OR "complete sequence"[Title] OR chromosome[Title])'
+        '((("complete genome"[Title] OR "complete sequence"[Title] OR chromosome[Title]) '
+        f"NOT {_MITO_GENE_RECORD_CLAUSE}) "
+        f"NOT {_any_title(_PARTIAL_MOLECULE_PHRASES)})"
     ),
     "plastid": (
         '("complete genome"[Title] OR "genome assembly"[Title] '
@@ -106,13 +158,28 @@ _PAGE_SIZE = 500
 _EFETCH_BATCH = 10
 
 
-def _merge_filters(filters: FetchFilters | None, *, min_length: int | None) -> FetchFilters:
-    """``min_length=`` stays as a shortcut for the most common single filter."""
-    if filters is None:
-        return FetchFilters(min_length=min_length)
-    if min_length is not None and filters.min_length is None:
-        return FetchFilters(**{**filters.__dict__, "min_length": min_length})
-    return filters
+def _merge_filters(filters: FetchFilters | None, **shortcuts: Any) -> FetchFilters:
+    """Apply the keyword shortcuts (``min_length=``, ``refseq_only=`` ...) to ``filters``.
+
+    The shortcuts are the filters the registered ``fetch.entrez_query`` takes, so
+    the Python call and the agent call accept the same parameters. A shortcut
+    left at its default changes nothing; one that contradicts a value already
+    set in ``filters`` is refused rather than silently dropped.
+    """
+    base = filters if filters is not None else FetchFilters()
+    defaults = FetchFilters()
+    updates: dict[str, Any] = {}
+    for name, value in shortcuts.items():
+        if value == getattr(defaults, name):
+            continue
+        current = getattr(base, name)
+        if current != getattr(defaults, name) and current != value:
+            raise OrganelleParameterError(
+                code="fetch.filter_conflict",
+                message=f"{name}={value!r} contradicts filters.{name}={current!r}",
+            )
+        updates[name] = value
+    return replace(base, **updates) if updates else base
 
 
 # Plant nomenclature is messier than viral nomenclature: subspecies, hybrid
@@ -270,33 +337,104 @@ def parse_history_xml(text: str | bytes, *, expect: str) -> History:
 
 
 def _organism_from_title(title: str) -> str:
-    """Best-effort species from a nuccore title.
+    """Species from a nuccore title, for a 1.0 summary that carries no ``Organism``.
 
-    nuccore esummary has no ``Organism`` item — only ``TaxId`` and a ``Title``
-    like "Arabidopsis thaliana chloroplast, complete genome". Cut at the
-    organelle word. This is a heuristic; ``taxid`` is the authoritative field.
+    Cut at the organelle word ("Arabidopsis thaliana chloroplast, complete
+    genome"). A title without one ("Arabidopsis thaliana genome assembly,
+    organelle: mitochondrion", "Abies bracteata NADH dehydrogenase subunit 3
+    (nad3) gene, partial cds; ...") gives no reliable cut, so the answer is ""
+    rather than a fragment of the title posing as a species name.
     """
     lowered = title.lower()
-    for marker in (" chloroplast", " mitochondrion", " plastid", " mitochondrial"):
-        index = lowered.find(marker)
-        if index > 0:
-            return title[:index].strip()
-    return title.split(",")[0].strip()
+    cuts = [
+        index
+        for marker in (
+            " chloroplast",
+            " mitochondrion",
+            " plastid",
+            " mitochondrial",
+            " genome assembly",
+        )
+        if (index := lowered.find(marker)) > 0
+    ]
+    return title[: min(cuts)].strip() if cuts else ""
+
+
+def _summary_items(root: ElementTree.Element) -> list[tuple[dict[str, Any], bool]]:
+    """Every field of every summary, as sent: ``(fields, is_version_2)``.
+
+    1.0 is ``<DocSum><Item Name="Title">``; 2.0 is ``<DocumentSummary><Title>``.
+    Text fields are kept verbatim. 2.0's ``<Statistics>`` (feature counts) is
+    the one nested field, kept as its list of ``<Stat>`` attribute maps.
+    """
+    items: list[tuple[dict[str, Any], bool]] = []
+    for docsum in root.findall("DocSum"):
+        fields = {node.get("Name", ""): node.text or "" for node in docsum.findall("Item")}
+        items.append((fields, False))
+    for summary in root.findall("./DocumentSummarySet/DocumentSummary"):
+        fields: dict[str, Any] = {}
+        for node in summary:
+            if node.tag == "Statistics":
+                fields["Statistics"] = [dict(stat.attrib) for stat in node]
+            elif len(node) == 0:
+                fields[node.tag] = node.text or ""
+        items.append((fields, True))
+    return items
+
+
+def source_qualifiers(sub_type: str, sub_name: str) -> dict[str, str]:
+    """Pair esummary ``SubType``/``SubName`` into the record's source qualifiers.
+
+    ``"cultivar|chromosome"`` + ``"Calypso|1"`` -> ``{"cultivar": "Calypso",
+    "chromosome": "1"}``; these are the GenBank ``/source`` qualifiers. A type
+    named twice keeps both values joined by ``|``, as NCBI sent them
+    (NC_024514.1: two ``specimen_voucher``). When the two lists differ in
+    length the pairing is unknowable — 1 of 10,360 Viridiplantae mitochondrion
+    summaries on 2026-10-17 (CM113015.1) — and the answer is ``{}``; the raw
+    strings stay in the record's ``summary``.
+    """
+    if not sub_type:
+        return {}
+    types, names = sub_type.split("|"), sub_name.split("|")
+    if len(types) != len(names):
+        return {}
+    pairs: dict[str, str] = {}
+    for kind, value in zip(types, names, strict=True):
+        pairs[kind] = f"{pairs[kind]}|{value}" if kind in pairs else value
+    return pairs
+
+
+#: Source qualifiers lifted to the top of a record. The names are the ones the
+#: GenBank tier (``genbank_meta``) already writes, so grouping and
+#: deduplication read one key whichever tier supplied it.
+_TOP_LEVEL_QUALIFIERS = ("cultivar", "isolate", "strain", "ecotype", "specimen_voucher", "chromosome")
 
 
 def parse_esummary_xml(text: str | bytes) -> list[dict[str, Any]]:
-    """Return one metadata record per DocSum — no sequence is touched here.
+    """Return one metadata record per summary — no sequence is touched here.
 
-    Field names come from a real nuccore response: the length item is
-    ``Length`` (``Slen`` is accepted as a fallback), and there is no
-    ``Organism`` item at all.
+    Field names come from real nuccore responses. Version 1.0 sends the length
+    as ``Length`` and no ``Organism`` at all; version 2.0, which
+    :func:`_esummary_paged` asks for, sends ``Slen`` and ``Organism`` — the NCBI
+    Taxonomy name of ``TaxId``, the authoritative species. Only when that is
+    missing does ``organism`` fall back to a cut of the title.
+
+    ``organism`` is the species only — "Cucumis sativus" for every cucumber
+    cultivar — so the sample is carried separately: ``source_qualifiers`` (see
+    :func:`source_qualifiers`), the common ones lifted to the top
+    (``cultivar``, ``isolate``, ``strain``, ``ecotype``, ``specimen_voucher``,
+    ``chromosome``), plus ``biosample`` and ``assembly_accession``
+    (``AssemblyAcc``: for a RefSeq record, the INSDC record it was curated
+    from, e.g. NC_011033.1 -> BA000029). ``summary`` holds every field as
+    sent. A 1.0 summary has no SubType, so its qualifiers are empty.
+
+    2.0 omits ``<Status>`` for a live record (NC_011033.1 on 2026-10-16: 1.0
+    says ``live``, 2.0 sends no Status element), so there its absence means
+    live.
     """
     root = _parse_xml(text, expect="eSummaryResult")
     records: list[dict[str, Any]] = []
-    for docsum in root.findall("DocSum"):
-        item: dict[str, Any] = {}
-        for node in docsum.findall("Item"):
-            item[node.get("Name", "")] = node.text or ""
+    for item, is_version_2 in _summary_items(root):
         accession = item.get("AccessionVersion") or item.get("Caption") or ""
         if not accession:
             continue
@@ -305,18 +443,25 @@ def parse_esummary_xml(text: str | bytes) -> list[dict[str, Any]]:
         except ValueError:
             length = 0
         title = item.get("Title", "")
-        records.append(
-            {
-                "accession": accession,
-                "title": title,
-                "organism": _organism_from_title(title),
-                "taxid": item.get("TaxId", ""),
-                "length": length,
-                "status": item.get("Status", ""),
-                "create_date": item.get("CreateDate", ""),
-                "update_date": item.get("UpdateDate", ""),
-            }
-        )
+        qualifiers = source_qualifiers(item.get("SubType", ""), item.get("SubName", ""))
+        record: dict[str, Any] = {
+            "accession": accession,
+            "title": title,
+            "organism": item.get("Organism") or _organism_from_title(title),
+            "taxid": item.get("TaxId", ""),
+            "length": length,
+            "status": item.get("Status") or ("live" if is_version_2 else ""),
+            "create_date": item.get("CreateDate", ""),
+            "update_date": item.get("UpdateDate", ""),
+        }
+        record.update({key: qualifiers.get(key, "") for key in _TOP_LEVEL_QUALIFIERS})
+        # 2.0 also sends the strain as its own <Strain> element.
+        record["strain"] = record["strain"] or item.get("Strain", "")
+        record["biosample"] = item.get("BioSample", "")
+        record["assembly_accession"] = item.get("AssemblyAcc", "")
+        record["source_qualifiers"] = qualifiers
+        record["summary"] = item
+        records.append(record)
     return records
 
 
@@ -352,11 +497,19 @@ def suspect_multipartite(records: Sequence[dict[str, Any]]) -> bool:
     all claim to be complete genomes is not three genomes, it is one genome in
     pieces. False positives here only cost a metadata fetch; a false negative
     costs a truncated genome nobody notices.
+
+    Gene and spacer records are not counted: they claim no genome at all. Rice
+    has the RefSeq/GenBank pair NC_011033.1 + BA000029.3 *and* old clones such
+    as D13097.1 ("mitochondrial gene for tRNA-Cys, complete sequence"); counting
+    the clones makes one 490 kb circle look like a nine-piece genome.
     """
-    if any(chromosome_from_title(str(r.get("title", ""))) for r in records):
+    genome_records = [
+        r for r in records if not looks_like_gene_record(str(r.get("title", "")))
+    ]
+    if any(chromosome_from_title(str(r.get("title", ""))) for r in genome_records):
         return True
     counts: dict[str, int] = {}
-    for record in records:
+    for record in genome_records:
         organism = str(record.get("organism", "")).strip()
         if organism:
             counts[organism] = counts.get(organism, 0) + 1
@@ -377,6 +530,7 @@ def _accessions_in_genbank(text: str) -> list[str]:
 # ─────────────────────────────────────────────────────────────
 
 
+@validated_public('fetch.entrez_query', python_only=('filters', 'transport'))
 def entrez_query(
     *,
     organelle: str,
@@ -385,6 +539,10 @@ def entrez_query(
     complete_only: bool = True,
     filters: FetchFilters | None = None,
     min_length: int | None = None,
+    max_length: int | None = None,
+    refseq_only: bool = False,
+    min_gene_count: int | None = None,
+    max_ambiguous: int | None = None,
     max_records: int | None = None,
     page_size: int = _PAGE_SIZE,
     genbank_metadata: bool = False,
@@ -400,11 +558,23 @@ def entrez_query(
     history server and paged, so a whole-corpus pull (58,082 complete
     Viridiplantae plastomes) is a normal call, not a special case.
 
+    ``min_length``, ``max_length``, ``refseq_only``, ``min_gene_count`` and
+    ``max_ambiguous`` are shortcuts for the same :class:`FetchFilters` fields and
+    are the filters the registered ``fetch.entrez_query`` operation takes; pass
+    ``filters=`` for the rest.
+
     Not reproducible across time by construction — nuccore changes daily. Use
     :func:`refseq_snapshot` when you need a claim that holds.
     """
     http = transport or default_transport()
-    active = _merge_filters(filters, min_length=min_length)
+    active = _merge_filters(
+        filters,
+        min_length=min_length,
+        max_length=max_length,
+        refseq_only=refseq_only,
+        min_gene_count=min_gene_count,
+        max_ambiguous=max_ambiguous,
+    )
     if active.requires_genbank_metadata() and not genbank_metadata:
         genbank_metadata = True  # the filter asked for it; fetch what it needs
 
@@ -459,6 +629,16 @@ def entrez_query(
     # What we actually looked at — NOT history.count. Conflating the two would
     # claim the filter rejected records it never fetched metadata for.
     examined = len(records)
+
+    # Stage 2a — drop gene and spacer records before anything treats them as a
+    # molecule: they would trip the multipartite check below and buy GenBank XML
+    # for every record. Stage 3 applies the gene predicate again; it is free. For
+    # a complete mitochondrion search this is the post-filter half of the
+    # completeness clause (see _COMPLETENESS_CLAUSE).
+    if active.exclude_gene_records:
+        records = [r for r in records if not looks_like_gene_record(str(r.get("title", "")))]
+    if complete_only and organelle == "mitochondrion":
+        records = [r for r in records if not _PARTIAL_MOLECULE.search(str(r.get("title", "")))]
 
     # Stage 2b — is any genome multipartite? The esummary title says so for free
     # ("... chromosome 1, complete sequence"), so we only pay for GenBank XML
@@ -530,6 +710,7 @@ def entrez_query(
     )
 
 
+@validated_public('fetch.accession_list', python_only=('transport',))
 def fetch_accessions(
     *,
     accessions: Sequence[str],
@@ -586,6 +767,7 @@ def fetch_accessions(
 # ─────────────────────────────────────────────────────────────
 
 
+@validated_public('fetch.refseq_snapshot', python_only=('transport',))
 def refseq_snapshot(
     *,
     organelle: str,
@@ -596,6 +778,8 @@ def refseq_snapshot(
     """Download the RefSeq release snapshot for one organelle.
 
     NCBI only keeps sequence files for the current release in this directory.
+    ``release=None`` selects that current release and records its number in
+    the returned manifest; it does not claim a release was fixed before lookup.
     An explicit release is therefore accepted only while it matches
     ``RELEASE_NUMBER``; historical releases are rejected rather than silently
     relabelling current data.
@@ -704,12 +888,16 @@ def _epost_history(http: Transport, *, accessions: Sequence[str]) -> History:
 def _esummary_paged(
     http: Transport, *, history: History, limit: int, page_size: int
 ) -> list[dict[str, Any]]:
-    """Page esummary over a history result set. This is what lifts the ceiling."""
+    """Page esummary over a history result set. This is what lifts the ceiling.
+
+    ``version=2.0`` is requested for its ``Organism`` field (see
+    :func:`parse_esummary_xml`).
+    """
     records: list[dict[str, Any]] = []
     for retstart in range(0, limit, page_size):
         retmax = min(page_size, limit - retstart)
         url = _with_key(
-            f"{EUTILS}/esummary.fcgi?db=nuccore"
+            f"{EUTILS}/esummary.fcgi?db=nuccore&version=2.0"
             f"&WebEnv={history.web_env}&query_key={history.query_key}"
             f"&retstart={retstart}&retmax={retmax}"
         )
@@ -785,6 +973,10 @@ def _as_data(
         if path.is_file():
             artifacts[name] = ArtifactRef.from_path(path, kind=name, format=fmt, media_type=media)
     payload: dict[str, Any] = {"manifest": manifest}
+    if records is None and modality == "organelle_records":
+        # Empty searches still have a records sequence. Release snapshots have
+        # accession-level records even when no esummary metadata was requested.
+        records = [{"accession": accession} for accession in manifest.get("accessions", [])]
     if records is not None:
         payload["records"] = records
     if genomes is not None:

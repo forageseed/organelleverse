@@ -233,6 +233,12 @@ class IndexBindingSource:
         self._bindings: dict[str, BoundOperation] = {}
         self._lock = threading.RLock()
 
+    @staticmethod
+    def _is_pure_core_native(entry: CapabilityEntry) -> bool:
+        return entry.bundle.capability.implementation.value == "native" and all(
+            origin.channel == "core" for origin in entry.origins
+        )
+
     def list_specs(self) -> tuple[OperationSpec, ...]:
         return tuple(entry.bundle.contract for entry in self._index.list())
 
@@ -256,12 +262,23 @@ class IndexBindingSource:
 
     def parameter_schema(self, operation_id: str) -> dict[str, object] | None:
         for entry in self._index.entries:
-            if (
-                entry.capability_id == operation_id
-                and entry.status is CapabilityStatus.ADMITTED
-                and entry.parameter_schema is not None
-            ):
+            if entry.capability_id != operation_id or entry.status is not CapabilityStatus.ADMITTED:
+                continue
+            if entry.parameter_schema is not None:
                 return cast(dict[str, object], deepcopy(entry.parameter_schema))
+            if self._is_pure_core_native(entry):
+                # First-party code admitted without a verification record: take
+                # the live schema from the binding resolve() already builds.
+                from organelleverse.operations.schemas import parameter_schema
+
+                try:
+                    bound = self.resolve(operation_id)
+                except OrganelleContractError:
+                    # resolve() reports the precise error when the operation is called.
+                    return None
+                if bound is None:
+                    return None
+                return cast(dict[str, object], deepcopy(parameter_schema(bound)))
         return None
 
     def is_conflicted(self, operation_id: str) -> bool:
@@ -296,7 +313,7 @@ class IndexBindingSource:
             )
             if entry is None:
                 return None
-            if entry.parameter_schema is None:
+            if entry.parameter_schema is None and not self._is_pure_core_native(entry):
                 raise OrganelleContractError(
                     code="capability.verification_missing",
                     message=f"admitted capability has no frozen parameter schema: {operation_id}",

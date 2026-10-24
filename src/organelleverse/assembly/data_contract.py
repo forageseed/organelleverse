@@ -36,6 +36,7 @@ class _OatkLongLibrary(_OatkContractModel):
 
 
 class _OatkAuxiliary(_OatkContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: None = None
     reference_fasta_artifact: None = None
     reference_genbank_artifact: None = None
@@ -71,6 +72,7 @@ class _HimtLongLibrary(_HimtContractModel):
 
 
 class _HimtAuxiliary(_HimtContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: None = None
     reference_fasta_artifact: None = None
     reference_genbank_artifact: None = None
@@ -102,6 +104,7 @@ class _PmatLongLibrary(_PmatContractModel):
 
 
 class _PmatAuxiliary(_PmatContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: None = None
     reference_fasta_artifact: None = None
     reference_genbank_artifact: None = None
@@ -151,6 +154,7 @@ _GetOrganelleShortLibrary = _GetOrganellePairedEndLibrary | _GetOrganelleSingleE
 
 
 class _GetOrganelleAuxiliary(_GetOrganelleContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: str | None = None
     reference_fasta_artifact: None = None
     reference_genbank_artifact: None = None
@@ -189,6 +193,7 @@ class _PtgaulLongLibrary(_PtgaulContractModel):
 
 
 class _PtgaulAuxiliary(_PtgaulContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: None = None
     reference_fasta_artifact: str = Field(min_length=1)
     reference_genbank_artifact: None = None
@@ -225,6 +230,7 @@ class _TippoLongLibrary(_TippoContractModel):
 
 
 class _TippoAuxiliary(_TippoContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: None = None
     reference_fasta_artifact: None = None
     reference_genbank_artifact: None = None
@@ -266,6 +272,7 @@ class _NovoplastyPairedLibrary(_NovoplastyContractModel):
 
 
 class _NovoplastyAuxiliary(_NovoplastyContractModel):
+    read_origins_artifact: None = None
     seed_fasta_artifact: str | None = None
     reference_fasta_artifact: str | None = None
     chloroplast_fasta_artifact: str | None = None
@@ -735,7 +742,7 @@ def validate_ovasm_assembly_data(data: OrganelleData) -> AssemblyInputPayload:
     unsupported_auxiliary = sorted(
         name
         for name, value in payload.auxiliary.model_dump(mode="python").items()
-        if value is not None and name != "seed_fasta_artifact"
+        if value is not None and name not in {"seed_fasta_artifact", "read_origins_artifact"}
     )
     if unsupported_auxiliary:
         errors.append({"reason": "auxiliary_not_supported", "fields": unsupported_auxiliary})
@@ -745,7 +752,7 @@ def validate_ovasm_assembly_data(data: OrganelleData) -> AssemblyInputPayload:
             message=(
                 "ovasm accepts one PacBio HiFi, raw ONT or raw PacBio CLR library, one "
                 "single-end or paired-end Illumina library, or raw ONT/CLR reads with one "
-                "Illumina library, and no auxiliary input other than seed_fasta"
+                "Illumina library, with optional seed_fasta or HiFi read_origins evidence"
             ),
             details={"errors": errors},
         )

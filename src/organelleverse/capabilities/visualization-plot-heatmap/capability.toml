@@ -38,3 +38,39 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "data"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "cmap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "vmin"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "vmax"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "figsize"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "colorbar_label"
+codec = "json"

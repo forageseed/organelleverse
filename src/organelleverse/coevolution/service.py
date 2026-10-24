@@ -7,10 +7,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
 from ..runtime import managed_run_path
 
 
+@validated_public('coevolution.run_orthofinder', python_only=('executor',))
 def run_orthofinder(
     proteome_dir: str | Path,
     *,
@@ -35,6 +38,7 @@ def run_orthofinder(
     )
 
 
+@validated_public('coevolution.run_coevolution', python_only=('executor',))
 def run_coevolution(
     proteome_dir: str | Path,
     *,

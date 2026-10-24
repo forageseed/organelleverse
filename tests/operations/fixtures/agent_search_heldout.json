@@ -1,0 +1,242 @@
+{
+  "about": "Held-out requests written after the ranking rules were fixed (2026-10-16; revised the same day after the ZH_TERMS review: three failing cases moved to the tuning set, eight new cases written before re-running) and never used to tune them. Report them apart from agent_search_eval.json; when one fails, fix the rule or metadata in general, then move the case into the tuning set and write new held-out cases.",
+  "cases": [
+    {
+      "q": "how many tandem SSR motifs does this mitogenome have",
+      "ok": [
+        "structure.repeats"
+      ]
+    },
+    {
+      "q": "GC skew plot along the genome",
+      "ok": [
+        "visualization.plot_scatter",
+        "visualization.plot_track_density",
+        "composition.gc_content"
+      ]
+    },
+    {
+      "q": "gene models for tRNA and rRNA on my new plastome assembly",
+      "ok": [
+        "annotation.annotate"
+      ]
+    },
+    {
+      "q": "PacBio HiFi mitochondrion de novo assembly",
+      "ok": [
+        "assembly.assemble"
+      ]
+    },
+    {
+      "q": "check completeness and contamination of an assembled genome",
+      "ok": [
+        "qc.assembly"
+      ]
+    },
+    {
+      "q": "IQ-TREE maximum likelihood tree with bootstrap",
+      "ok": [
+        "phylogeny.build_tree",
+        "phylogeny.run_build_tree"
+      ]
+    },
+    {
+      "q": "align protein sequences with MAFFT",
+      "ok": [
+        "selection.align_protein",
+        "phylogeny.align"
+      ]
+    },
+    {
+      "q": "dN/dS ratio",
+      "ok": [
+        "selection.kaks",
+        "selection.run_kaks_calculator_workflow",
+        "selection.run_codeml"
+      ]
+    },
+    {
+      "q": "branch-site test for positive selection",
+      "ok": [
+        "selection.write_branch_site_model",
+        "selection.run_codeml",
+        "selection.hyphy_absrel"
+      ]
+    },
+    {
+      "q": "relative synonymous codon usage",
+      "ok": [
+        "codon_composition.codon_usage"
+      ]
+    },
+    {
+      "q": "hypervariable regions for molecular markers",
+      "ok": [
+        "diversity.sliding_window_diversity",
+        "barcode.design_barcode",
+        "barcode.design_marker_primers"
+      ]
+    },
+    {
+      "q": "C to U editing prediction for chloroplast genes",
+      "ok": [
+        "rna_editing.predict_edits",
+        "rna_editing.predict_edits_plantc2u",
+        "rna_editing.predict_edits_prep"
+      ]
+    },
+    {
+      "q": "LSC SSC IR junctions",
+      "ok": [
+        "ir_boundary.ir_boundary",
+        "visualization.plot_ir_boundaries"
+      ]
+    },
+    {
+      "q": "OGDraw style genome map",
+      "ok": [
+        "visualization.plot_ogdraw_map",
+        "visualization.plot_genome_map",
+        "visualization.plot_structure_map"
+      ]
+    },
+    {
+      "q": "chloroplast sequences inserted in the mitochondrion",
+      "ok": [
+        "transfer.detect_mtpt"
+      ]
+    },
+    {
+      "q": "nuclear plastid DNA NUPT candidates",
+      "ok": [
+        "transfer.detect_transfers_evidence",
+        "transfer.detect_transfers_blast"
+      ]
+    },
+    {
+      "q": "collinearity of gene order across species",
+      "ok": [
+        "comparative.synteny",
+        "visualization.plot_collinearity"
+      ]
+    },
+    {
+      "q": "core and private sequences in a pangenome",
+      "ok": [
+        "pangenome.classify_sequences",
+        "pangenome.analyze_graph"
+      ]
+    },
+    {
+      "q": "mitochondrial targeting peptide prediction",
+      "ok": [
+        "localization.predict",
+        "localization.score_transit_peptides"
+      ]
+    },
+    {
+      "q": "fetch genomes from the China National GeneBank NGDC",
+      "ok": [
+        "fetch.ngdc_gwh"
+      ]
+    },
+    {
+      "q": "GenBank to FASTA",
+      "ok": [
+        "format_conversion.convert"
+      ]
+    },
+    {
+      "q": "Fst sliding window along the mitogenome",
+      "ok": [
+        "population.fst_scan",
+        "visualization.plot_fst_scan"
+      ]
+    },
+    {
+      "q": "计算Ka/Ks",
+      "ok": [
+        "selection.kaks",
+        "selection.run_kaks_calculator_workflow"
+      ]
+    },
+    {
+      "q": "叶绿体基因组注释",
+      "ok": [
+        "annotation.annotate"
+      ]
+    },
+    {
+      "q": "简单重复序列分析",
+      "ok": [
+        "structure.repeats"
+      ]
+    },
+    {
+      "q": "群体遗传分化Fst",
+      "ok": [
+        "population.fst_scan",
+        "population.compute_fst"
+      ]
+    },
+    {
+      "q": "基因组共线性",
+      "ok": [
+        "comparative.synteny",
+        "visualization.plot_collinearity",
+        "visualization.plot_synteny_matrix"
+      ]
+    },
+    {
+      "q": "信号肽预测",
+      "ok": [
+        "localization.score_signal_peptide",
+        "localization.predict"
+      ]
+    },
+    {
+      "q": "细胞器形态测量",
+      "ok": [
+        "morphology.measure",
+        "morphology.batch_measure"
+      ]
+    },
+    {
+      "q": "构建泛基因组图",
+      "ok": [
+        "pangenome.build_graph"
+      ]
+    },
+    {
+      "q": "绘制密码子偏好图",
+      "ok": [
+        "visualization.plot_rscu_usage"
+      ]
+    },
+    {
+      "q": "读取叶绿体基因组GenBank文件",
+      "ok": [
+        "io.read_genbank_genome"
+      ]
+    },
+    {
+      "q": "剪接效率分析",
+      "ok": [
+        "rna_seq.quantify_splicing_efficiency"
+      ]
+    },
+    {
+      "q": "estimate splicing efficiency of mitochondrial introns from RNA-seq",
+      "ok": [
+        "rna_seq.quantify_splicing_efficiency"
+      ]
+    },
+    {
+      "q": "用长读长验证核内线粒体DNA候选",
+      "ok": [
+        "transfer.validate_transfers_longread",
+        "transfer.detect_transfers_evidence"
+      ]
+    }
+  ]
+}

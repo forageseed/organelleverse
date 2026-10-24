@@ -193,6 +193,7 @@ class GenomeSizeEvidence(_FrozenInputModel):
 
 
 class AssemblyAuxiliary(_FrozenInputModel):
+    read_origins: ArtifactSource | None = None
     seed_fasta: ArtifactSource | None = None
     reference_fasta: ArtifactSource | None = None
     reference_genbank: ArtifactSource | None = None
@@ -272,6 +273,7 @@ class ContigContract(_FrozenInputModel):
 
 
 class AuxiliaryContract(_FrozenInputModel):
+    read_origins_artifact: str | None = None
     seed_fasta_artifact: str | None = None
     reference_fasta_artifact: str | None = None
     reference_genbank_artifact: str | None = None
@@ -573,6 +575,12 @@ class OvasmParameters(OperationParameterModel):
     ``seed_source``: the bundled seed database, the ``seed_fasta`` auxiliary input
     (``custom``), or no seeds at all (``discover``, HiFi only). ``also_discover`` adds the
     seed-free depth clusters called as the target to the seed-recruited reads (HiFi only).
+    ``k_ladder_start`` selects the automatic HiFi start or the top of its ladder.
+    ``fallback`` (on by default) lets a HiFi whole-genome run that is not accepted escalate to
+    ``also_discover`` and then to seed-free discovery, and publish the best attempt with a
+    structured ``status``/``attempts``/``reasons`` report; off, the run happens once as asked.
+    ``max_molecules`` bounds the cover search per connected graph component; reaching
+    the bound cannot establish confidence in the inferred molecule count.
     ``sample`` names the segments and PanSN paths of the unified graph (OV-GFA).
     """
 
@@ -580,6 +588,14 @@ class OvasmParameters(OperationParameterModel):
     read_set: Literal["whole_genome", "target_reads"] = "whole_genome"
     seed_source: Literal["builtin", "custom", "discover"] = "builtin"
     also_discover: bool = False
+    fallback: bool = True
+    k_ladder_start: Literal["auto", "top"] = "auto"
+    # Explicit coverage cutoff comes from a read-based coverage model, never assembly truth.
+    # The multichrom profile uses embedded Syncasm and a primary sequence representation.
+    graph_mode: Literal["sparse", "multichrom"] = "sparse"
+    graph_min_count: Annotated[int, Ge(1)] | Literal["auto"] | None = None
+    nuclear_ploidy: Annotated[int, Ge(1), Le(6)] = 2
+    max_molecules: Annotated[int, Ge(1)] = 4
     sample: str = "sample"
 
 
@@ -773,7 +789,11 @@ def _effective_ovasm_parameters(
     has_seed = payload.auxiliary.seed_fasta_artifact is not None
     whole_genome = parameters.read_set == "whole_genome"
     problem = None
-    if not whole_genome and (
+    if payload.auxiliary.read_origins_artifact is not None and (
+        not whole_genome or parameters.graph_mode != "multichrom" or read_type != "hifi_only"
+    ):
+        problem = "read_origins requires original whole-genome multichrom HiFi input"
+    elif not whole_genome and (
         has_seed or parameters.seed_source != "builtin" or parameters.also_discover
     ):
         problem = "target_reads are assembled as given: seeds and discovery do not apply"
@@ -791,6 +811,16 @@ def _effective_ovasm_parameters(
         problem = "seed-free discovery needs PacBio HiFi reads"
     elif parameters.also_discover and parameters.seed_source == "discover":
         problem = "seed_source='discover' already uses discovery; drop also_discover"
+    elif parameters.k_ladder_start == "top" and read_type != "hifi_only":
+        problem = "k_ladder_start='top' needs PacBio HiFi reads"
+    elif parameters.graph_mode == "multichrom" and read_type != "hifi_only":
+        problem = "the multichrom graph profile needs PacBio HiFi reads"
+    elif parameters.graph_mode == "multichrom" and parameters.graph_min_count is None:
+        problem = "multichrom needs graph_min_count from a read-based coverage model"
+    elif parameters.graph_min_count == "auto" and not whole_genome:
+        problem = "automatic nuclear coverage needs original whole_genome reads, not target_reads"
+    elif parameters.graph_mode == "sparse" and parameters.graph_min_count is not None:
+        problem = "graph_min_count is used only with graph_mode='multichrom'"
     elif not parameters.sample or any(
         not (char.isascii() and (char.isalnum() or char in "_-")) for char in parameters.sample
     ):

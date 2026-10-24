@@ -12,6 +12,7 @@ description = "Render a prepared RIdeogram-style chromosome plot object."
 keywords = ["analyze", "ideogram", "restored", "result", "visualization", "write"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.visualization.suite_plots:write_ideogram"
@@ -32,3 +33,11 @@ codec = "legacy_result"
 name = "output"
 codec = "path"
 path_role = "output"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"

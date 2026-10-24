@@ -15,7 +15,9 @@ from __future__ import annotations
 from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation, FeatureLocation, SeqFeature
 
+from ..cmsearch.parallel import pmap
 from .cds_terminals import _refine_multi_forward
+from .fast_translate import translate11
 
 _STOP = {"TAA", "TAG", "TGA"}
 _START = ("ATG", "ACG", "GTG")  # ACG/GTG are edited (C->U) organellar starts
@@ -33,6 +35,10 @@ _MIN_EDITED_GENES = 5
 _EDITED_STOP_AA = {"TAA": "Gln", "TAG": "Gln", "TGA": "Arg"}
 
 
+# A start candidate's reading frame must end within this many nt (or 10% of the anchored span) of the anchored end.
+_END_TOLERANCE_NT = 30
+
+
 def _refine_forward(
     seq: str,
     start: int,
@@ -43,22 +49,37 @@ def _refine_forward(
     tolerate_edits: bool = False,
 ) -> tuple[int, int, list[int]]:
     L = len(seq)
-    # Best in-frame start codon: the one CLOSEST to the reference-anchored position
-    # (which is ~correct), with codon type only as a tiebreak. This keeps an edited
-    # ACG/GTG start at the anchor rather than jumping to a nearby ATG.
-    best = None
-    best_rank = None
-    for off in range(-start_window, start_window + 1):
-        s = start + off
-        if s < 1 or s + 2 > L:
-            continue
-        codon = seq[s - 1 : s + 2]
-        if codon in _START:
-            rank = (abs(off), _START.index(codon))
-            if best_rank is None or rank < best_rank:
-                best_rank, best = rank, s
-    s = best if best is not None else start
+    # Start codon candidates, CLOSEST to the reference-anchored position first (it is
+    # ~correct), codon type only as a tiebreak: this keeps an edited ACG/GTG start at
+    # the anchor rather than jumping to a nearby ATG. A candidate is taken only if its
+    # reading frame ends near the anchored end, which the transfer places at the gene's
+    # stop; candidates in the anchor's own frame are tried before the two others. An
+    # anchor 1-2 nt off once let the nearest start sit in another frame and end at its
+    # first stop a few codons later (psbH 9 bp, matK 9 bp, rpl22 6 bp). Without a
+    # qualifying start codon the anchor itself is tried (the start then stays
+    # undetermined, as when no start codon is in the window). If nothing qualifies (a
+    # pseudogene with an early stop), the nearest start in the anchor's frame is kept,
+    # or the anchor: never a start in another frame.
+    candidates = sorted(
+        ((s - start) % 3 != 0, abs(off), _START.index(seq[s - 1 : s + 2]), s)
+        for off in range(-start_window, start_window + 1)
+        if 1 <= (s := start + off) and s + 2 <= L and seq[s - 1 : s + 2] in _START
+    )
+    tolerance = max(_END_TOLERANCE_NT, (end - start) // 10)
+    for s in [c[3] for c in candidates] + [start]:
+        e, edits = _orf_end(seq, s, end, max_len, tolerate_edits)
+        # With read-through a wrong frame can also reach the anchored end, over a stop every ~20 codons;
+        # a real gene carries a few edited stops (at most 2 + one per 300 nt is accepted).
+        if abs(e - end) <= tolerance and len(edits) <= 2 + (e - s + 1) // 300:
+            return s, e, edits
+    in_frame = [c[3] for c in candidates if not c[0]]
+    s = in_frame[0] if in_frame else start
+    return (s, *_orf_end(seq, s, end, max_len, tolerate_edits))
 
+
+def _orf_end(seq: str, s: int, end: int, max_len: int, tolerate_edits: bool) -> tuple[int, list[int]]:
+    """3' end (inclusive) of the reading frame started at ``s``, and the read-through edited stops."""
+    L = len(seq)
     # Extend to the first in-frame genomic stop codon (inclusive).
     e = end
     genomic = None
@@ -78,7 +99,8 @@ def _refine_forward(
         # No genomic stop in-frame within range: fall back to an RNA-edited stop.
         e = edited
     edits: list[int] = []
-    margin = max(_EDIT_MARGIN_NT, (end - s) // 10)
+    # For a short gene 90 nt is most of the gene (rpl36 is 114 bp): cap the margin at a third of its length.
+    margin = min(max(_EDIT_MARGIN_NT, (end - s) // 10), max(9, (end - s) // 3))
     if tolerate_edits and genomic is not None and genomic < end - margin:
         # The first stop sits well inside the reference-anchored gene: in a
         # plastome with U-to-C editing it is an edited site, so read through
@@ -87,11 +109,11 @@ def _refine_forward(
         while p + 2 <= L and p < s + max_len:
             if seq[p - 1 : p + 2] in _STOP:
                 if p + 2 >= end - margin:
-                    return s, p + 2, edits
+                    return p + 2, edits
                 edits.append(p)
             p += 3
         edits = []  # no terminal stop near the anchor: keep the genomic stop
-    return s, e, edits
+    return e, edits
 
 
 def refine_cds_boundaries(
@@ -180,9 +202,9 @@ def refine_cds_features(
         for f in single
     }
     editing_genome = sum(1 for r in read_through.values() if r[2]) >= _MIN_EDITED_GENES
-    for feat in features:
-        if feat.type != "CDS":
-            continue
+    rc_genome: list[str] = []  # reverse complement of the genome, built once on first use
+
+    def refine_one(feat: SeqFeature) -> None:
         strand = feat.location.strand or 1
         parts = sorted((int(p.start) + 1, int(p.end)) for p in feat.location.parts)
         if len(parts) == 1:
@@ -202,7 +224,7 @@ def refine_cds_features(
                 feat.location = FeatureLocation(ns - 1, ne, strand=strand)
                 if edits:
                     _annotate_edited_stops(feat, genome, edits, strand)
-            continue
+            return
 
         # Multi-exon: refine terminal exons in the reading frame. Skip pathological
         # spans (trans-spliced genes like rps12, or IR-spanning artifacts) where a
@@ -211,7 +233,7 @@ def refine_cds_features(
             # Trans-spliced: refine only the joins of its cis-spliced blocks
             # (rps12 exons 2-3); the trans joins keep their transfer.
             _refine_cis_blocks(genome, feat, ref_proteins, junction_flanks, reference_files)
-            continue
+            return
 
         # Correct internal splice boundaries first (BLAST places them approximately,
         # throwing off the frame and thus the terminal stop / producing internal
@@ -229,7 +251,7 @@ def refine_cds_features(
                 else str(Seq(genome[s - 1 : e]).reverse_complement())
                 for s, e in reading
             )
-            query = _san(str(Seq(coding[: len(coding) - len(coding) % 3]).translate(table=11)))
+            query = _san(translate11(coding[: len(coding) - len(coding) % 3]))
             # Reference files have an arbitrary order. Rank the candidate
             # proteins by their match to the transferred gene before refining
             # its boundaries, so a distant first file cannot dictate its splice.
@@ -262,7 +284,9 @@ def refine_cds_features(
                         parts = sorted(spliced)
                         break
         if strand == -1:
-            rc = str(Seq(genome).reverse_complement())
+            if not rc_genome:
+                rc_genome.append(str(Seq(genome).reverse_complement()))
+            rc = rc_genome[0]
             rparts = sorted((L - e + 1, L - s + 1) for s, e in parts)
             refined = _refine_multi_forward(rc, rparts, window, multi_ext)
             back = sorted((L - e + 1, L - s + 1) for s, e in refined)
@@ -301,9 +325,49 @@ def refine_cds_features(
                 # Cannot form an in-frame feature from these bounds: leave
                 # the location untouched and let validation see the honest
                 # original rather than a broken refinement.
-                continue
+                return
         feat.location = new_parts[0] if len(new_parts) == 1 else CompoundLocation(new_parts)
+    # Each CDS is refined on its own (it reads the shared inputs and changes only itself); the group II structure
+    # prediction inside is a GIL-free Rust kernel, so features are refined on the run's threads. Same result.
+    pmap(refine_one, [f for f in features if f.type == "CDS"])
+    mark_internal_stops(features, genome, editing_genome)
     return features
+
+
+_UNEXPLAINED_STOP_NOTE = (
+    "in-frame stop codon inside the spliced CDS: possible pseudogene or unresolved splice, not RNA editing"
+)
+
+
+def mark_internal_stops(features: list[SeqFeature], genome: str, editing_genome: bool) -> int:
+    """Explain every internal in-frame stop of a multi-exon CDS; return how many CDS were marked.
+
+    Single-exon CDS are read through by ``_annotate_edited_stops``; spliced CDS were not, so their translation was
+    dropped and a submission validator would report an internal stop. In a genome with U-to-C editing (ferns,
+    hornworts, lycophytes) the stops are edited sites and become ``transl_except``; elsewhere the stop is unexplained
+    and the CDS only carries a note (coordinates are never changed here).
+    """
+    marked = 0
+    genome = genome.upper()
+    for feat in features:
+        if feat.type != "CDS" or len(feat.location.parts) < 2 or "pseudo" in feat.qualifiers:
+            continue
+        if "transl_except" in feat.qualifiers or _UNEXPLAINED_STOP_NOTE in feat.qualifiers.get("note", []):
+            continue
+        try:
+            coding = str(feat.extract(Seq(genome))).upper()
+        except Exception:  # noqa: BLE001 - a feature that cannot be read is left as it is
+            continue
+        offset = int(feat.qualifiers.get("codon_start", ["1"])[0]) - 1
+        codons = [coding[i : i + 3] for i in range(offset, len(coding) - 3, 3)]
+        if not any(c in _STOP for c in codons):
+            continue
+        if editing_genome:
+            reannotate_edited_stops(feat, genome)
+        else:
+            feat.qualifiers.setdefault("note", []).append(_UNEXPLAINED_STOP_NOTE)
+        marked += 1
+    return marked
 
 
 _CIS_MAX_INTRON = 10000
@@ -353,7 +417,7 @@ def _refine_cis_blocks(genome: str, feat: SeqFeature, ref_proteins, junction_fla
         block_seq = "".join(
             genome[a - 1 : b] if strand == 1 else str(Seq(genome[a - 1 : b]).reverse_complement()) for a, b in coords
         )[phase_skip:]
-        query = _san(str(Seq(block_seq[: len(block_seq) - len(block_seq) % 3]).translate(table=11)))
+        query = _san(translate11(block_seq[: len(block_seq) - len(block_seq) % 3]))
         # As for whole genes: the reference protein closest to the transferred block decides.
         proteins = sorted(ref_proteins[gene], key=lambda p: _score(_san(p.rstrip("*")), query), reverse=True)
         for protein in proteins:
@@ -447,3 +511,42 @@ def reannotate_edited_stops(feature: SeqFeature, genome: str) -> None:
         feature.qualifiers.setdefault("note", []).append(
             f"{len(excepts)} in-frame genomic stop codon(s) read through as U-to-C edited sites"
         )
+
+
+_EDITED_START_NOTE = "ACG start codon edited to AUG (C-to-U)"
+
+
+def mark_edited_starts(features: list[SeqFeature], genome: str) -> int:
+    """Record an ACG start codon as an RNA-edited Met (``transl_except``); return how many CDS were marked.
+
+    Without it a submission validator reports a wrong start codon (145 of 3,694 CDS in the development set start with
+    ACG: ndhD, psbL, rpl2 ...). GTG is a valid start in table 11 and needs nothing. Only the qualifiers change.
+    """
+    marked = 0
+    genome = genome.upper()
+    for feat in features:
+        if feat.type != "CDS" or "pseudo" in feat.qualifiers or _EDITED_START_NOTE in feat.qualifiers.get("note", []):
+            continue
+        offset = int(feat.qualifiers.get("codon_start", ["1"])[0]) - 1
+        positions: list[tuple[int, int]] = []  # 1-based genome position and strand, in coding order
+        for part in feat.location.parts:
+            span = range(int(part.start) + 1, int(part.end) + 1)
+            positions.extend((q, part.strand or 1) for q in (reversed(span) if part.strand == -1 else span))
+            if len(positions) >= offset + 3:
+                break
+        first = positions[offset : offset + 3]
+        if len(first) < 3 or "".join(genome[q - 1] if st == 1 else genome[q - 1].translate(str.maketrans("ACGT", "TGCA"))
+                                     for q, st in first) != "ACG":
+            continue
+        qs, strand = [q for q, _ in first], first[0][1]
+        if any(st != strand for _, st in first) or sorted(qs) != list(range(min(qs), min(qs) + 3)):
+            continue  # the codon is split across exons: left alone
+        pos = f"{min(qs)}..{max(qs)}" if strand == 1 else f"complement({min(qs)}..{max(qs)})"
+        item = f"(pos:{pos},aa:Met)"
+        if item in feat.qualifiers.get("transl_except", []):
+            continue
+        feat.qualifiers.setdefault("transl_except", []).append(item)
+        feat.qualifiers["exception"] = ["RNA editing"]
+        feat.qualifiers.setdefault("note", []).append(_EDITED_START_NOTE)
+        marked += 1
+    return marked

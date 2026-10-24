@@ -12,6 +12,7 @@ description = "Plan a tree-building command with each tool's real interface. Ret
 keywords = ["analyze", "build", "phylogeny", "plan", "restored", "result", "tree"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.phylo_core:plan_tree_build"
@@ -27,3 +28,19 @@ result_key = "tree_build_plan"
 [[contract.binding.parameters]]
 name = "alignment_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "bootstrap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"

@@ -12,6 +12,7 @@ description = "Write a static HTML gallery for generated visualization previews.
 keywords = ["analyze", "preview", "report", "restored", "result", "visualization", "write"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.visualization.suite_plots:write_visualization_preview_report"
@@ -32,3 +33,7 @@ codec = "json"
 name = "output_html"
 codec = "path"
 path_role = "output"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"

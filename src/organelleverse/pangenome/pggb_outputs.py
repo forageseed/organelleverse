@@ -53,7 +53,7 @@ def related_artifacts(directory: Path) -> tuple[tuple[ArtifactRef, ...], list[di
         )
         validations.append(
             {
-                "file": str(path.relative_to(root)),
+                "file": path.relative_to(root).as_posix(),
                 "format": fmt,
                 "compression": "gzip" if compressed else None,
                 "validation": level,

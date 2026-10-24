@@ -39,3 +39,7 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "label_map"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "alpha"
+codec = "json"

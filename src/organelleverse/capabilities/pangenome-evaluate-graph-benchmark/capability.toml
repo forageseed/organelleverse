@@ -12,6 +12,7 @@ description = "Evaluate exact graph-base homology against an independently captu
 keywords = ["graph", "pangenome", "pav", "phylogeny", "report"]
 execution_mode = "inline"
 stage = "consume"
+visibility = "step"
 input_kind = "result"
 output_kind = "result"
 callable_locator = "organelleverse.pangenome.benchmark_evaluator:evaluate_graph_benchmark"

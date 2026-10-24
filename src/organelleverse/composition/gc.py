@@ -8,12 +8,16 @@ import os
 from collections.abc import Mapping
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, cast
+
+from annotated_types import Ge
+from organelleverse._public_validation import validated_public
 
 from .._bio import read_fasta
 from ..core.frozen import FrozenMap, thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
+from ..sequences import Sequences, as_path
 
 _OPERATION_ID = "composition.gc_content"
 _OPERATION_VERSION = "1.0"
@@ -62,12 +66,18 @@ def _provenance(parameters: dict[str, Any], source: Path) -> ResultProvenance:
     )
 
 
+@validated_public('composition.gc_content')
 def gc_content(
-    genome_fasta: str | Path,
+    genome_fasta: str | Path | Sequences,
     *,
-    window_size: int = 500,
+    window_size: Annotated[int, Ge(1)] = 500,
 ) -> OrganelleResult:
-    """Compute global + windowed GC content (and GC skew) from a FASTA."""
+    """Compute global + windowed GC content (and GC skew) from a FASTA.
+
+    ``window_size`` is a positive integer number of bases (default 500).
+    Invalid types and nonpositive windows raise OrganelleParameterError before input-file I/O.
+    """
+    genome_fasta = as_path(genome_fasta)
     source = Path(genome_fasta)
     parameters = {"window_size": window_size}
     seqs = read_fasta(source)

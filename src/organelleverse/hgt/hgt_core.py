@@ -1,15 +1,21 @@
 """Typed cores for HGT (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any, Mapping
+
+from organelleverse._public_validation import validated_public
+
+from ..sequences import Sequences, as_path
 from .align import HGTBackendError, run_hgt_alignments
 from .hgt import _build_hgt_metrics
 
 
+@validated_public('hgt.compute_hgt')
 def compute_hgt(
-    donor_fasta: str | Path,
-    recipient_fasta: str | Path,
+    donor_fasta: str | Path | Sequences,
+    recipient_fasta: str | Path | Sequences,
     min_len: int = 200,
     *,
     min_identity: float = 90.0,
@@ -20,6 +26,8 @@ def compute_hgt(
     phylogeny_evidence: Mapping[str, Any] | str | Path | None = None,
 ) -> dict:
     """Detect HGT candidates with minimap2/mappy-style local alignment."""
+    donor_fasta = as_path(donor_fasta)
+    recipient_fasta = as_path(recipient_fasta)
     try:
         selected_backend, alignments = run_hgt_alignments(
             donor_fasta,

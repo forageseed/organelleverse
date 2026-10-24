@@ -1,7 +1,10 @@
 """Typed cores for comparative (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
-from .compare import _gene_order, _gene_set, _GENE_ALIASES
+
+from organelleverse._public_validation import validated_public
+
+from .compare import _GENE_ALIASES, _gene_order, _gene_set
 
 
 def compute_gene_sets(genomes) -> list[set[str]]:
@@ -15,6 +18,7 @@ def compute_gene_intersection(genomes) -> set[str]:
     return set.intersection(*sets) if sets else set()
 
 
+@validated_public('comparative.normalize_gene_names')
 def normalize_gene_names(names: list[str]) -> dict[str, str]:
     """Normalize gene-name variants. Returns {input: canonical}."""
     out = {}

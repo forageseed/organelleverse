@@ -246,6 +246,22 @@ def measure_via_qupath(
                         "centroid_weighted_x": None,
                         "label_source": None,
                         "pixel_size_um": None,
+                        # Shape/network metrics are native-only (mito_metrics); QuPath rows keep the keys.
+                        "length_rect": None,
+                        "width_rect": None,
+                        "length_rect_um": None,
+                        "width_rect_um": None,
+                        "rect_angle_deg": None,
+                        "form_factor": None,
+                        "skeleton_length": None,
+                        "skeleton_length_um": None,
+                        "ends": None,
+                        "junctions": None,
+                        "tubules": None,
+                        "mean_branch_length": None,
+                        "mean_branch_length_um": None,
+                        "max_branch_length": None,
+                        "morphology_class": None,
                     }
                 )
     except OSError as error:

@@ -27,3 +27,15 @@ result_codec = "canonical"
 name = "proteome_dir"
 codec = "directory"
 path_role = "input"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "msa"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "search"
+codec = "json"
