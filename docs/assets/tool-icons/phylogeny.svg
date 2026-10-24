@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="phylogeny-title phylogeny-desc">
+  <title id="phylogeny-title">Phylogeny</title>
+  <desc id="phylogeny-desc">A branching phylogenetic tree with distinct terminal taxa.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 32h11 M19 17v30 M19 17h14 M19 47h26 M33 10v19 M33 10h16 M33 29h16" stroke="#355b43" /><circle cx="50" cy="10" r="4" fill="#d9a33b" stroke="white" stroke-width="1.4"/><circle cx="50" cy="29" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="46" cy="47" r="4" fill="#dc7147" stroke="white" stroke-width="1.4"/><circle cx="8" cy="32" r="3" fill="#355b43" stroke="white" stroke-width="1.4"/>
+  </g>
+</svg>

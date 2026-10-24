@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="agent-interface-title agent-interface-desc">
+  <title id="agent-interface-title">Agent interface</title>
+  <desc id="agent-interface-desc">An agent interface connected to the shared scientific contract.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="14" y="15" width="36" height="29" rx="7" fill="#e9efe5"/><path d="M32 15V8 M23 44v8 M41 44v8 M8 25h6 M50 25h6" stroke="#355b43" /><circle cx="32" cy="7" r="3" fill="#d9a33b" stroke="white" stroke-width="1.4"/><circle cx="24" cy="28" r="3" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="40" cy="28" r="3" fill="#355b43" stroke="white" stroke-width="1.4"/><path d="M25 36h14" stroke="#d9a33b" /><path d="M50 44l2 4 5 1-5 2-2 5-2-5-5-2 5-1z" stroke="#dc7147" />
+  </g>
+</svg>

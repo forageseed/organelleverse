@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="annotation-title annotation-desc">
+  <title id="annotation-title">Annotation</title>
+  <desc id="annotation-desc">Gene features and a pencil on a genomic track.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 24h46 M8 39h46" stroke="#355b43" /><rect x="12" y="20" width="10" height="8" rx="2" fill="#fbf1d8"/><rect x="28" y="20" width="16" height="8" rx="2" fill="#e9efe5"/><rect x="17" y="35" width="11" height="8" rx="2" fill="#e9efe5"/><rect x="34" y="35" width="11" height="8" rx="2" fill="#fbf1d8"/><path d="M41 49l11-11 5 5-11 11-7 2 2-7z" stroke="#dc7147" /><path d="M49 41l5 5" stroke="#dc7147" />
+  </g>
+</svg>

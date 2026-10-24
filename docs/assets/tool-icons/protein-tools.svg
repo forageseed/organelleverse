@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="protein-tools-title protein-tools-desc">
+  <title id="protein-tools-title">Protein tools</title>
+  <desc id="protein-tools-desc">Protein motifs and a targeting arrow toward an organelle.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 14c12-10 5 18 17 9s5 18 17 9" stroke="#d9a33b" /><circle cx="9" cy="14" r="3" fill="#d9a33b" stroke="white" stroke-width="1.4"/><circle cx="25" cy="23" r="3" fill="#d9a33b" stroke="white" stroke-width="1.4"/><path d="M39 39c11-12 24-2 16 11S30 53 39 39z" fill="#e9efe5"/><path d="M43 40c8-5 8 2 3 4s-3 9 5 4" stroke="#355b43" /><path d="M11 46h19 M25 41l5 5-5 5" stroke="#dc7147" />
+  </g>
+</svg>

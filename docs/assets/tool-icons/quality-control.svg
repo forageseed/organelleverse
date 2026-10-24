@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="quality-control-title quality-control-desc">
+  <title id="quality-control-title">Quality control</title>
+  <desc id="quality-control-desc">A checklist and magnifier for scientific evidence checks.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="13" y="10" width="30" height="43" rx="4" fill="#fff"/><path d="M21 8h14v6H21z" stroke="#d9a33b" /><path d="M19 24l3 3 5-6 M19 36l3 3 5-6" stroke="#355b43" /><path d="M31 25h6 M31 37h6" stroke="#d9a33b" /><circle cx="44" cy="43" r="10" fill="#fbf1d8"/><path d="M51 50l7 7 M40 43l3 3 5-6" stroke="#355b43" />
+  </g>
+</svg>
