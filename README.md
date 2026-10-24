@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/ov-readme-header.svg" alt="OrganelleVerse logo and scientific toolkit" width="1280">
+<img src="docs/assets/ov-readme-header.svg?brand=github" alt="OrganelleVerse logo and scientific toolkit" width="1280">
 
 
 **The analysis foundation for AI-driven plant organelle genomics.**

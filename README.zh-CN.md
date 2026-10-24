@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/ov-readme-header.svg" alt="OrganelleVerse logo and scientific toolkit" width="1280">
+<img src="docs/assets/ov-readme-header.svg?brand=github" alt="OrganelleVerse logo and scientific toolkit" width="1280">
 
 
 **面向 AI 的植物细胞器基因组分析基座。**

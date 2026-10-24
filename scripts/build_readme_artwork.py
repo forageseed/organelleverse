@@ -5,6 +5,7 @@ Standard library only. No scientific package imports, remote assets or network.
 from __future__ import annotations
 
 import argparse
+import base64
 from html import escape
 import json
 from pathlib import Path
@@ -24,6 +25,17 @@ def drawing(path: Path) -> str:
 def compose(root: Path) -> tuple[Path, Path]:
     assets = root / 'docs' / 'assets'
     tools = json.loads((assets / 'readme-tools.json').read_text(encoding='utf-8'))['tools']
+    # Use the repository's existing GitHub brand asset as the single source.
+    # Do not select similarly named legacy logos from other working copies.
+    logo_data = base64.b64encode((assets / 'logo.png').read_bytes()).decode('ascii')
+    (assets / 'readme-logo.svg').write_text(
+        f'<svg xmlns="{NS}" width="300" height="300" viewBox="150 140 950 960" '
+        'role="img" aria-labelledby="brand-title">\n'
+        '<title id="brand-title">OrganelleVerse logo</title>\n'
+        '<desc>The existing GitHub docs/assets/logo.png is preserved unchanged. '
+        'The SVG viewBox crops only its surrounding whitespace.</desc>\n'
+        f'<image x="0" y="0" width="1254" height="1254" href="data:image/png;base64,{logo_data}"/>\n'
+        '</svg>\n', encoding='utf-8', newline='\n')
     logo = ET.parse(assets / 'readme-logo.svg').getroot()
     logo.attrib.update(x='30', y='96', width='300', height='292')
     brand = ET.tostring(logo, encoding='unicode')

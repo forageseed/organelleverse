@@ -1,6 +1,6 @@
 # README artwork
 
-The header preserves the original green/orange OrganelleVerse logo on the left
+The header preserves the existing blue-V/DNA/green-and-orange OrganelleVerse logo on the left
 and displays eighteen separately editable tool illustrations on the right.
 The white canvas, forest-green lines, sage fills and warm gold/orange accents
 follow the existing brand. The tool illustrations are original SVG geometry.
@@ -9,7 +9,8 @@ follow the existing brand. The tool illustrations are original SVG geometry.
 
 - `assets/tool-icons/*.svg`: one independent, titled 64 × 64 SVG per tool family.
 - `assets/readme-tools.json`: labels, source modules and icon order.
-- `assets/readme-logo-source.png`: the existing logo, unchanged.
+- `assets/logo.png`: the existing GitHub logo, unchanged; this is the single
+  brand source read by the builder, not a similarly named legacy logo.
 - `assets/readme-logo.svg`: embeds that PNG and crops its outer whitespace with
   an SVG viewBox. The logo remains a raster original; it is not a vector trace.
 - `assets/ov-readme-header.svg`: self-contained 1280 × 430 composite.
@@ -42,7 +43,8 @@ scheduling are outside this artwork's OV feature claims.
 ## Design brief
 
 Create a compact GitHub README header for OrganelleVerse. Preserve the current
-green-and-orange chloroplast/DNA/mitochondrion logo on the left, cropping only
+GitHub `docs/assets/logo.png` (blue V and DNA, green chloroplast, orange mitochondrion)
+on the left, cropping only
 the empty outer canvas. On the right, arrange the eighteen scientific tool
 families in a clear three-row grid. Draw each family as a separate 64 × 64 SVG
 with rounded 2.2-unit forest-green strokes, pale sage and cream fills, and small
