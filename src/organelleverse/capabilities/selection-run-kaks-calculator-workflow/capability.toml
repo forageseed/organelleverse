@@ -27,3 +27,11 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genetic_code"
+codec = "json"

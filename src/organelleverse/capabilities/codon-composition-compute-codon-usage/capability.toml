@@ -12,6 +12,8 @@ description = "Compute codon counts, RSCU, EMBOSS-like usage rows, ENC, and GC3s
 keywords = ["analyze", "codon", "codon_composition", "compute", "restored", "result", "usage"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
+superseded_by = "codon_composition.codon_usage"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.codon_composition.codon_core:compute_codon_usage"
@@ -28,6 +30,14 @@ result_key = "codon_usage"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genetic_code"
+codec = "json"
 
 [[fixture]]
 case = "basic"

@@ -8,6 +8,7 @@ pyhmmer rRNA detector — no external bioinformatics program.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -19,6 +20,7 @@ from ..cmsearch.introns import splice_trna_in_span
 from ..cmsearch.model import parse_cm
 from ..cmsearch.models import CMHit
 from ..cmsearch.naming import name_trna
+from ..cmsearch.parallel import cyk_thread_count, pmap
 from ..cmsearch.search import _resolve_overlaps
 from .rrna_native import annotate_plastid_rrna
 
@@ -307,7 +309,7 @@ def native_trna_features(
         ]
     if intron_hints:
         hits = _resolve_overlaps(hits + _hint_hits(seq, intron_hints, hits, model, min_bits))
-    features: list[SeqFeature] = []
+    placed = []  # (hit, location, mature) in hit order
     for h in hits:
         strand = 1 if h.strand >= 0 else -1
         if h.exons:
@@ -321,7 +323,11 @@ def native_trna_features(
             location = FeatureLocation(h.start - 1, h.end, strand=strand)
             if strand == -1:
                 mature = _rc(mature)
-        named = name_trna(model, mature)
+        placed.append((h, location, mature))
+    # naming traces each mature tRNA through the CM (GIL-free kernel): name them on the run's threads, in order
+    names = pmap(lambda item: name_trna(model, item[2]), placed)
+    features: list[SeqFeature] = []
+    for (h, location, _), named in zip(placed, names, strict=True):
         quals: dict[str, list[str]] = {"product": ["tRNA"]}
         if named is not None:
             anticodon, aa, _ = named
@@ -361,10 +367,21 @@ def native_trna_rrna_features(
     intron_exon_seeds: Mapping[str, Sequence[tuple[str, str]]] | None = None,
 ) -> list[SeqFeature]:
     """All native plastid tRNA + rRNA features for one plastome sequence."""
-    trnas = native_trna_features(
-        seq,
-        intron_hints=intron_hints,
-        intron_exon_lengths=intron_exon_lengths,
-        intron_exon_seeds=intron_exon_seeds,
-    )
-    return trnas + native_rrna_features(seq)
+    if cyk_thread_count() <= 1:
+        trnas = native_trna_features(
+            seq,
+            intron_hints=intron_hints,
+            intron_exon_lengths=intron_exon_lengths,
+            intron_exon_seeds=intron_exon_seeds,
+        )
+        return trnas + native_rrna_features(seq)
+    # The rRNA search (pyhmmer) is independent of the tRNA search: run it alongside; same lists, same order.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        rrnas = pool.submit(native_rrna_features, seq)
+        trnas = native_trna_features(
+            seq,
+            intron_hints=intron_hints,
+            intron_exon_lengths=intron_exon_lengths,
+            intron_exon_seeds=intron_exon_seeds,
+        )
+        return trnas + rrnas.result()

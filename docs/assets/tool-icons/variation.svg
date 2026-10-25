@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="variation-title variation-desc">
+  <title id="variation-title">Variation &amp; diversity</title>
+  <desc id="variation-desc">Variant sequence columns and a distribution of allele fractions.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 12h47 M8 23h47 M8 34h47" stroke="#355b43" /><rect x="20" y="8" width="8" height="30" rx="2" fill="#fbf1d8"/><path d="M21 13h6 M21 24h6 M21 35h6" stroke="#dc7147" /><path d="M10 55h45" stroke="#355b43" /><rect x="15" y="47" width="7" height="8" rx="1" fill="#e9efe5"/><rect x="28" y="41" width="7" height="14" rx="1" fill="#fbf1d8"/><rect x="41" y="44" width="7" height="11" rx="1" fill="#f7dfd2"/>
+  </g>
+</svg>

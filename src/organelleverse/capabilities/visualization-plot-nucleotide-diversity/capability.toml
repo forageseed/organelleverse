@@ -1,0 +1,89 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_nucleotide_diversity"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot Nucleotide Diversity"
+description = "Prepare a sliding-window nucleotide diversity profile from an existing alignment with the LSC/IR/SSC band and named peaks; render with ov.write."
+keywords = ["diversity", "dnasp", "hotspot", "pi", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.paper_figures:plot_nucleotide_diversity"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[[contract.dependencies]]
+kind = "python"
+name = "Bio"
+locator = "biopython"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "alignment_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "genbank_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "windows"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reference_index"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "window_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "step"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "top_n"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_ir"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height_mm"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { alignment_fasta = "fixtures/basic/input/aln.fasta", genbank_path = "fixtures/basic/input/ref.gb", show_ir = false, top_n = 2 }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

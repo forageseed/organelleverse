@@ -179,6 +179,22 @@ def evaluate_conformation_benchmark(
     )
 
 
+def evaluate_taxonomy_benchmark(
+    result: OrganelleResult, *, truth_artifact_id: str
+) -> OrganelleResult:
+    """Measure curated-taxonomy recovery with a fixed node-presence predictor."""
+    from .taxonomy_benchmark import TaxonomyTruth, score_taxonomy
+
+    return _evaluate_benchmark(
+        result,
+        truth_artifact_id,
+        TaxonomyTruth,
+        score_taxonomy,
+        "pangenome.evaluate_taxonomy_benchmark",
+        "Independent curated-taxonomy recovery",
+    )
+
+
 def _evaluate_benchmark(result, truth_artifact_id, truth_model, scorer, operation, title):
     graph = _graph_input(result, {"gfa"})
     matches = [

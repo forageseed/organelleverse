@@ -10,6 +10,12 @@ from .boundary import correct_boundaries
 from .cds import partition_valid_cds, validate_cds
 from .db import DBManager
 from .fasta import load_fasta, validate_fasta
+from .fragment_filter import (
+    drop_duplicate_fragments,
+    multi_exon_genes,
+    reference_length_floors,
+    reference_protein_lengths,
+)
 from .gff import write_genbank, write_gff3
 from .pcg import PCGConfig, annotate_pcg
 from .result import MitochondrialAnnotationStats
@@ -175,6 +181,20 @@ class MitochondrialAnnotationPipeline:
             f"{candidate.end if candidate.end is not None else '?'} "
             f"({','.join(candidate.issue_codes)})"
             for candidate in rejected_cds
+        )
+        # Short copies of genes that are also annotated in full, and short single-exon
+        # remnants of single-exon genes, are repeat-borne fragments or pseudogene
+        # remnants, not genes; publishing them cost most of the CDS precision.
+        annotations, fragments = drop_duplicate_fragments(
+            annotations,
+            reference_protein_lengths(self.db_manager),
+            multi_exon_genes(self.db_manager),
+            reference_length_floors(self.db_manager),
+        )
+        warnings.extend(
+            f"Dropped short CDS fragment {f.gene_name}:{f.genomic_start}-{f.genomic_end} "
+            f"({f.total_exon_length} bp; under 60% of the shortest reference proteins)"
+            for f in fragments
         )
         cds_result = validate_cds(annotations, genome, self.db_manager)
 

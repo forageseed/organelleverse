@@ -27,3 +27,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "cds_pairs_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "jukes_cantor"
+codec = "json"

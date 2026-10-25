@@ -26,3 +26,31 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "karyotype"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_names"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_mb"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_lengths"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "chromosome_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "density_label"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "profile_labels"
+codec = "json"

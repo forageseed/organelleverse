@@ -80,19 +80,30 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "variation.snp": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='reference_index', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "variation.snp_density": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='reference_index', codec=ParameterCodec.JSON),
+            ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+            ParameterOverride(name='step', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "variation.compute_snp": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='reference_index', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="snp_metrics",
         side_effects=(SideEffect.READ_FILES,),

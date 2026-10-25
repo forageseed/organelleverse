@@ -1,0 +1,70 @@
+LOCUS       FIXR                    3000 bp    DNA     circular UNK 01-JAN-2026
+DEFINITION  Alpha one chloroplast, complete genome.
+ACCESSION   FIXR
+VERSION     FIXR.1
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  Alpha one
+            .
+FEATURES             Location/Qualifiers
+     source          1..3000
+                     /organism="Alpha one"
+                     /organelle="plastid:chloroplast"
+     gene            complement(1..400)
+                     /gene="psbA"
+     gene            1000..1700
+                     /gene="matK"
+     gene            2200..2900
+                     /gene="rbcL"
+ORIGIN
+        1 agagtcggcc ctggcgcgga attgcatcgg cgggattaaa tgacgggagc ctctcggtag
+       61 cgcaacaagt acaaacgaac tcttaacaac gtccctccga aagtgcctag cattacggtc
+      121 aaatctggtt atactcgttg cgtgtacttc acggattatg ttcgttgaaa tgaccctgac
+      181 gcttgagcaa agagcactgg tgaatatcgg tgacatttac ttctagcggt ctatgttccc
+      241 cacgcttgcc aggctaaaat catggacatc acaatgagat gtaagcagaa cttggttccg
+      301 catgtgtcgc ttacgatcga tcgttcatcg tgtgctcgta tgccaacgat aggcttgctg
+      361 cactctcctt cgttccggga gcgcctggag cggcccatat attacgtaca tcaccaataa
+      421 caccccgcag tcgcacgctc gcggaataga ggatatggct catataccgc gcatgcatga
+      481 tattgtatat acgatatgac aggtcctgaa ccccttgttg aacgaatttc tacccattca
+      541 gaaggcttgc aggcttttta ttctaagtga ctattttgct aatggcggta tatggctacc
+      601 agcatctctc tgataatggt tcacttgtac tctttgggga ataaaaaagg tcaactgtga
+      661 atgttcgggg gtagaggccg gtgacggcaa acgcaagggt tcggtttttt cactgctata
+      721 ttgctcaaga agatgcggca ggttctttga agcatatggc acggtttgct taattcgact
+      781 gtcgttatca gctggtgttg agatcagcga aagctgaatc ggcaattgcc atgtagagga
+      841 tacttgcgct gtgggctacg ctccagtctc cgcattagtg gttacgacac aagtgggtct
+      901 acgcgagatc cttgaagact ggctatacac tatgcaaagt gtacttaagg ctgttagcct
+      961 cgaccttaaa tacagttcaa acggaaggcg ttcaacgggt gtccgccctg ttgcgatcgc
+     1021 gtcgggtcgg ccatcgtgaa taacgaatag agcgttgtca cgaccagcaa atcccaactc
+     1081 agccgcctga agcagatgat aattaacaga tcttccacaa ggtacagaag atgagagtac
+     1141 tagccaggtc tccgtgtgct tcaagtgaag acacctcaaa tactacggag gcccctgagc
+     1201 tgaagtcgga aagcaggcag caacgcagta tgtacagcaa gatggttaat tgggcacaat
+     1261 gttaaccgcc gcgccgtgtt ttgcagaagt ggactacgaa tgcaagaccc tgacgctcga
+     1321 cgagttacgg acgtgtccat cgggcgcggg gcactctgcc taagctggtc gtttgaggtt
+     1381 aatggcattc tagtcttcaa tcttttgatg gatttcctgt gttacgcctg cctcttaatc
+     1441 cacacacgtg gctaagccaa ttgcggtccg atatcctacc gcccccggag attcgttccg
+     1501 agactgattg ctgatgctat tgacacctcc ccgccctagg gacaatcaca tcctcttagc
+     1561 gacccagtgg cataaaacct tcattactag gttagtcatg ccactacaca gatcggaaat
+     1621 cagggaccga cgttagcgaa agatctccgt gtatcattac ttggggttta cgccataaac
+     1681 tcagcgtcgt ctccatatcg tactataatc tctaaagttt ggagaggacg ggcatgaggt
+     1741 tagcacagcc ccacttagag gtgatcttga ctagcgaatt taccacacac tatgggtact
+     1801 ggccgacaac cattttgaca cgctatcagt cgtataaaac tatcgattct acgtagagtc
+     1861 ttatggcctt atgctaaggg ggctcgtcat actacgtact tcagcattca taacgtacgc
+     1921 agacggaacg ggtgccaagg atgacaaatg gcagacaaca caatacccgt aagatggtat
+     1981 agcgtcttaa agtgtggagc aagcgcttgg ctcgctcgcc tcgttaacag gcgggggtag
+     2041 tatagaccaa gtctgtaggt tttgttgttg aagtgtccct gagacctctt actgctaccg
+     2101 atgatgtaac cgatccactc tcactcgccc tgtagtcaac aagactacgc gactgtagat
+     2161 caaacgcact tcaggatcga gtgccaaggt cgcacggact tctccttaag ttcccctgag
+     2221 agtccgaaga actaatttaa aatctcgtgt aaaacaagtc acccagttcg gcaatttcct
+     2281 tagttgaata ccataataga cttgagcagg gggcgaagga gagcaccctt tgcactagta
+     2341 aacagtggcc cccgtagccc cccgctgcta aacttaaaag ttagtggttg ttctaaggaa
+     2401 gtaaattgac gtgatacacc gtgatccgat ggccaggact cggccagggt ttccaggtgt
+     2461 tacgacgcgg cgattcctgc acaagccatc cagttggtat gcttcagtga cacccaccta
+     2521 cgctgcggtg cataaatacc tcctcgaatg aggagattcg cacaacggtc ggccctggtt
+     2581 aattagagat atgtaatttt cgatatctgt cgatagtatc ggtctatacc ggcgtgtcga
+     2641 cggagtttcc agcatttact gcaagttttc gccaggtaat atgacctcac cccctactac
+     2701 acttatgttg agaacaccga aagtttctca tagtacgaaa cccttgccgt gttccaacca
+     2761 aatcaactct gatccgttta tcttgatcaa taaaattcgg tattggtaca cacgttcccc
+     2821 gatgccgtga accttgctaa acccagaaaa gatgcgccca gggcgatagg gtcggaaaac
+     2881 gcgtgagcgc gttttcatcg gctaaaaaag cgaacgatcg acttctcgaa ttaggtcctg
+     2941 cgtagctacg cgccgatgat cgatgttctg actcagatcc ctcatcgtga gactatcggc
+//

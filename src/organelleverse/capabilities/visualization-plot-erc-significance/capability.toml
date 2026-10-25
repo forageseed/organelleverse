@@ -30,3 +30,35 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "pairs"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "highlight_genes"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "highlight_groups"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "q_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "r_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "strong_r"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_top_n"
+codec = "json"

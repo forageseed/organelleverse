@@ -9,6 +9,15 @@ from organelleverse.operations.output_boundary import (
 )
 
 FROZEN_PUBLIC_SURFACE_VIOLATIONS: dict[str, tuple[str, ...]] = {
+    # Reviewed 2026-10-15. Kept on purpose when the desktop layer retired: it
+    # runs one built-in workbench analysis into a run directory, like a CLI
+    # invocation, rather than computing a typed scientific value
+    # (docs/workbench-python.md).
+    "workbench.run": ("output",),
+    # Reviewed 2026-10-15 as debt, not as a design: the native reconstruction
+    # (86d3fab3) writes FASTA/GFA straight into `output`. Migrate it to
+    # compute-then-write (managed workspace + assembly.write) and remove this.
+    "assembly.reconstruct": ("output",),
 }
 
 

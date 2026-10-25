@@ -27,3 +27,39 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "images"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "device"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "config"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "checkpoint"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "measure_objects"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "intensity_image"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "pixel_size_um"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "is_3d_stack"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "micro_sam_model_type"
+codec = "json"

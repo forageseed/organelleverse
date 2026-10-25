@@ -31,3 +31,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "genbank_paths"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "feature_type"
+codec = "json"

@@ -21,7 +21,9 @@ from uuid import uuid4
 
 import numpy as np
 
+from organelleverse.assembly.contracts import validate_assembly_data
 from organelleverse.assembly.read_stats import iter_fastq_records, open_record_text
+from organelleverse.core.data import OrganelleData
 from organelleverse.core.errors import (
     OrganelleDependencyError,
     OrganelleExecutionError,
@@ -113,12 +115,38 @@ def _result(operation: str, metrics: dict[str, Any], *, empty: bool = False) -> 
     )
 
 
-def read_statistics(reads: Path) -> OrganelleResult:
+def read_statistics(reads: Path | OrganelleData) -> OrganelleResult:
     """Count four-line FASTQ (plain/gzip); mean quality is base-weighted Phred+33.
 
+    ``reads`` is one FASTQ path, or the sequencing-read data from ``ov.read``. For data,
+    each library is summarized under its own key (``long_0``, ``short_0``, ...) with its
+    technology (and quality state or layout); a paired-end library pools both files.
     Empty files have zero counts/N50 and null mean/median values.
     """
+    if isinstance(reads, OrganelleData):
+        return _result("read_statistics", _library_statistics(reads))
     return _result("read_statistics", _statistics([Path(reads)]))
+
+
+def _library_statistics(data: OrganelleData) -> dict[str, Any]:
+    payload = validate_assembly_data(data)
+    metrics: dict[str, Any] = {}
+    for index, long_library in enumerate(payload.long_libraries):
+        metrics[f"long_{index}"] = {
+            "technology": long_library.technology,
+            "quality_state": long_library.quality_state,
+            **_statistics([data.artifacts[long_library.reads_artifact].resolve()]),
+        }
+    for index, short_library in enumerate(payload.short_libraries):
+        roles = [short_library.read1_artifact]
+        if short_library.read2_artifact is not None:
+            roles.append(short_library.read2_artifact)
+        metrics[f"short_{index}"] = {
+            "technology": short_library.technology,
+            "layout": short_library.layout,
+            **_statistics([data.artifacts[role].resolve() for role in roles]),
+        }
+    return metrics
 
 
 def _run_directory(operation: str) -> Path:

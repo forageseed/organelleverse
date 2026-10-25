@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "tools": [
+    {
+      "id": "assembly",
+      "label": "Assembly",
+      "domains": [
+        "assembly"
+      ],
+      "description": "Sequence reads connecting into an assembly graph.",
+      "svg": "tool-icons/assembly.svg"
+    },
+    {
+      "id": "annotation",
+      "label": "Annotation",
+      "domains": [
+        "annotation"
+      ],
+      "description": "Gene features and a pencil on a genomic track.",
+      "svg": "tool-icons/annotation.svg"
+    },
+    {
+      "id": "retrieval",
+      "label": "Data retrieval",
+      "domains": [
+        "fetch"
+      ],
+      "description": "A sequence database with a download arrow.",
+      "svg": "tool-icons/retrieval.svg"
+    },
+    {
+      "id": "quality-control",
+      "label": "Quality control",
+      "domains": [
+        "quality_control",
+        "composition",
+        "codon_composition"
+      ],
+      "description": "A checklist and magnifier for scientific evidence checks.",
+      "svg": "tool-icons/quality-control.svg"
+    },
+    {
+      "id": "comparative",
+      "label": "Comparison",
+      "domains": [
+        "comparative"
+      ],
+      "description": "Two aligned genomes connected by homologous blocks.",
+      "svg": "tool-icons/comparative.svg"
+    },
+    {
+      "id": "phylogeny",
+      "label": "Phylogeny",
+      "domains": [
+        "phylogeny"
+      ],
+      "description": "A branching phylogenetic tree with distinct terminal taxa.",
+      "svg": "tool-icons/phylogeny.svg"
+    },
+    {
+      "id": "pangenome",
+      "label": "Pangenome",
+      "domains": [
+        "pangenome"
+      ],
+      "description": "Alternate genome paths in a pangenome graph.",
+      "svg": "tool-icons/pangenome.svg"
+    },
+    {
+      "id": "selection",
+      "label": "Selection",
+      "domains": [
+        "selection"
+      ],
+      "description": "Two codon tracks and differing evolutionary rate profiles.",
+      "svg": "tool-icons/selection.svg"
+    },
+    {
+      "id": "rna-analysis",
+      "label": "RNA analysis",
+      "domains": [
+        "rna_editing",
+        "rna_seq",
+        "trans_splicing"
+      ],
+      "description": "A spliced RNA strand with an editing site.",
+      "svg": "tool-icons/rna-analysis.svg"
+    },
+    {
+      "id": "protein-tools",
+      "label": "Protein tools",
+      "domains": [
+        "localization",
+        "ppr"
+      ],
+      "description": "Protein motifs and a targeting arrow toward an organelle.",
+      "svg": "tool-icons/protein-tools.svg"
+    },
+    {
+      "id": "gene-transfer",
+      "label": "Gene transfer",
+      "domains": [
+        "hgt",
+        "transfer"
+      ],
+      "description": "A transferred sequence block connecting two genomes.",
+      "svg": "tool-icons/gene-transfer.svg"
+    },
+    {
+      "id": "genome-structure",
+      "label": "Genome structure",
+      "domains": [
+        "structure",
+        "ir_boundary"
+      ],
+      "description": "Repeated and inverted blocks along a genome.",
+      "svg": "tool-icons/genome-structure.svg"
+    },
+    {
+      "id": "variation",
+      "label": "Variation & diversity",
+      "domains": [
+        "variation",
+        "diversity",
+        "population",
+        "heteroplasmy"
+      ],
+      "description": "Variant sequence columns and a distribution of allele fractions.",
+      "svg": "tool-icons/variation.svg"
+    },
+    {
+      "id": "barcoding",
+      "label": "Barcoding",
+      "domains": [
+        "barcode"
+      ],
+      "description": "A molecular barcode and sequence matching marker.",
+      "svg": "tool-icons/barcoding.svg"
+    },
+    {
+      "id": "morphology",
+      "label": "Morphology",
+      "domains": [
+        "morphology"
+      ],
+      "description": "Organelle outlines with a measurement ruler.",
+      "svg": "tool-icons/morphology.svg"
+    },
+    {
+      "id": "visualization",
+      "label": "Visualization",
+      "domains": [
+        "visualization"
+      ],
+      "description": "A scientific plot with several data series.",
+      "svg": "tool-icons/visualization.svg"
+    },
+    {
+      "id": "python-api",
+      "label": "Python API",
+      "domains": [
+        "format_conversion",
+        "io",
+        "writer"
+      ],
+      "description": "A Python coding interface joined to scientific data.",
+      "svg": "tool-icons/python-api.svg"
+    },
+    {
+      "id": "agent-interface",
+      "label": "Agent interface",
+      "domains": [
+        "operations",
+        "agent_guide"
+      ],
+      "description": "An agent interface connected to the shared scientific contract.",
+      "svg": "tool-icons/agent-interface.svg"
+    }
+  ]
+}

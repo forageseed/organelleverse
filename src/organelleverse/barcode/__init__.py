@@ -14,13 +14,16 @@ conservation of their binding sites.
 
 from __future__ import annotations
 
+from ..writer import deprecated_alias
+
+from ..sequences import read
 from ..writer import write
 from .barcode import design_barcode, identify
 from .barcode_core import compute_barcode_candidates, compute_jaccard_identity
 from .primers import design_marker_primers
 
 design = design_barcode
-save = write
+save = deprecated_alias(write, "save")
 
 __all__ = [
     "compute_barcode_candidates",
@@ -29,6 +32,7 @@ __all__ = [
     "design_barcode",
     "design_marker_primers",
     "identify",
+    "read",
     "save",
     "write",
 ]

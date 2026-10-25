@@ -31,3 +31,19 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "rscu_rows"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "rna_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "include_stop"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "layout"
+codec = "json"

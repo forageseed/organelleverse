@@ -27,3 +27,55 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "nuclear_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle_annotation"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle_genbank"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "nuclear_annotation"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "bam_path"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "hifi_reads"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "nuclear_mean_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle_mean_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_tolerance"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "longread_flank"
+codec = "json"

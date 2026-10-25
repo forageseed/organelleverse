@@ -12,6 +12,7 @@ description = "Validate CDS sequences for codeml analysis."
 keywords = ["analyze", "cds", "restored", "result", "selection", "validate"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.codeml:validate_cds"
@@ -27,3 +28,11 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "require_start"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "allow_internal_stop"
+codec = "json"

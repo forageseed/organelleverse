@@ -12,6 +12,7 @@ description = "Plan or run trimAl with intermediate files in managed storage."
 keywords = ["alignment", "analyze", "phylogeny", "restored", "result", "run", "trim"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.service:run_trim_alignment"
@@ -27,3 +28,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "alignment_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"

@@ -129,7 +129,10 @@ class VerificationRecord(StrictSpecModel):
 
 
 def current_platform_identity() -> PlatformIdentity:
-    libc_name, libc_version = platform_module.libc_ver()
+    # On Linux libc_ver() asks the C library (os.confstr). Elsewhere it opens and
+    # scans the interpreter binary for a version string, which turned listing
+    # operations into file I/O on Windows and still found nothing there.
+    libc_name, libc_version = platform_module.libc_ver() if sys.platform.startswith("linux") else ("", "")
     libc = f"{libc_name}-{libc_version}" if libc_name or libc_version else "unknown"
     return PlatformIdentity(
         os=platform_module.system().lower() or sys.platform,

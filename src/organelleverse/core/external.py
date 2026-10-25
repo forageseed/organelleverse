@@ -9,10 +9,17 @@ bounded output tails in ``details`` and the stderr tail in ``message``.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, NoReturn
+
+from organelleverse.operations.process_registry import (
+    register_process,
+    terminate_tree,
+    unregister_process,
+)
 
 from .errors import OrganelleError, OrganelleExecutionError
 
@@ -120,29 +127,18 @@ def run_external(
         raise ValueError("argv must not be empty")
     name = tool or Path(str(argv[0])).name
     try:
-        completed = subprocess.run(
+        popen = subprocess.Popen(
             [str(item) for item in argv],
             cwd=cwd,
             env=dict(env) if env is not None else None,
-            input=input_data,
-            capture_output=True,
+            stdin=subprocess.PIPE if input_data is not None else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=timeout,
-            check=False,
             shell=False,
-        )
-    except subprocess.TimeoutExpired as error:
-        _raise_failure(
-            error_class,
-            code=code,
-            message=f"{name} timed out after {timeout} seconds",
-            argv=argv,
-            returncode=None,
-            stdout=error.stdout,
-            stderr=error.stderr,
-            extra_details=extra_details,
+            start_new_session=os.name == "posix",
         )
     except OSError as error:
         _raise_failure(
@@ -155,6 +151,31 @@ def run_external(
             stderr=str(error),
             extra_details=extra_details,
         )
+    # Registered under the running turn so a user Stop kills the whole tree.
+    register_process(popen)
+    try:
+        stdout_text, stderr_text = popen.communicate(input=input_data, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        terminate_tree(popen)
+        try:
+            stdout_text, stderr_text = popen.communicate(timeout=5)
+        except Exception:
+            stdout_text, stderr_text = error.stdout, error.stderr
+        _raise_failure(
+            error_class,
+            code=code,
+            message=f"{name} timed out after {timeout} seconds",
+            argv=argv,
+            returncode=None,
+            stdout=stdout_text,
+            stderr=stderr_text,
+            extra_details=extra_details,
+        )
+    finally:
+        unregister_process(popen)
+    completed = subprocess.CompletedProcess(
+        [str(item) for item in argv], popen.returncode, stdout_text, stderr_text
+    )
     if completed.returncode != 0:
         _raise_failure(
             error_class,

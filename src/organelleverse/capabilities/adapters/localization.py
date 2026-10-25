@@ -90,7 +90,13 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(),
     ),
     "localization.predict": NamedParameterOverride(
-        parameters=(ParameterOverride(name="fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='backend', codec=ParameterCodec.JSON),
+            ParameterOverride(name='deeploc_model', codec=ParameterCodec.JSON),
+            ParameterOverride(name='deeploc_device', codec=ParameterCodec.JSON),
+            ParameterOverride(name='organism', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.WRITE_FILES, SideEffect.SUBPROCESS),
@@ -108,19 +114,30 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(),
     ),
     "localization.score_signal_peptide": NamedParameterOverride(
-        parameters=(ParameterOverride(name="seq", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="seq", codec=ParameterCodec.JSON),
+            ParameterOverride(name='minscore', codec=ParameterCodec.JSON),
+            ParameterOverride(name='organism', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="signal_peptide",
         side_effects=(),
     ),
     "localization.score_transit_peptides": NamedParameterOverride(
-        parameters=(ParameterOverride(name="seq", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="seq", codec=ParameterCodec.JSON),
+            ParameterOverride(name='window', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="transit_peptides",
         side_effects=(),
     ),
     "localization.score_transmembrane": NamedParameterOverride(
-        parameters=(ParameterOverride(name="seq", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="seq", codec=ParameterCodec.JSON),
+            ParameterOverride(name='window', codec=ParameterCodec.JSON),
+            ParameterOverride(name='threshold', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="transmembrane",
         side_effects=(),

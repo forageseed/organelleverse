@@ -12,6 +12,7 @@ description = "Predict transmembrane alpha-helices via the GES hydropathy scale.
 keywords = ["analyze", "localization", "restored", "result", "score", "transmembrane"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.localization.localize_core:score_transmembrane"
@@ -26,4 +27,12 @@ result_key = "transmembrane"
 
 [[contract.binding.parameters]]
 name = "seq"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threshold"
 codec = "json"

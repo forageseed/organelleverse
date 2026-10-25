@@ -9,7 +9,7 @@ from pathlib import Path
 
 from organelleverse import operations as op
 
-SRC = Path(__file__).resolve().parents[2] / "src" / "organelleverse"
+SRC = Path(__file__).resolve().parents[2] / "src"
 
 
 def _suggested_operation_ids() -> list[tuple[str, str]]:

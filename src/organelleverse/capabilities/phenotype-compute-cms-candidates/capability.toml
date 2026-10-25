@@ -12,6 +12,8 @@ description = "Predict CMS candidate ORFs. Returns dict."
 keywords = ["analyze", "candidates", "cms", "compute", "phenotype", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
+superseded_by = "phenotype.cms"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phenotype.cms.core:compute_cms_candidates"
@@ -28,3 +30,11 @@ result_key = "cms_candidates"
 [[contract.binding.parameters]]
 name = "fasta_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_orf_aa"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "tm_threshold"
+codec = "json"

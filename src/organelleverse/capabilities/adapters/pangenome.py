@@ -76,13 +76,18 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "pangenome.check_backend": NamedParameterOverride(
-        parameters=(ParameterOverride(name="name", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="name", codec=ParameterCodec.JSON),
+            ParameterOverride(name='scan_envs', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="backend_status",
         side_effects=(SideEffect.SUBPROCESS,),
     ),
     "pangenome.check_all_backends": NamedParameterOverride(
-        parameters=(),
+        parameters=(
+            ParameterOverride(name='scan_envs', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="backend_status",
         side_effects=(SideEffect.SUBPROCESS,),

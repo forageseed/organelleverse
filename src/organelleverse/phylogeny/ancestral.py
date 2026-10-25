@@ -12,11 +12,14 @@ from pathlib import Path
 
 import numpy as np
 from Bio import Phylo, SeqIO
+from organelleverse._public_validation import validated_public
 from scipy.optimize import minimize_scalar
 from scipy.special import logsumexp
 
 from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
+from ..inputs import Tree
+from ..sequences import as_path
 from ._results import provenance
 
 
@@ -70,8 +73,9 @@ def _messages(tree, observations, states, rate, posterior=True):
     return likelihood, probabilities
 
 
+@validated_public('phylogeny.reconstruct_ancestral_states')
 def reconstruct_ancestral_states(
-    tree_newick: str | Path,
+    tree_newick: str | Path | Tree,
     traits: dict[str, dict[str, str | int | None]],
     *,
     state_space: dict[str, list[str]] | None = None,
@@ -99,6 +103,7 @@ def reconstruct_ancestral_states(
     of changes, or branch-change posterior probabilities. Exact posterior
     ties remain sets and do not produce arbitrarily polarized changes.
     """
+    tree_newick = as_path(tree_newick)
     bounds = rate_bounds if rate_bounds is not None else [1e-6, 1e6]
     if (
         len(bounds) != 2
@@ -250,6 +255,7 @@ def reconstruct_ancestral_states(
     )
 
 
+@validated_public('phylogeny.gene_presence_traits')
 def gene_presence_traits(
     genbank_paths: list[str | Path],
     genes: list[str],

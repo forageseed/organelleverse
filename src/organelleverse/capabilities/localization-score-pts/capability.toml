@@ -12,6 +12,7 @@ description = "Detect peroxisomal targeting signals PTS1 (C-term) and PTS2 (N-te
 keywords = ["analyze", "localization", "pts", "restored", "result", "score"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.localization.localize_core:score_pts"

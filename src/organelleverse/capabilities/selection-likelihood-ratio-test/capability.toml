@@ -12,6 +12,7 @@ description = "Likelihood ratio test: 2*(lnL_alt - lnL_null) ~ \u03c7\u00b2(df).
 keywords = ["analyze", "likelihood", "ratio", "restored", "result", "selection", "test"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.models:likelihood_ratio_test"

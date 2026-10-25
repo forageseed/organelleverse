@@ -17,10 +17,12 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
-from .._bio import read_fasta
+from organelleverse._public_validation import validated_public
+
 from ..core.frozen import thaw_json
 from ..core.provenance import ResultProvenance
 from ..core.result import ErrorDetail, Finding, OrganelleResult
+from ..sequences import Sequences, as_path, as_records
 
 _PURINES = {"A", "G"}
 _PYRIMIDINES = {"C", "T"}
@@ -95,8 +97,9 @@ def _result_metrics(result: OrganelleResult | Mapping[str, Any]) -> dict[str, An
     return dict(result)
 
 
+@validated_public('variation.snp')
 def snp(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     reference_index: int = 0,
 ) -> OrganelleResult:
@@ -107,10 +110,10 @@ def snp(
     Python column scan. Both paths produce the same Ti/Tv ratio.
     """
     parameters = {
-        "alignment_fasta": str(alignment_fasta),
+        "alignment_fasta": str(as_path(alignment_fasta)),
         "reference_index": reference_index,
     }
-    seqs = read_fasta(Path(alignment_fasta))
+    seqs = as_records(alignment_fasta)
     if len(seqs) < 2:
         return _failed(
             "snp",
@@ -184,8 +187,9 @@ def snp(
     )
 
 
+@validated_public('variation.snp_density')
 def snp_density(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     reference_index: int = 0,
     window_size: int = 1000,
@@ -205,12 +209,12 @@ def snp_density(
     gapped.
     """
     parameters = {
-        "alignment_fasta": str(alignment_fasta),
+        "alignment_fasta": str(as_path(alignment_fasta)),
         "reference_index": reference_index,
         "window_size": window_size,
         "step": step,
     }
-    seqs = read_fasta(Path(alignment_fasta))
+    seqs = as_records(alignment_fasta)
     if len(seqs) < 2:
         return _failed(
             "snp_density",

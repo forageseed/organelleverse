@@ -83,7 +83,11 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "barcode.design_barcode": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_window', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_p_variability', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
@@ -92,13 +96,18 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="query_fasta", codec=ParameterCodec.PATH),
             ParameterOverride(name="reference_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='k', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
     ),
     "barcode.compute_barcode_candidates": NamedParameterOverride(
-        parameters=(ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="alignment_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_window', codec=ParameterCodec.JSON),
+            ParameterOverride(name='min_p_variability', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="barcode_candidates",
         side_effects=(SideEffect.READ_FILES,),
@@ -107,6 +116,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="query_fasta", codec=ParameterCodec.PATH),
             ParameterOverride(name="reference_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='k', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="jaccard_identity",

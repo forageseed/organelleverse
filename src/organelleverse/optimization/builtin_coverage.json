@@ -6,8 +6,8 @@
       "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
     },
     "annotation.find_orfs": {
-      "status": "not_applicable",
-      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+      "status": "eligible",
+      "reason_code": "optimization.independent_benchmark_required"
     },
     "annotation.write_orfs": {
       "status": "not_applicable",
@@ -893,6 +893,10 @@
       "status": "not_applicable",
       "reason_code": "optimization.presentation_is_user_choice"
     },
+    "visualization.plot_assembly_graph": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
     "visualization.plot_collinearity": {
       "status": "not_applicable",
       "reason_code": "optimization.presentation_is_user_choice"
@@ -957,6 +961,30 @@
       "status": "not_applicable",
       "reason_code": "optimization.presentation_is_user_choice"
     },
+    "visualization.plot_fst_scan": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_phylo_tree": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_pi_ratio": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_sv_schematic": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_sv_frequency": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_presence_tracks": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
     "visualization.plot_pan_circular": {
       "status": "not_applicable",
       "reason_code": "optimization.presentation_is_user_choice"
@@ -981,7 +1009,27 @@
       "status": "not_applicable",
       "reason_code": "optimization.presentation_is_user_choice"
     },
+    "visualization.plot_transfer_circos": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
     "visualization.plot_structure_map": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_ir_boundaries": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_nucleotide_diversity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_repeat_summary": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_gene_presence": {
       "status": "not_applicable",
       "reason_code": "optimization.presentation_is_user_choice"
     },
@@ -1061,25 +1109,13 @@
       "status": "not_applicable",
       "reason_code": "optimization.fixed_benchmark_metric"
     },
-    "pangenome.evaluate_block_benchmark": {
+    "pangenome.evaluate_taxonomy_benchmark": {
       "status": "not_applicable",
       "reason_code": "optimization.fixed_benchmark_metric"
     },
-    "annotation.find_orfs": {
-      "status": "eligible",
-      "reason_code": "optimization.independent_benchmark_required"
-    },
-    "annotation.translate_edited_cds": {
+    "pangenome.evaluate_block_benchmark": {
       "status": "not_applicable",
-      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
-    },
-    "annotation.write_edited_cds": {
-      "status": "not_applicable",
-      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
-    },
-    "annotation.write_orfs": {
-      "status": "not_applicable",
-      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+      "reason_code": "optimization.fixed_benchmark_metric"
     },
     "phenotype.assess_cms_annotation": {
       "status": "eligible",
@@ -1094,6 +1130,22 @@
       "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
     },
     "phenotype.write_cms_evidence": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "visualization.plot_depth_profile": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "visualization.plot_tree_conflict": {
+      "status": "not_applicable",
+      "reason_code": "optimization.presentation_is_user_choice"
+    },
+    "visualization.plot_variant_frequencies": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "visualization.plot_variant_site_heatmap": {
       "status": "not_applicable",
       "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
     }

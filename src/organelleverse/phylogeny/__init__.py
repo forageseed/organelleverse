@@ -8,6 +8,7 @@ diagnostics. Tool runs use managed storage; figures are written explicitly.
 from __future__ import annotations
 
 from .ancestral import gene_presence_traits, reconstruct_ancestral_states
+from .astral import run_astral
 from .dating import Calibration, MCMCTreeOptions
 from .hapnet import (
     build_mjn,
@@ -31,6 +32,8 @@ from .phylo import (
     write_shared_genes,
 )
 from .phylo_core import compute_alignment, plan_tree_build
+from ..inputs import make_reader
+from ..sequences import Sequences
 from .service import (
     build_partitioned_supermatrix,
     date_tree,
@@ -42,9 +45,12 @@ from .service import (
 from .topology import test_topologies
 from .treecompare import compare_trees, robinson_foulds
 
+read = make_reader("phylogeny", "fasta", "tree")
+
 __all__ = [
     "Calibration",
     "MCMCTreeOptions",
+    "Sequences",
     "align",
     "build_mjn",
     "build_msn",
@@ -61,9 +67,11 @@ __all__ = [
     "iqtree_to_mrbayes_model",
     "pdistance",
     "plan_tree_build",
+    "read",
     "reconstruct_ancestral_states",
     "render_network",
     "robinson_foulds",
+    "run_astral",
     "run_build_tree",
     "run_mrbayes",
     "run_trim_alignment",

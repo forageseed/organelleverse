@@ -1,7 +1,7 @@
 """Residual four-operation catalog.
 
 Sixteen of the twenty released operations migrated to checked-in core
-capability bundles under ``src/organelleverse/capabilities/`` (Plan 03
+capability bundles under ``src/capabilities/`` (Plan 03
 Task 1, ``scripts/capabilities/migrate_release_catalog.py``). Four remain
 here because the bundle contract cannot yet express something their
 released contract needs (owner-ruling addendum on Decision 004, 2026-08-08):
@@ -57,6 +57,7 @@ ANNOTATE_SPEC = OperationSpec(
     input_kind=CoreKind.GENOME,
     output_kind=CoreKind.RESULT,
     organelle_types=("mitochondrion", "plastid"),
+    result_artifact_inputs=("primary_genome_manifest",),
     callable_locator="organelleverse.annotation.api:annotate",
     dependencies=(
         DependencySpec(

@@ -5,28 +5,16 @@ genome, results, title, backend, and images into an :class:`OrganelleReport`
 *without creating any file*. Materialization (:func:`write`) is the only step
 that renders and publishes the report to a user-selected destination.
 
-Two backends are supported, both behind the same compute-then-write contract:
-
-  - **MultiQC** (default; the bioinformatics community-standard report
-    framework — used by nf-core, Galaxy, etc.): when MultiQC is installed,
-    :func:`write` drives it as a Python library
-    (https://docs.seqera.io/multiqc/usage/scripts) to emit a publication-
-    quality interactive report with collapsible sections, navigation sidebar,
-    and embedded figures.
-
-  - **Jinja2 in-tree** (automatic fallback when MultiQC is not installed): a
-    styled, self-contained HTML page with a result table, per-section metric
-    cards, provenance, and embedded (base64) figures. No external JS/CSS —
-    the file is fully portable.
-
-Both accept the same ``OrganelleGenome`` + ``list[OrganelleResult]`` and embed
-any figures referenced in ``result.artifacts``.
+The report is one styled, self-contained HTML page: a header with the
+OrganelleVerse logo, an overview (status tally and genome facts), and one
+section per ``OrganelleResult`` with metric tiles, collapsible nested
+metrics, errors, embedded (base64) figures and provenance. No external
+JS/CSS - the file is fully portable.
 """
 
 from __future__ import annotations
 
 import base64
-import json
 import mimetypes
 import os
 import uuid
@@ -34,22 +22,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from html import escape
-from importlib.resources import as_file, files
+from importlib.resources import files
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import cast
 
 from ..core.artifacts import ArtifactRef
+from ..core.errors import OrganelleInputError
 from ..core.frozen import FrozenMap
 from ..core.genome import OrganelleGenome
-from ..core.result import ErrorDetail, Finding, OrganelleResult
+from ..core.result import Finding, OrganelleResult
+from .qc_details import qc_decision, qc_details
 
-# Report stylesheet, in three parts so the same section markup renders both as
-# the standalone Jinja page and inside a MultiQC report:
-#   - colour tokens (light + dark),
-#   - class-based components, written with an ``&`` scope marker,
-#   - the standalone page layout (hero, nav, cards), used only by the Jinja page.
-# Self-contained: the generated HTML needs no external assets.
+# Report stylesheet: colour tokens (light + dark), class-based components, and
+# the page layout (hero, nav, cards). Self-contained: the generated HTML needs
+# no external assets.
 _TOKENS = """
   --bg: #f4f6f3; --surface: #ffffff; --surface-2: #f7f9f7; --border: #e1e6e0;
   --text: #17201b; --muted: #5d6b63; --faint: #8a968f;
@@ -71,75 +57,106 @@ _DARK_TOKENS = """
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
 """
 _COMPONENT_CSS = """
-& .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
-& .dot.ok { background: var(--ok); } & .dot.warning { background: var(--warning); }
-& .dot.failed { background: var(--failed); }
-& .ov-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
-& .ov-stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.dot.ok { background: var(--ok); } .dot.warning { background: var(--warning); }
+.dot.failed { background: var(--failed); }
+.ov-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.ov-stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
              padding: 12px 14px; }
-& .ov-stat b { display: block; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
-& .ov-stat span { font-size: .8rem; color: var(--muted); }
-& .ov-stat.ok b { color: var(--ok); } & .ov-stat.warning b { color: var(--warning); }
-& .ov-stat.failed b { color: var(--failed); }
-& .ov-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; margin: 16px 0 4px;
+.ov-stat b { display: block; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ov-stat span { font-size: .8rem; color: var(--muted); }
+.ov-stat.ok b { color: var(--ok); } .ov-stat.warning b { color: var(--warning); }
+.ov-stat.failed b { color: var(--failed); }
+.ov-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; margin: 16px 0 4px;
             background: var(--border); }
-& .ov-bar i { display: block; } & .ov-bar .ok { background: var(--ok); }
-& .ov-bar .warning { background: var(--warning); } & .ov-bar .failed { background: var(--failed); }
-& .ov-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+.ov-bar i { display: block; } .ov-bar .ok { background: var(--ok); }
+.ov-bar .warning { background: var(--warning); } .ov-bar .failed { background: var(--failed); }
+.ov-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
               gap: 12px 20px; margin: 18px 0 0; padding-top: 16px; border-top: 1px dashed var(--border); }
-& .ov-facts dt { font-size: .74rem; font-weight: 400; color: var(--muted); }
-& .ov-facts dd { margin: 1px 0 0; font-weight: 600; overflow-wrap: anywhere; }
-& .ov-empty { color: var(--muted); margin: 14px 0 0; font-size: .9rem; }
-& .ov-eyebrow { margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+.ov-facts dt { font-size: .74rem; font-weight: 400; color: var(--muted); }
+.ov-facts dd { margin: 1px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.ov-empty { color: var(--muted); margin: 14px 0 0; font-size: .9rem; }
+.ov-eyebrow { margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .08em;
                 text-transform: uppercase; color: var(--accent); }
-& .status { flex: none; font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+.status { flex: none; font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
             letter-spacing: .06em; text-transform: uppercase; background: var(--ok-soft); color: var(--ok); }
-& .status.warning { background: var(--warning-soft); color: var(--warning); }
-& .status.failed { background: var(--failed-soft); color: var(--failed); }
-& .ov-summary { margin: 10px 0 0; color: var(--text); }
-& .ov-errors { margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--failed-soft);
+.status.warning { background: var(--warning-soft); color: var(--warning); }
+.status.failed { background: var(--failed-soft); color: var(--failed); }
+.ov-summary { margin: 10px 0 0; color: var(--text); }
+.ov-errors { margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--failed-soft);
                border-left: 3px solid var(--failed); font-size: .88rem; }
-& .ov-errors div + div { margin-top: 4px; }
-& .ov-errors code { font-family: var(--mono); font-size: .8rem; color: var(--failed); margin-right: 6px;
+.ov-errors div + div { margin-top: 4px; }
+.ov-errors code { font-family: var(--mono); font-size: .8rem; color: var(--failed); margin-right: 6px;
                     background: none; padding: 0; }
-& .ov-next { margin: 10px 0 0; font-size: .85rem; color: var(--muted); }
-& .ov-next code { font-family: var(--mono); font-size: .8rem; color: var(--accent-ink);
+.ov-next { margin: 10px 0 0; font-size: .85rem; color: var(--muted); }
+.ov-next code { font-family: var(--mono); font-size: .8rem; color: var(--accent-ink);
                   background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; }
-& .flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
-& .flags span { background: var(--accent-soft); color: var(--accent-ink); padding: 2px 10px;
+.flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.flags span { background: var(--accent-soft); color: var(--accent-ink); padding: 2px 10px;
                 border-radius: 999px; font-size: .76rem; font-family: var(--mono); }
-& .metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px;
+.metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px;
              margin: 16px 0 0; }
-& .metrics div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+.metrics div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
                  padding: 10px 12px; min-width: 0; }
-& .metrics dt { font-size: .74rem; font-weight: 400; color: var(--muted); font-family: var(--mono);
+.metrics dt { font-size: .74rem; font-weight: 400; color: var(--muted); font-family: var(--mono);
                 overflow-wrap: anywhere; }
-& .metrics dd { margin: 2px 0 0; font-size: 1.15rem; font-weight: 650;
+.metrics dd { margin: 2px 0 0; font-size: 1.15rem; font-weight: 650;
                 font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-& .metrics dd.s { font-size: .9rem; font-weight: 500; }
-& .ov-group { margin: 12px 0 0; border: 1px solid var(--border); border-radius: 10px;
+.metrics dd.s { font-size: .9rem; font-weight: 500; }
+.ov-group { margin: 12px 0 0; border: 1px solid var(--border); border-radius: 10px;
               background: var(--surface-2); }
-& .ov-group summary { cursor: pointer; padding: 9px 12px; font-family: var(--mono); font-size: .82rem;
+.ov-group summary { cursor: pointer; padding: 9px 12px; font-family: var(--mono); font-size: .82rem;
                       font-weight: 600; }
-& .ov-group summary small { font-family: inherit; font-weight: 400; color: var(--faint);
+.ov-group summary small { font-family: inherit; font-weight: 400; color: var(--faint);
                             margin-left: 10px; }
-& .ov-group dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+.ov-group dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
                  gap: 0 18px; margin: 0; padding: 4px 12px 10px; border-top: 1px solid var(--border); }
-& .ov-group dl div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0;
+.ov-group dl div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0;
                      border-bottom: 1px dotted var(--border); font-size: .8rem; }
-& .ov-group dt { font-family: var(--mono); font-weight: 400; color: var(--muted); }
-& .ov-group dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
-& .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;
+.ov-group dt { font-family: var(--mono); font-weight: 400; color: var(--muted); }
+.ov-group dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;
              margin: 16px 0 0; }
-& .figures figure { margin: 0; background: #fff; border: 1px solid var(--border); border-radius: 10px;
+.figures figure { margin: 0; background: #fff; border: 1px solid var(--border); border-radius: 10px;
                     padding: 10px; }
-& .figures img, & .figures svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
-& .figures figcaption { margin-top: 8px; font-size: .76rem; color: #5d6b63; font-family: var(--mono);
+.figures img, .figures svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.figures figcaption { margin-top: 8px; font-size: .76rem; color: #5d6b63; font-family: var(--mono);
                         overflow-wrap: anywhere; }
-& .provenance { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 16px 0 0; padding-top: 12px;
+.provenance { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 16px 0 0; padding-top: 12px;
                 border-top: 1px dashed var(--border); font-size: .76rem; color: var(--muted);
                 font-family: var(--mono); }
-& .provenance b { font-weight: 600; color: var(--faint); margin-right: 4px; }
+.provenance b { font-weight: 600; color: var(--faint); margin-right: 4px; }
+.ov-checks { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.ov-checks td, .ov-checks th { padding: 5px 10px; border-top: 1px solid var(--border);
+                               text-align: left; vertical-align: top; }
+.ov-checks th { font-size: .74rem; font-weight: 600; color: var(--muted); }
+.ov-checks td:first-child { width: 22px; }
+.ov-checks .dot { display: inline-block; margin-top: 4px; }
+.ov-compare thead th[colspan] { text-align: center; }
+.ov-checks .id { font-family: var(--mono); font-size: .78rem; white-space: nowrap; }
+.ov-compare td, .ov-compare th { text-align: right; }
+.ov-compare td:first-child, .ov-compare th:first-child { text-align: left; }
+.ov-meter, .ov-mini { display: inline-block; vertical-align: middle; height: 8px; width: 90px;
+                      border-radius: 999px; background: var(--border); overflow: hidden; }
+.ov-meter { display: block; width: auto; height: 10px; margin: 6px 0 2px; }
+.ov-compare .ov-meter { display: inline-block; width: 70px; height: 8px; margin: 0 6px 0 0; }
+.ov-meter i { display: block; height: 100%; background: var(--accent); }
+.ov-label { margin: 14px 0 0; font-size: .86rem; color: var(--muted); }
+.ov-label b { color: var(--text); margin-left: 6px; }
+.flags.miss span { background: var(--failed-soft); color: var(--failed); }
+.ov-cov { margin: 16px 0 0; }
+.ov-cov svg { display: block; width: 100%; height: 120px; background: var(--surface-2);
+              border: 1px solid var(--border); border-radius: 10px; }
+.ov-cov polyline, .ov-cov line { vector-effect: non-scaling-stroke; }
+.ov-cov .cov-any { stroke: var(--faint); stroke-width: 1.5; }
+.ov-cov .cov-conf { stroke: var(--accent); stroke-width: 1.5; }
+.ov-cov .cov-gap { fill: var(--failed); opacity: .35; }
+.ov-cov .cov-seam { stroke: var(--border); stroke-dasharray: 3 3; }
+.ov-cov p { margin: 6px 0 0; font-size: .76rem; color: var(--muted); }
+.cov-key { display: inline-block; width: 14px; height: 3px; margin: 0 4px 2px 10px;
+           vertical-align: middle; background: var(--faint); }
+.cov-key.conf { background: var(--accent); }
+.cov-key.gap { height: 8px; background: var(--failed); opacity: .35; }
 """
 _PAGE_CSS = """
 * { box-sizing: border-box; }
@@ -185,6 +202,7 @@ section { border-top: 4px solid var(--ok); }
 section.warning { border-top-color: var(--warning); }
 section.failed { border-top-color: var(--failed); }
 .ov-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ov-pills { display: flex; flex: none; gap: 6px; }
 section h2 { margin: 2px 0 0; font-size: 1.2rem; line-height: 1.3; overflow-wrap: anywhere; }
 .ov-foot { padding: 8px 16px 32px; color: var(--faint); font-size: .8rem; }
 @media (max-width: 860px) {
@@ -203,31 +221,14 @@ section h2 { margin: 2px 0 0; font-size: 1.2rem; line-height: 1.3; overflow-wrap
   .ov-panel, section { box-shadow: none; break-inside: avoid; }
 }
 """
-# Inside a MultiQC report: tokens follow MultiQC's own light/dark toggle, and
-# each result's content opens with its suite label and status pill.
-_MULTIQC_EXTRA_CSS = """
-.ov-mqc { color: var(--text); margin: 0 0 8px; }
-.ov-mqc .ov-mqc-head { display: flex; align-items: center; gap: 10px; }
-"""
-
-
-def _scoped_components(scope: str) -> str:
-    """Component rules with the ``&`` marker replaced by ``scope`` (or removed)."""
-    return _COMPONENT_CSS.replace("& ", f"{scope} " if scope else "")
-
-
 _REPORT_CSS = (
     f":root {{ color-scheme: light dark;{_TOKENS}}}\n"
     f"@media (prefers-color-scheme: dark) {{\n  :root {{{_DARK_TOKENS}  }}\n}}"
-    + _scoped_components("")
+    + _COMPONENT_CSS
     + _PAGE_CSS
 )
-_MULTIQC_CSS = (
-    f".ov-mqc {{{_TOKENS}}}\n"
-    f"[data-bs-theme='dark'] .ov-mqc {{{_DARK_TOKENS}}}"
-    + _scoped_components(".ov-mqc")
-    + _MULTIQC_EXTRA_CSS
-)
+
+_BACKENDS = ("auto", "jinja")
 
 
 @dataclass(frozen=True)
@@ -266,13 +267,21 @@ def build(
         provenance, flags, and any figures referenced in
         ``result.artifacts``).
     title : report title.
-    backend : ``"auto"`` (default) | ``"multiqc"`` | ``"jinja"``. The requested
-        backend is recorded verbatim; the effective backend is resolved at
-        write time so construction stays free of side effects beyond input
-        normalization.
+    backend : ``"auto"`` (default) or ``"jinja"``; both select the in-tree
+        HTML report. The MultiQC backend was removed; ``"multiqc"`` is refused.
     images : optional extra figure paths to embed at the top of the report
         (in addition to figures discovered in the result ``artifacts``).
     """
+    if backend not in _BACKENDS:
+        raise OrganelleInputError(
+            code="reporting.unknown_backend",
+            message=(
+                "backend must be 'auto' or 'jinja'; the MultiQC backend was removed"
+                if backend == "multiqc"
+                else "backend must be 'auto' or 'jinja'"
+            ),
+            details={"backend": backend},
+        )
     return OrganelleReport(
         genome=genome,
         results=tuple(results or []),
@@ -290,33 +299,12 @@ def write(report: OrganelleReport, output: str | Path) -> OrganelleResult:
     report : OrganelleReport
         The value returned by :func:`build`.
     output : path
-        Output ``.html`` file. MultiQC also writes a ``*_data/`` dir next to it
-        when its data directory is enabled.
+        Output ``.html`` file.
     """
     report = _require_report(report)
 
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
-
-    if report.backend in ("auto", "multiqc"):
-        try:
-            import multiqc  # type: ignore # noqa: F401
-        except ImportError:
-            if report.backend == "multiqc":
-                return OrganelleResult(
-                    operation_id="reporting.report",
-                    scope=report.genome.organelle,
-                    status="failed",
-                    summary_text="backend='multiqc' requested but MultiQC is not installed.",
-                    errors=(
-                        ErrorDetail(
-                            code="reporting.multiqc_missing",
-                            message="backend='multiqc' requested but MultiQC is not installed.",
-                        ),
-                    ),
-                )
-        else:
-            return _report_multiqc(report, out)
     return _publish_jinja(report, out)
 
 
@@ -330,7 +318,7 @@ def _require_report(value: object) -> OrganelleReport:
 
 
 # ---------------------------------------------------------------------------
-# Backend 1 — Jinja2 (default, always available)
+# Rendering
 # ---------------------------------------------------------------------------
 
 
@@ -349,6 +337,8 @@ class _SectionView:
     suggestions: tuple[str, ...] = ()
     figures: tuple[Path, ...] = ()
     provenance: tuple[tuple[str, str], ...] = ()
+    decision: tuple[str, str] = ("", "")  # QC decision and its status class
+    details: tuple[str, ...] = ()  # HTML fragments shown below the metrics
 
 
 _STATUS_ORDER = ("ok", "warning", "failed")
@@ -421,6 +411,8 @@ def _section_from_result(r: OrganelleResult) -> _SectionView:
         suggestions=tuple(s.operation_id for s in r.suggested_operations),
         figures=tuple(p for p in _artifact_paths(r) if _is_image(p)),
         provenance=tuple(provenance),
+        decision=qc_decision(r),
+        details=qc_details(r),
     )
 
 
@@ -545,11 +537,21 @@ def _render_section(view: _SectionView, anchor: str) -> str:
             "<div class='ov-head'><div>",
             f"<p class='ov-eyebrow'>{escape(view.group)}</p>" if view.group else "",
             f"<h2>{escape(view.title)}</h2></div>",
-            _status_pill(view.status) + "</div>",
+            "<div class='ov-pills'>"
+            + _status_pill(view.status)
+            + _decision_pill(view.decision)
+            + "</div></div>",
             _render_section_body(view),
             "</section>",
         ]
     )
+
+
+def _decision_pill(decision: tuple[str, str]) -> str:
+    name, css = decision
+    if not name:
+        return ""
+    return f"<span class='status {escape(css)}'>{escape(name.replace('_', ' '))}</span>"
 
 
 def _status_pill(status: str) -> str:
@@ -600,6 +602,7 @@ def _render_section_body(view: _SectionView) -> str:
             )
             + "</dl></details>"
         )
+    parts.extend(fragment for fragment in view.details if fragment)
     if view.figures:
         parts.append(_render_figures(view.figures))
     if view.provenance:
@@ -674,112 +677,6 @@ def _atomic_write_text(destination: Path, text: str) -> None:
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
-
-
-# ---------------------------------------------------------------------------
-# Backend 2 — MultiQC (publication-quality interactive report)
-# ---------------------------------------------------------------------------
-
-
-def _report_multiqc(report: OrganelleReport, out: Path) -> OrganelleResult:
-    """Drive MultiQC as a Python library to build an interactive report.
-
-    An "Overview" module (status tally, genome facts, caller figures) is
-    followed by one module per ``OrganelleResult``. Each module holds one
-    untitled section, built with MultiQC's module API the same way
-    ``multiqc.add_custom_content_section()`` does, minus the repeated section
-    heading. The section bodies are the Jinja report's markup; the
-    OrganelleVerse stylesheet and logo are passed to ``multiqc.write_report()``
-    through its documented ``custom_css_files`` and a session config file
-    (https://docs.seqera.io/multiqc/usage/scripts).
-    """
-    import multiqc  # type: ignore
-    from multiqc import report as mqc_report  # type: ignore
-    from multiqc.base_module import BaseMultiqcModule  # type: ignore
-
-    genome = report.genome
-    results = report.results
-    extra_images = report.images
-    views = [_section_from_result(r) for r in results]
-
-    multiqc.reset()
-
-    def add_module(name: str, anchor: str, content: str) -> None:
-        module = BaseMultiqcModule(name=name, anchor=f"{anchor}-module")
-        module.add_section(anchor=anchor, content=f"<div class='ov-mqc'>{content}</div>")
-        mqc_report.modules.append(module)
-
-    overview = _render_overview(views, _genome_facts(genome))
-    if extra_images:
-        overview += _render_figures(extra_images)
-    add_module("Overview", "ov_overview", overview)
-    for i, view in enumerate(views, 1):
-        eyebrow = f"<p class='ov-eyebrow'>{escape(view.group)}</p>" if view.group else ""
-        head = f"<div class='ov-mqc-head'>{eyebrow}{_status_pill(view.status)}</div>"
-        add_module(f"{view.group}.{view.title}", f"ov_r{i}", head + _render_section_body(view))
-
-    with (
-        TemporaryDirectory() as scratch,
-        as_file(files(__package__) / "assets" / "logo.png") as logo,
-    ):
-        css = Path(scratch) / "organelleverse.css"
-        css.write_text(_MULTIQC_CSS, encoding="utf-8")
-        config = Path(scratch) / "multiqc_config.yaml"
-        # JSON is valid YAML, and quotes the logo path safely.
-        config.write_text(
-            json.dumps(
-                {
-                    "custom_logo": str(logo),
-                    "custom_logo_title": "OrganelleVerse",
-                    "custom_logo_width": 56,
-                }
-            ),
-            encoding="utf-8",
-        )
-        # MultiQC writes <filename> inside output_dir.
-        written = multiqc.write_report(  # pyright: ignore[reportUnknownMemberType]
-            title=report.title,
-            output_dir=str(out.parent),
-            filename=out.name,
-            force=True,
-            quiet=True,
-            make_data_dir=False,
-            config_files=[str(config)],
-            custom_css_files=[str(css)],
-        )
-    # MultiQC may return None on success but the file is written.
-    written_path = Path(written) if written else out
-    if not written_path.exists():
-        written_path = out  # fall back to the requested path
-
-    artifact = ArtifactRef.from_path(
-        written_path,
-        kind="report",
-        format="html",
-        media_type="text/html",
-    )
-    return OrganelleResult(
-        operation_id="reporting.report",
-        scope=genome.organelle,
-        status="ok",
-        artifacts=(artifact,),
-        metrics=FrozenMap.from_json(
-            {
-                "results_count": len(results),
-                "backend": "multiqc",
-                "figures_embedded": (
-                    sum(1 for r in results for p in _artifact_paths(r) if _is_image(p))
-                    + len(extra_images)
-                ),
-            }
-        ),
-        findings=(
-            Finding(code="report.sections", metric="report_sections", value=len(results)),
-            Finding(code="report.backend", metric="backend", value="multiqc"),
-        ),
-        flags=("html_written", "multiqc"),
-        summary_text=(f"MultiQC report ({len(results)} sections + overview) → {written_path}."),
-    )
 
 
 # ---------------------------------------------------------------------------

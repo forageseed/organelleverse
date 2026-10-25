@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from Bio.Seq import reverse_complement
+from organelleverse._public_validation import validated_public
 
 from .._bio import read_fasta
 from ..core.errors import OrganelleDependencyError, OrganelleInputError
 from ..core.result import ErrorDetail, OrganelleResult
 from ..ir_boundary.ir_boundary import _detect_ir_from_sequence
+from ..sequences import Sequences, as_path
 from .compare import _provenance
 
 
@@ -67,10 +69,11 @@ def _read_plastomes(path):
     return records
 
 
+@validated_public('comparative.normalize_plastome_orientation')
 def normalize_plastome_orientation(
-    input_fasta: str | Path,
+    input_fasta: str | Path | Sequences,
     *,
-    reference_fasta: str | Path | None = None,
+    reference_fasta: str | Path | Sequences | None = None,
 ) -> OrganelleResult:
     """Normalize ungapped circular plastomes to LSC/IRb/SSC/IRa.
 
@@ -87,6 +90,8 @@ def normalize_plastome_orientation(
     original regions may wrap the origin. Boundary precision is that of the
     existing seed/extension IR detector, not annotation-exact junctions.
     """
+    input_fasta = as_path(input_fasta)
+    reference_fasta = as_path(reference_fasta)
     try:
         import mappy
     except ImportError as exc:

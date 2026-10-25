@@ -15,7 +15,6 @@ from typing import Annotated, Any, Literal, cast
 from pydantic import Field, model_validator
 
 from organelleverse.assembly.profiles import AssemblyProfile
-from organelleverse.compute.contracts import ResolvedComputeTarget
 from organelleverse.operations.spec import StrictSpecModel
 
 # ---------------------------------------------------------------------------
@@ -264,8 +263,20 @@ class EnvironmentResolution(StrictSpecModel):
 
     selected_provider: ResolvedProvider | None = None
     managed_plan: ManagedProviderPlan | None = None
-    compute_target: ResolvedComputeTarget | None = None
+    # Read-only compatibility for historic serialized selections. New routing
+    # happens in an explicitly installed caller hook, outside this scientific
+    # resolver. No application model is imported or discovered here.
+    compute_target: dict[str, Any] | None = None
     rejections: tuple[ProviderRejection, ...] = ()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _decode_historic_selection(cls, value: Any) -> Any:
+        if isinstance(value, dict) and value.get('compute_target') is not None:
+            target = value['compute_target']
+            if hasattr(target, 'model_dump'):
+                return {**value, 'compute_target': target.model_dump(mode='json')}
+        return value
 
     @model_validator(mode="after")
     def _require_exactly_one(self) -> EnvironmentResolution:

@@ -18,7 +18,7 @@ from organelleverse.operations.python_binding import bind_python_capability
 
 _BUNDLE = (
     Path(__file__).resolve().parents[2]
-    / "src" / "organelleverse" / "capabilities"
+    / "src" / "capabilities"
     / "visualization-save-plot"
 )
 

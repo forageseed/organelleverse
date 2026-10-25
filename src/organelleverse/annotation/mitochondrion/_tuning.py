@@ -26,7 +26,7 @@ baseline that a species outside the fitting set would actually see.
 the very genome the tables were fitted to, so the most favourable case they get
 — showed the tables buy 5 exactly-correct intervals (135 vs 130, +3.7%) while
 raising mean boundary error by half (16.9 → 25.4 bp). Outside the fitting set
-only the cost remains.
+only the cost remains. See ``scripts/annotation_benchmarks/run_naked_baseline.py``.
 Set ``ORG_VERSE_MITO_TUNING=full`` to reproduce the old behaviour.
 """
 

@@ -30,3 +30,7 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "predictions"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"

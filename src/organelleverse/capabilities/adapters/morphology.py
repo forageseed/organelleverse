@@ -213,7 +213,10 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     # Zero-out batch: per-object measurement rows are primitive mappings
     # (float fields + class_name); the dict arm is the measure() envelope.
     "morphology.summarize": NamedParameterOverride(
-        parameters=(ParameterOverride(name="per_object", codec=ParameterCodec.JSON),),
+        parameters=(
+            ParameterOverride(name="per_object", codec=ParameterCodec.JSON),
+            ParameterOverride(name='by_class', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="morphology_summary",
         side_effects=(),
@@ -239,12 +242,15 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "morphology.measure": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="label_map", codec=ParameterCodec.PATH),
-            # Optional extras so an Agent can request calibrated areas (µm²)
-            # and stamp the label map's provenance (model / human_corrected /
-            # llm / ...) on every per-object row, matching the desktop
-            # surface's mask-layer parity.
             ParameterOverride(name="pixel_size_um", codec=ParameterCodec.JSON),
             ParameterOverride(name="label_source", codec=ParameterCodec.JSON),
+            ParameterOverride(name='intensity_image', codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_area', codec=ParameterCodec.JSON),
+            ParameterOverride(name='watershed_classes', codec=ParameterCodec.JSON),
+            ParameterOverride(name='class_names', codec=ParameterCodec.JSON),
+            ParameterOverride(name='instance_map', codec=ParameterCodec.JSON),
+            ParameterOverride(name='backend', codec=ParameterCodec.JSON),
+            ParameterOverride(name='network_metrics', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="morphometrics",
@@ -254,13 +260,25 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="image", codec=ParameterCodec.PATH),
             ParameterOverride(name="label_map", codec=ParameterCodec.PATH),
+            ParameterOverride(name='alpha', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.ARTIFACT,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.WRITE_FILES),
     ),
     "morphology.segment": NamedParameterOverride(
-        parameters=(ParameterOverride(name="images", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="images", codec=ParameterCodec.PATH),
+            ParameterOverride(name='device', codec=ParameterCodec.JSON),
+            ParameterOverride(name='config', codec=ParameterCodec.PATH),
+            ParameterOverride(name='checkpoint', codec=ParameterCodec.PATH),
+            ParameterOverride(name='measure_objects', codec=ParameterCodec.JSON),
+            ParameterOverride(name='intensity_image', codec=ParameterCodec.PATH),
+            ParameterOverride(name='pixel_size_um', codec=ParameterCodec.JSON),
+            ParameterOverride(name='backend', codec=ParameterCodec.JSON),
+            ParameterOverride(name='is_3d_stack', codec=ParameterCodec.JSON),
+            ParameterOverride(name='micro_sam_model_type', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES, SideEffect.WRITE_FILES, SideEffect.SUBPROCESS),
@@ -281,6 +299,11 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "morphology.train": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="data_root", codec=ParameterCodec.DIRECTORY, path_role="input"),
+            ParameterOverride(name='config', codec=ParameterCodec.PATH),
+            ParameterOverride(name='load_from', codec=ParameterCodec.PATH),
+            ParameterOverride(name='max_iters', codec=ParameterCodec.JSON),
+            ParameterOverride(name='batch_size', codec=ParameterCodec.JSON),
+            ParameterOverride(name='device', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
@@ -292,6 +315,10 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
     "morphology.training_code_snippet": NamedParameterOverride(
         parameters=(
             ParameterOverride(name="data_root", codec=ParameterCodec.DIRECTORY, path_role="input"),
+            ParameterOverride(name='config', codec=ParameterCodec.JSON),
+            ParameterOverride(name='checkpoint', codec=ParameterCodec.JSON),
+            ParameterOverride(name='max_iters', codec=ParameterCodec.JSON),
+            ParameterOverride(name='batch_size', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="training_snippet",

@@ -5,6 +5,8 @@ External tools use platform-managed run directories for intermediate files.
 
 from __future__ import annotations
 
+from ..inputs import make_reader
+
 from .install import POP_BACKEND_INFO, check_all_backends, check_backend, install_hint
 from .population import (
     detect_numt,
@@ -13,7 +15,10 @@ from .population import (
 from .service import call_variants, cytonuclear_gwas, prepare_gemma_input
 from .population_core import compute_fst
 
+read = make_reader("population", "vcf", "bam", "fasta")
+
 __all__ = [
+    "read",
     "POP_BACKEND_INFO",
     "call_variants",
     "check_all_backends",

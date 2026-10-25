@@ -12,6 +12,7 @@ description = "Back-align a protein MSA onto CDS sequences to produce a codon al
 keywords = ["analyze", "pal2nal", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.codeml:pal2nal"

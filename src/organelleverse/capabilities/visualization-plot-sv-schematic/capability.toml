@@ -1,0 +1,109 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_sv_schematic"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot SV Schematic"
+description = "Prepare a structural-variation schematic of one locus from pangenome graph paths: one row per taxon, homologous blocks in blue and SV blocks in red, dashed links between homologous edges and SV sites in reference coordinates; render with ov.write."
+keywords = ["pangenome", "pggb", "structural-variation", "sv", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.popgen_plots:plot_sv_schematic"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[[contract.dependencies]]
+kind = "python"
+name = "scipy"
+
+[[contract.dependencies]]
+kind = "python"
+name = "Bio"
+locator = "biopython"
+
+[[contract.dependencies]]
+kind = "python"
+name = "vcfpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "gfa"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "start"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "end"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "samples"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_sv_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "homology_fraction"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_span"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_insert"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "row_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = {gfa = "fixtures/basic/input/toy.gfa", reference = "REF", start = 1, end = 2000, samples = ["W1", "W4", "C1"]}
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
+from organelleverse._public_validation import validated_public
 
 from ..core.artifacts import ArtifactRef
 from ..core.errors import OrganelleInputError, OrganelleParameterError
@@ -40,6 +41,7 @@ def _table(number: int):
     return table
 
 
+@validated_public('annotation.translate_edited_cds')
 def translate_edited_cds(
     editing_result: OrganelleResult,
     *,
@@ -310,6 +312,7 @@ def _internal_stops(protein):
     return [i + 1 for i, aa in enumerate(protein[:-1]) if aa == "*"]
 
 
+@validated_public('annotation.write_edited_cds')
 def write_edited_cds(result: OrganelleResult, *, output: str | Path) -> OrganelleResult:
     """Write paired CDS/protein FASTA and site mapping TSV for edited scenarios."""
     if result.operation_id != "annotation.translate_edited_cds" or result.status != "ok":

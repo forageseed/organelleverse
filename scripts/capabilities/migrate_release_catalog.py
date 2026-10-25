@@ -3,7 +3,7 @@
 
 Reads the current privileged catalog (``operations/catalog.py`` and the
 suite-level spec modules it aggregates) and emits one checked-in bundle
-directory per operation under ``src/organelleverse/capabilities/`` so the
+directory per operation under ``src/capabilities/`` so the
 default registry can load the release surface through the same discovery /
 admission channel as every third-party bundle (Plan 03, Task 1).
 
@@ -57,7 +57,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from organelleverse.capabilities.parser import parse_capability_bundle  # noqa: E402
 from organelleverse.operations.spec import OperationSpec  # noqa: E402
 
-CAPABILITIES_ROOT = PROJECT_ROOT / "src" / "organelleverse" / "capabilities"
+CAPABILITIES_ROOT = PROJECT_ROOT / "src" / "capabilities"
 
 #: Implementation kind per operation. See the module docstring for the
 #: documented assembly deviation from Plan 03's original mapping.

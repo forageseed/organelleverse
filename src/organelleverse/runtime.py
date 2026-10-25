@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import sys
 import warnings
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -754,9 +755,24 @@ def _remove_path_no_follow(candidate: Path) -> None:
     if candidate.is_symlink():
         candidate.unlink(missing_ok=True)
     elif candidate.is_dir():
-        shutil.rmtree(candidate)
+        shutil.rmtree(candidate, onexc=_remove_owned_readonly_file)
     elif _lexists(candidate):
         candidate.unlink()
+
+
+def _remove_owned_readonly_file(function, path, error) -> None:
+    """Windows cannot unlink our immutable input snapshots until made writable."""
+    target = Path(path)
+    if (
+        os.name != "nt"
+        or not isinstance(error, PermissionError)
+        or target.is_symlink()
+        or target.is_junction()
+        or target.stat().st_mode & stat.S_IWRITE
+    ):
+        raise error
+    target.chmod(target.stat().st_mode | stat.S_IWRITE)
+    function(path)
 
 
 def _managed_source(result: OrganelleResult) -> tuple[Path, tuple[Path, ...]]:
@@ -1044,6 +1060,11 @@ def _walk_tree(root: Path) -> tuple[list[Path], list[Path]]:
 
 
 def _fsync_file(path: Path) -> None:
+    if os.name == "nt":
+        # Windows cannot fsync a read-mode descriptor (Errno 9), and managed
+        # trees are chmod'd read-only before this runs, so a write-mode
+        # descriptor is unavailable; durability there is NTFS journal territory.
+        return
     with path.open("rb") as handle:
         os.fsync(handle.fileno())
 

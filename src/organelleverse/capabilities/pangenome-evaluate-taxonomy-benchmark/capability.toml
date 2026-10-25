@@ -1,0 +1,26 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "pangenome.evaluate_taxonomy_benchmark"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Evaluate Curated Taxonomy Recovery"
+description = "Measure recovery of curated taxonomic groups from unweighted graph-node-presence Jaccard similarity: same-tribe pair AUROC and average precision, and the fraction of testable family and tribe groups recovered as clades of the UPGMA tree. Ranks are working classifications, not a species tree; this is not a phylogenetic accuracy or base-homology score."
+keywords = ["graph", "pangenome", "report"]
+execution_mode = "inline"
+stage = "consume"
+visibility = "step"
+input_kind = "result"
+output_kind = "result"
+callable_locator = "organelleverse.pangenome.benchmark_evaluator:evaluate_taxonomy_benchmark"
+side_effects = ["read_files", "write_files"]
+deterministic = true
+idempotent = false
+cacheable = false
+
+[contract.binding]
+argument_mode = "canonical_core"
+result_codec = "canonical"

@@ -7,9 +7,9 @@ model behind *Plantorganelle Hunter* (Feng et al., *Nat. Plants* 2023).
 
 OrgSegNet is a fork of MMSegmentation v1.0.0 and requires an old stack
 (Python 3.8, torch 1.13.1, mmcv 2.0.0rc4, mmseg 1.0.0) that is **not** pip-
-installable into modern environments, and its trained checkpoint is released
-under a DTU-style academic license (non-commercial, no redistribution). This
-module therefore does NOT bundle any model weights or the OrgSegNet source --
+installable into modern environments. Its official checkpoint is released
+under CC BY 4.0 and can be fetched into the managed model cache. This
+module does not bundle the separately distributed OrgSegNet source --
 it wraps an installed OrgSegNet via an executor hook and returns a plan when
 the tool is absent, matching the population/pangenome/localization backend
 pattern.
@@ -39,11 +39,15 @@ References
 
 from __future__ import annotations
 
+from organelleverse._layout import checkout_root
+
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from ..core import ErrorDetail, Finding, OrganelleResult
+from ..sequences import as_path
+from ..inputs import Images
 from ._contract import (
     MORPHOLOGY_OPERATION_VERSION,
     MORPHOLOGY_SCOPE,
@@ -52,7 +56,7 @@ from ._contract import (
     parameters_hash,
     utc_now,
 )
-from .install import ORGSEG_CHECKPOINT_NAME
+from .install import ORGSEG_CHECKPOINT_NAME, orgseg_model_path
 from .measure import measure as measure_objs
 from .microsam import DEFAULT_EM_ORGANELLE_MODEL
 
@@ -60,8 +64,9 @@ __all__ = ["segment"]
 
 OPERATION_ID = "morphology.segment"
 
-#: Registered segmentation backends (``auto`` routes between them).
-BACKENDS = ("orgseg", "micro_sam")
+#: Registered segmentation backends (``auto`` routes between the local ones;
+#: ``fusion3`` is a remote-delivery specialist and only ever runs when pinned).
+BACKENDS = ("orgseg", "micro_sam", "fusion3")
 
 # Defaults for the released OrgSegNet checkpoint (Nat. Plants 2023).
 DEFAULT_CONFIG = "configs/OrgSegNet/OrgSeg_PlantCell_768x512.py"
@@ -81,6 +86,10 @@ def _route_backend(backend: str, *, is_3d_stack: bool) -> str | None:
     - 2D plant EM images route to ``orgseg`` (the plant-organelle
       specialist, Nat. Plants 2023).
 
+    ``auto`` never routes to ``fusion3``: that backend runs remotely on the
+    delivered fusion3-v1 stack, costs three model loads per run, and is the
+    V6-corpus specialist — it is pinned explicitly, never substituted in.
+
     Returns ``None`` when ``backend`` names no registered backend.
     """
     if backend == "auto":
@@ -91,7 +100,7 @@ def _route_backend(backend: str, *, is_3d_stack: bool) -> str | None:
 
 
 def segment(
-    images: str | Path | list[str | Path],
+    images: str | Path | list[str | Path] | Images,
     *,
     executor: Callable[..., Any] | None = None,
     output_dir: str | Path | None = None,
@@ -100,11 +109,13 @@ def segment(
     checkpoint: str | Path | None = None,
     orgseg_root: str | Path | None = None,
     measure_objects: bool = True,
-    intensity_image: str | Path | None = None,
+    intensity_image: str | Path | Images | None = None,
     pixel_size_um: float | None = None,
     backend: str = "auto",
     is_3d_stack: bool = False,
     micro_sam_model_type: str = DEFAULT_EM_ORGANELLE_MODEL,
+    remote_execution: bool = False,
+    backend_available: bool | None = None,
 ) -> OrganelleResult:
     """Segment plant EM images with OrgSegNet and (optionally) quantify.
 
@@ -171,6 +182,8 @@ def segment(
         the executor raised or produced nothing. On the success path the
         produced label maps are attached as content-addressed ``artifacts``.
     """
+    images = as_path(images)
+    intensity_image = as_path(intensity_image)
     from .install import check_backend, install_hint
 
     started_at = utc_now()
@@ -209,10 +222,18 @@ def segment(
 
     # Resolve the compute device against the selected backend's declared
     # support: deterministic for auto, fail-closed for explicit requests.
+    # ``fusion3`` and remote-executed ``orgseg`` run on the compute host —
+    # the delivery script picks GPU when present — so there is no local
+    # device to resolve against; the request is provenance only.
     from .device import resolve_device
 
-    resolution = resolve_device(device, backend=selected)
-    if not resolution.ok:
+    if selected == "fusion3" or remote_execution:
+        resolution = None
+        torch_device = "remote"
+        device_record = {"kind": "remote", "name": "fusion3 delivery host", "total_vram_gb": None, "runtime_version": None}
+    else:
+        resolution = resolve_device(device, backend=selected)
+    if resolution is not None and not resolution.ok:
         return OrganelleResult(
             operation_id=OPERATION_ID,
             operation_version=MORPHOLOGY_OPERATION_VERSION,
@@ -246,18 +267,28 @@ def segment(
                 ),
             ),
         )
-    assert resolution.device is not None
-    torch_device = resolution.device.torch_device
-    device_record = resolution.device.provenance_record()
+    if resolution is not None:
+        assert resolution.device is not None
+        torch_device = resolution.device.torch_device
+        device_record = resolution.device.provenance_record()
 
     cfg = Path(config) if config else Path(orgseg_root or ".") / DEFAULT_CONFIG
-    ckpt = Path(checkpoint) if checkpoint else Path(orgseg_root or ".") / DEFAULT_CHECKPOINT
+    ckpt = Path(checkpoint) if checkpoint else (
+        Path(orgseg_root) / DEFAULT_CHECKPOINT if orgseg_root else
+        orgseg_model_path() if orgseg_model_path().is_file() else Path(DEFAULT_CHECKPOINT)
+    )
     outdir = Path(output_dir) if output_dir else image_list[0].parent / "morph_out"
     if executor is not None:
         outdir.mkdir(parents=True, exist_ok=True)
 
     # Probe for the selected backend.
-    loc = check_backend(selected, scan_envs=True)
+    # The desktop service has already probed the selected executor. Repeating
+    # an SSH probe here can turn a reachable delivery into a false "missing"
+    # result when the second probe times out just before execution.
+    loc = (
+        check_backend(selected, scan_envs=True)
+        if backend_available is None else {"installed": backend_available}
+    )
     backend_found = bool(loc.get("installed"))
     warning = "" if backend_found else "\n  ⚠ " + install_hint(selected)
 
@@ -270,7 +301,7 @@ def segment(
             scope=MORPHOLOGY_SCOPE,
             status="failed",
             summary_text=(
-                f"Requested backend {selected!r} is not installed; refusing to "
+                f"Requested backend {selected!r} is unavailable; refusing to "
                 f"substitute another backend." + warning
             ),
             metrics={
@@ -290,7 +321,7 @@ def segment(
             errors=(
                 ErrorDetail(
                     code="morphology.backend_unavailable",
-                    message=f"Requested backend {selected!r} is not installed.",
+                    message=f"Requested backend {selected!r} is unavailable.",
                     details={
                         "backend": selected,
                         "next_step": install_hint(selected),
@@ -371,7 +402,9 @@ def segment(
     # downloads it. Missing or corrupt -> explicit failure with the download
     # guidance; NEVER a silent switch to micro-SAM (that would silently
     # degrade semantic segmentation to classless instance segmentation).
-    if selected == "orgseg" and ckpt.name == ORGSEG_CHECKPOINT_NAME:
+    # Remote execution verifies on the compute host instead: the delivery's
+    # entry script hashes its own copy before every run.
+    if selected == "orgseg" and not remote_execution and ckpt.name == ORGSEG_CHECKPOINT_NAME:
         from .install import verify_orgseg_checkpoint
 
         check = verify_orgseg_checkpoint(ckpt)
@@ -424,6 +457,9 @@ def segment(
             result = executor(
                 micro_sam_model_type, torch_device, [str(p) for p in image_list], str(outdir)
             )
+        elif selected == "fusion3":
+            # Remote delivery executor: (image_paths, out_dir) -> label paths.
+            result = executor([str(p) for p in image_list], str(outdir))
         else:
             result = executor(cfg, ckpt, torch_device, [str(p) for p in image_list], str(outdir))
         label_paths = [Path(p) for p in (result or [])]
@@ -608,7 +644,7 @@ def default_executor(
     import organelleverse as _ov
 
     _head = (
-        Path(_ov.__file__).parents[2]
+        checkout_root()
         / "external_tools" / "OrgSegNet"
         / "mmseg" / "models" / "decode_heads" / "orgseg_head.py"
     )

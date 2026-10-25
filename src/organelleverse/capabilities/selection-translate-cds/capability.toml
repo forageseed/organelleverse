@@ -12,6 +12,7 @@ description = "Translate CDS sequences to protein (NCBI table 1)."
 keywords = ["analyze", "cds", "restored", "result", "selection", "translate"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.selection.codeml:translate_cds"
@@ -27,3 +28,7 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "cds_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "strip_stop"
+codec = "json"

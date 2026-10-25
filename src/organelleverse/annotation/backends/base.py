@@ -27,6 +27,8 @@ class AnnotationRequest:
     call_orfs: bool = False
     orf_min_aa: int = 30
     orf_circular: bool = False
+    allow_partial: bool = False
+    rotate_to_trnh: bool = False
 
     def __post_init__(self) -> None:
         if self.backend not in {"auto", "mitochondrion", "plastome"}:

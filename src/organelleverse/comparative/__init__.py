@@ -9,6 +9,8 @@ GenBank-parsed features.
 
 from __future__ import annotations
 
+from ..inputs import make_reader
+
 from .compare import (
     synteny,
     compare_genes,
@@ -36,7 +38,10 @@ from .identity import (
 from .orientation import normalize_plastome_orientation
 from .structural import detect_structural_variants
 
+read = make_reader("comparative", "fasta", genome=True)
+
 __all__ = [
+    "read",
     "normalize_plastome_orientation",
     "detect_structural_variants",
     "synteny",

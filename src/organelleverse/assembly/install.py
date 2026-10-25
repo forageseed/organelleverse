@@ -28,6 +28,7 @@ from organelleverse.core.external import run_external
 
 from .backends.registry import get_backend, install_info
 from .environment_registry import InstallationRegistry
+from .micromamba import installed_versions, managed_envs_root
 
 __all__ = [
     "BACKEND_INSTALL_INFO",
@@ -111,6 +112,8 @@ def _list_conda_envs() -> list[Path]:
     """Find all conda/micromamba environment bin/ directories.
 
     Searches:
+    0. Managed versioned prefixes (<tool_root>/envs/<tool>/<version>), each
+       tool's versions newest first
     1. ``conda env list`` output
     2. ``micromamba env list`` output
     3. Common default locations (~/.conda, ~/miniconda3, ~/micromamba)
@@ -124,6 +127,13 @@ def _list_conda_envs() -> list[Path]:
         if bin_dir.is_dir() and key not in seen:
             seen.add(key)
             env_bins.append(bin_dir)
+
+    # 0. Managed versioned prefixes
+    envs_root = managed_envs_root()
+    if envs_root.is_dir():
+        for tool_dir in sorted(envs_root.iterdir()):
+            for _version, prefix in installed_versions(tool_dir.name):
+                _add_env_bin(prefix)
 
     # 1. conda env list
     conda_exe = shutil.which("conda")
@@ -179,16 +189,18 @@ def _list_conda_envs() -> list[Path]:
     return env_bins
 
 
-def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
+def check_backend(
+    name: str, *, scan_envs: bool = True, version: str | None = None
+) -> dict[str, Any]:
     """Check if an assembly backend is installed and findable.
 
     Scans in order:
     1. Current ``$PATH`` (fastest — tools in active env)
-    2. Registered providers (if ``scan_envs=True``)
-    3. All conda/micromamba environment ``bin/`` dirs (if ``scan_envs=True``)
+    2. Managed versioned prefixes, newest first (if ``scan_envs=True``)
+    3. Registered providers and other conda/micromamba environment ``bin/`` dirs (if ``scan_envs=True``)
 
-    This is read-only executable discovery, not a runtime readiness check;
-    assembly still verifies the provider and prepares its database.
+    With ``version``, only the managed prefix of that exact version counts.
+    Discovery is read-only; assembly still verifies and prepares its provider.
 
     Returns::
 
@@ -196,11 +208,18 @@ def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
             "name": str,
             "installed": bool,
             "path": str | None,  # full path to the binary
-            "env": str | None,  # conda env name if found in one
+            "env": str | None,  # conda env name, or "<name>@<version>" if managed
             "method": str,  # install tier (pip/conda/source)
             "note": str,
+            "versions": list[str],  # every managed version, newest first
         }
     """
+    status = _check_backend(name, scan_envs=scan_envs, version=version)
+    status["versions"] = [found for found, _prefix in installed_versions(name)]
+    return status
+
+
+def _check_backend(name: str, *, scan_envs: bool, version: str | None) -> dict[str, Any]:
     info = BACKEND_INSTALL_INFO.get(name)
     if not info:
         return {
@@ -213,26 +232,56 @@ def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
         }
 
     cli = info.get("cli", name)
+    candidates = [cli, *(info.get("cli_aliases") or ())]
 
-    # 1. Check current PATH (active env); the native binary the way it is run (env
-    # override, checkout build, PATH)
-    if get_backend(name).environment.carrier.value == "native":
-        from organelleverse._ovasm import resolve_ovasm
-
-        path = resolve_ovasm()
-    else:
-        path = shutil.which(cli)
-    if path:
+    if version is not None:
+        for found, prefix in installed_versions(name):
+            if found != version:
+                continue
+            for candidate_name in candidates:
+                candidate = prefix / "bin" / candidate_name
+                if candidate.is_file():
+                    return _managed_hit(name, info, candidate, found)
         return {
             "name": name,
-            "installed": True,
-            "path": path,
+            "installed": False,
+            "path": None,
             "env": None,
             "method": info.get("tier", "unknown"),
-            "note": info.get("note", ""),
+            "note": f"version {version} is not installed",
         }
 
-    # Managed prefixes are published outside conda's named environment list.
+    # Resolve native builds and explicit overrides before generic PATH discovery.
+    if get_backend(name).environment.carrier.value == "native":
+        from organelleverse._ovasm import resolve_ovasm
+        native_path = resolve_ovasm()
+        if native_path:
+            return {"name": name, "installed": True, "path": native_path,
+                    "env": None, "method": info.get("tier", "unknown"),
+                    "note": info.get("note", "")}
+
+    # 1. Check current PATH (active env)
+    for candidate_name in candidates:
+        path = shutil.which(candidate_name)
+        if path:
+            return {
+                "name": name,
+                "installed": True,
+                "path": path,
+                "env": None,
+                "method": info.get("tier", "unknown"),
+                "note": info.get("note", ""),
+            }
+
+    # 2. Managed versioned prefixes, newest first
+    if scan_envs:
+        for found, prefix in installed_versions(name):
+            for candidate_name in candidates:
+                candidate = prefix / "bin" / candidate_name
+                if candidate.is_file():
+                    return _managed_hit(name, info, candidate, found)
+
+    # 3. Scan all conda/micromamba envs
     if scan_envs:
         for provider in InstallationRegistry().locate(name):
             for component in provider.components:
@@ -281,6 +330,18 @@ def check_backend(name: str, *, scan_envs: bool = True) -> dict[str, Any]:
         "env": None,
         "method": info.get("tier", "unknown"),
         "note": info.get("note", ""),
+    }
+
+
+def _managed_hit(name: str, info: dict[str, Any], path: Path, version: str) -> dict[str, Any]:
+    env_name = f"{name}@{version}"
+    return {
+        "name": name,
+        "installed": True,
+        "path": str(path),
+        "env": env_name,
+        "method": info.get("tier", "unknown"),
+        "note": f"{info.get('note', '')} [found in env: {env_name}]".strip(),
     }
 
 

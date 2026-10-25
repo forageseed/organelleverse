@@ -1,8 +1,7 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="OrganelleVerse" width="140">
+<img src="docs/assets/ov-readme-header.svg?brand=github" alt="OrganelleVerse logo and scientific toolkit" width="1280">
 
-# OrganelleVerse
 
 **面向 AI 的植物细胞器基因组分析基座。**
 
@@ -329,3 +328,13 @@ ov.visualization.heatmap({"gene1": {"gene2": 0.8}, "gene2": {"gene1": 0.8}})
 ## 许可证
 
 MIT
+
+## 安装后供 Agent 读取的使用指南
+
+Python 安装包内置使用指南和简短 skill。在分析环境中运行
+`python -m organelleverse.agent_guide`（或 `organelleverse-agent`）读取指南，
+加 `--skill` 输出引导 skill。Python 包安装不会自动向任意 Agent 宿主注册技能。
+普通 uv 安装、项目 skill 配置和可粘贴到聊天框的指令见
+[Agent 安装与发现说明](docs/agent-usage.md)。
+
+普通 Python 科学函数与 Agent JSON 调用共享操作注册表和统一校验边界。Python 保留富数据、注入接口和原生返回类型，JSON 调用使用声明的 codec。使用 `help(function)`、`ov.operations.parameter_schema(operation_id)` 和包内指南查看契约。

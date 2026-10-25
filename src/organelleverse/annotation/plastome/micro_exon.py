@@ -19,6 +19,8 @@ from Bio.Align import PairwiseAligner, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation, FeatureLocation, SeqFeature
 
+from .fast_translate import translate11
+
 _START = ("ATG", "ACG", "GTG")  # ACG/GTG are edited/alternative organellar starts
 _DONOR = ("GT", "GC")
 _MAX_MICRO_EXON = 15  # first exon length that counts as a micro-exon
@@ -87,7 +89,7 @@ def find_micro_exon(
         e1, donor, seq = parts
         if e1[:3] not in _START or donor not in _DONOR:
             continue
-        prot = _san(str(Seq(seq).translate(table=11)))
+        prot = _san(translate11(seq))
         if "*" in prot[:-1]:
             continue
         score = max((_AL.score(r, prot) for r in refs), default=float("-inf"))
@@ -206,7 +208,7 @@ def find_terminal_micro_exon(
                 coding = body + _tx(genome, min(start3, end3), max(start3, end3), strand)
                 if coding[-3:] not in _STOP:
                     continue
-                prot = str(Seq(coding).translate(table=11))
+                prot = translate11(coding)
                 if "*" in prot[:-1]:
                     continue
                 score = max((_AL.score(r, _san(prot)) for r in refs), default=float("-inf"))
@@ -216,7 +218,7 @@ def find_terminal_micro_exon(
         return None
     current = upstream + _tx(genome, a, b, strand)
     current = current[: len(current) - len(current) % 3]
-    current_score = max((_AL.score(r, _san(str(Seq(current).translate(table=11)))) for r in refs), default=float("-inf"))
+    current_score = max((_AL.score(r, _san(translate11(current))) for r in refs), default=float("-inf"))
     return (best[1], best[2]) if best[0] > current_score else None
 
 

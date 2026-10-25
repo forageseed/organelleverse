@@ -80,7 +80,12 @@ class NamedParameterOverride:
 
 OVERRIDES: dict[str, NamedParameterOverride] = {
     "phenotype.cms": NamedParameterOverride(
-        parameters=(ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="genome_fasta", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_orf_aa', codec=ParameterCodec.JSON),
+            ParameterOverride(name='tm_window', codec=ParameterCodec.JSON),
+            ParameterOverride(name='tm_threshold', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,
         side_effects=(SideEffect.READ_FILES,),
@@ -98,7 +103,11 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         side_effects=(SideEffect.READ_FILES,),
     ),
     "phenotype.compute_cms_candidates": NamedParameterOverride(
-        parameters=(ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),),
+        parameters=(
+            ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),
+            ParameterOverride(name='min_orf_aa', codec=ParameterCodec.JSON),
+            ParameterOverride(name='tm_threshold', codec=ParameterCodec.JSON),
+        ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="cms_candidates",
         side_effects=(SideEffect.READ_FILES,),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "v20261007"
+VERSION = "v20261001"
 ROOT = Path(__file__).parent / "data" / "ovasm_seeddb" / VERSION
 
 

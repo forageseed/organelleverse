@@ -27,3 +27,19 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "inputs"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "show_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "separate_strands"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_placement"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "track_layout"
+codec = "json"

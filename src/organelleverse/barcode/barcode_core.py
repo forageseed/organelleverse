@@ -1,19 +1,24 @@
 """Typed cores for barcode (OmicVerse-style data-in/data-out)."""
 
 from __future__ import annotations
+
 from pathlib import Path
-from .._bio import read_fasta
+
+from organelleverse._public_validation import validated_public
+
+from ..sequences import Sequences, as_records
 
 
+@validated_public('barcode.compute_barcode_candidates')
 def compute_barcode_candidates(
-    alignment_fasta: str | Path, min_window: int = 100, min_p_variability: float = 0.05
+    alignment_fasta: str | Path | Sequences, min_window: int = 100, min_p_variability: float = 0.05
 ) -> dict:
     """Find highly variable regions suitable as barcodes. Returns dict."""
     from .barcode import _count_variable_sites
 
     if min_window < 2:
         min_window = 2
-    seqs = [s.upper() for _, s in read_fasta(Path(alignment_fasta))]
+    seqs = [s.upper() for _, s in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return {"candidates": [], "n_sequences": len(seqs)}
     L = min(len(s) for s in seqs)
@@ -29,12 +34,13 @@ def compute_barcode_candidates(
     return {"candidates": candidates, "n_sequences": len(seqs), "alignment_length": L}
 
 
+@validated_public('barcode.compute_jaccard_identity')
 def compute_jaccard_identity(
-    query_fasta: str | Path, reference_fasta: str | Path, k: int = 31
+    query_fasta: str | Path | Sequences, reference_fasta: str | Path | Sequences, k: int = 31
 ) -> dict:
     """Identify query against reference DB via k-mer Jaccard. Returns dict."""
-    query = "".join(s.upper() for _, s in read_fasta(Path(query_fasta)))
-    refs = read_fasta(Path(reference_fasta))
+    query = "".join(s.upper() for _, s in as_records(query_fasta))
+    refs = as_records(reference_fasta)
     qk = {query[i : i + k] for i in range(len(query) - k + 1) if "N" not in query[i : i + k]}
     scores = []
     for name, seq in refs:

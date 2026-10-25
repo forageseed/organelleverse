@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="gene-transfer-title gene-transfer-desc">
+  <title id="gene-transfer-title">Gene transfer</title>
+  <desc id="gene-transfer-desc">A transferred sequence block connecting two genomes.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="18" cy="34" r="12" fill="#e9efe5"/><circle cx="48" cy="34" r="12" fill="#fbf1d8"/><path d="M8 34h8 M20 34h8 M38 34h8 M50 34h8" stroke="#355b43" /><path d="M18 15c10-10 20-10 30 0 M42 11l6 4-1-7" stroke="#dc7147" /><path d="M25 51c8 6 15 6 23 0" stroke="#d9a33b" stroke-dasharray="2 4"/>
+  </g>
+</svg>

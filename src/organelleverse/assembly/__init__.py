@@ -1,4 +1,4 @@
-"""Lazy public facade for the four released assembly backends."""
+"""Lazy public assembly facade."""
 
 from __future__ import annotations
 
@@ -6,11 +6,14 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from ..io_reads import read
+    from .ovasm_api import ovasm
     from .api import (
         AssemblyEnvironmentHint,
         assemble,
         pmat_continue,
         pmat_graph_build,
+        reconstruct,
         write,
     )
     from .contracts import (
@@ -34,6 +37,7 @@ __all__ = [
     "LongReadLibrary",
     "ShortReadLibrary",
     "assemble",
+    "ovasm",
     "check_all_backends",
     "check_backend",
     "classify_profile",
@@ -41,6 +45,8 @@ __all__ = [
     "install_backend",
     "pmat_continue",
     "pmat_graph_build",
+    "reconstruct",
+    "read",
     "resolve_backend",
     "write",
 ]
@@ -55,6 +61,7 @@ _LAZY_ATTRIBUTES = {
     "LongReadLibrary": (".contracts", "LongReadLibrary"),
     "ShortReadLibrary": (".contracts", "ShortReadLibrary"),
     "assemble": (".api", "assemble"),
+    "ovasm": (".ovasm_api", "ovasm"),
     "check_all_backends": (".install", "check_all_backends"),
     "check_backend": (".install", "check_backend"),
     "classify_profile": (".routing", "classify_profile"),
@@ -62,6 +69,8 @@ _LAZY_ATTRIBUTES = {
     "install_backend": (".install", "install_backend"),
     "pmat_continue": (".api", "pmat_continue"),
     "pmat_graph_build": (".api", "pmat_graph_build"),
+    "reconstruct": (".api", "reconstruct"),
+    "read": ("..io_reads", "read"),
     "resolve_backend": (".routing", "resolve_backend"),
     "write": (".api", "write"),
 }

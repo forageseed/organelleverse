@@ -12,6 +12,7 @@ description = "Measure same-conformation pair discrimination using fixed bidirec
 keywords = ["graph", "pangenome", "report"]
 execution_mode = "inline"
 stage = "consume"
+visibility = "step"
 input_kind = "result"
 output_kind = "result"
 callable_locator = "organelleverse.pangenome.benchmark_evaluator:evaluate_conformation_benchmark"

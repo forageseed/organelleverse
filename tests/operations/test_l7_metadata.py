@@ -42,7 +42,9 @@ def test_every_admitted_operation_has_normalized_l7_metadata() -> None:
         assert spec.keywords == tuple(sorted(set(spec.keywords)))
         assert 3 <= len(spec.keywords) <= 8
         assert spec.execution_mode in {ExecutionMode.INLINE, ExecutionMode.DURABLE}
-        assert OperationSpec.model_validate(spec.model_dump()) == spec
+        # Round-trip through the spec's own class: plugin specs (tools.adapter)
+        # carry subclass fields that the closed base model rightly refuses.
+        assert type(spec).model_validate(spec.model_dump()) == spec
 
 
 def _minimal_kwargs(**overrides: object) -> dict[str, object]:

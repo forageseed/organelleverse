@@ -27,3 +27,35 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "newick_path"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "layout"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_support"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "italic_labels"
+codec = "json"

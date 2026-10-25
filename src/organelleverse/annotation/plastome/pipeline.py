@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import re
 import statistics
+from dataclasses import replace
+from itertools import combinations
 from pathlib import Path
 
 from Bio import SeqIO
@@ -12,21 +14,24 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation, FeatureLocation, Location, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
-from .blast import detect_ir_regions, run_plastome_blasts
+from .blast import detect_ir_regions, parse_blast_hit_lists, run_plastome_blasts
 from .db import default_plastome_reference_dir, load_product_map
+from .exon_models import ExonModel, assemble_exon_models, select_mature_model_copies
+from .exon_models import protein_extended_parts as _protein_extended_parts
 from .gene_features import rebuild_gene_features
 from .ir_mirror import cohere_ir_exons, mirror_ir_copies
 from .models import BlastHit, PlastomeAnnotationStats, ReferenceQuery, ReferenceRecord
 from .references import (
+    build_exon_query_panel,
     build_plastome_queries,
     choose_reference,
     clean_seq,
-    exon_frame_offset,
     iter_fasta_inputs,
     load_references,
     rank_references,
 )
 from .ssc_orientation import evaluate_ssc_correction, flip_ssc_segment
+from .splice_refine import _san, _score
 from .tools import find_blast_tools
 
 logger = logging.getLogger(__name__)
@@ -57,6 +62,33 @@ _AA3_TO_1 = {
 }
 
 
+def _no_features_message(
+    reference: str,
+    *,
+    queries: int,
+    hits: int,
+    min_identity: float,
+    qcoverage: object,
+    target_length: int,
+) -> str:
+    """Why nothing was transferred, so a caller can tell a wrong input from a weak reference."""
+
+    head = (
+        f"No plastome features could be transferred from {reference}: {queries} reference "
+        f"gene queries were searched on a {target_length:,} bp target at >= {min_identity:g}% "
+        f"identity (query coverage {qcoverage})"
+    )
+    if hits == 0:
+        return (
+            head + "; nothing matched. The sequence is probably not a plastid genome of a lineage "
+            "this reference set covers, or the identity threshold is too strict."
+        )
+    return (
+        head + f"; {hits} alignment hits were found but none could be placed as a gene "
+        "(none reached the reference coverage after splice and frame checks)."
+    )
+
+
 class PlastomeAnnotationPipeline:
     def __init__(
         self,
@@ -81,8 +113,10 @@ class PlastomeAnnotationPipeline:
         correct_ssc_orientation: bool = True,
         threads: int = 1,
         exclude_reference_files: tuple[str, ...] = (),
+        rotate_to_trnh: bool = False,
     ):
         del legacy_plastome_path
+        self.rotate_to_trnh = rotate_to_trnh
         self.native_trna_rrna = native_trna_rrna
         self.refine_cds = refine_cds
         self.detect_ir = detect_ir
@@ -328,6 +362,28 @@ class PlastomeAnnotationPipeline:
                     qcoverage_range=qcov,
                     threads=self.threads,
                 )
+        if self.rotate_to_trnh and self.genome_form == "circular":
+            trnh = _trnh_hit(queries, hits)
+            if trnh is None:
+                run_warnings.append("rotate_to_trnh: no trnH-GUG found; the sequence is left as given")
+            else:
+                target_seq, flipped, shift = rotate_to_trnh(target_seq, trnh)
+                if flipped or shift:
+                    run_warnings.append(
+                        "rotate_to_trnh: sequence "
+                        + ("reverse-complemented and " if flipped else "")
+                        + f"rotated by {shift} bp so that it starts at trnH-GUG on the reverse strand"
+                    )
+                    # Same as the SSC flip: search again on the new presentation.
+                    hits = run_plastome_blasts(
+                        target_seq,
+                        queries,
+                        work_dir=sample_blast_dir,
+                        tools=self.tools,
+                        min_identity=self.min_pidentity / 100,
+                        qcoverage_range=qcov,
+                        threads=self.threads,
+                    )
         ir_regions = None
         if self.detect_ir:
             ir_regions = detect_ir_regions(
@@ -354,6 +410,7 @@ class PlastomeAnnotationPipeline:
         if self.native_trna_rrna:
             # Replace BLAST-transferred tRNA/rRNA with the native covariance-model
             # tRNA engine and the native pyhmmer rRNA detector (no external program).
+            from ..cmsearch.parallel import cyk_threads
             from .native_features import native_trna_rrna_features
 
             # Transferred gene spans guide splicing of intron tRNAs whose short
@@ -362,19 +419,23 @@ class PlastomeAnnotationPipeline:
             exon_seeds = _intron_trna_exon_seeds(references)
             hints = _intron_trna_hints(annotated, exon_lengths)
             annotated = [f for f in annotated if f.type not in ("tRNA", "rRNA")]
-            annotated.extend(
-                native_trna_rrna_features(
-                    target_seq,
-                    intron_hints=hints,
-                    intron_exon_lengths=exon_lengths,
-                    intron_exon_seeds=exon_seeds,
+            # The CYK kernel releases the GIL: score independent windows on the run's threads (same results).
+            with cyk_threads(self.threads):
+                annotated.extend(
+                    native_trna_rrna_features(
+                        target_seq,
+                        intron_hints=hints,
+                        intron_exon_lengths=exon_lengths,
+                        intron_exon_seeds=exon_seeds,
+                    )
                 )
-            )
 
+        # Transferred CDS spans before refinement: a remnant retired below keeps its transferred extent.
+        transferred = {id(f): f.location for f in annotated if f.type == "CDS"}
         if self.refine_cds:
             from .cds_refine import refine_cds_features
-            from .micro_exon import recover_micro_exons, recover_terminal_micro_exons
             from .group_ii import suspect_references
+            from .micro_exon import recover_micro_exons, recover_terminal_micro_exons
             from .splice_flanks import reference_junction_flanks
 
             reference_files = {reference.path.name for reference in references}
@@ -390,13 +451,59 @@ class PlastomeAnnotationPipeline:
             recover_terminal_micro_exons(
                 target_seq, annotated, ref_proteins, _terminal_micro_exon_map(references)
             )
-            refine_cds_features(
-                target_seq,
-                annotated,
-                ref_proteins=ref_proteins,
-                junction_flanks=reference_junction_flanks(references, skip=suspect),
-                reference_files=reference_files,
-            )
+            from ..cmsearch.parallel import cyk_threads
+
+            with cyk_threads(self.threads):  # features are refined on the run's threads (same result)
+                refine_cds_features(
+                    target_seq,
+                    annotated,
+                    ref_proteins=ref_proteins,
+                    junction_flanks=reference_junction_flanks(references, skip=suspect),
+                    reference_files=reference_files,
+                )
+
+            # Search complete reference architectures independently of the one
+            # genome-wide transfer reference, retaining eligible copy hits.
+            exon_queries = build_exon_query_panel(references)
+            if exon_queries:
+                exon_dir = sample_blast_dir / "complete_exons"
+                run_plastome_blasts(
+                    target_seq,
+                    exon_queries,
+                    work_dir=exon_dir,
+                    tools=self.tools,
+                    min_identity=self.min_pidentity / 100,
+                    qcoverage_range=qcov,
+                    threads=self.threads,
+                    retain_exon_hsps=True,
+                )
+                exon_hits = parse_blast_hit_lists(
+                    exon_dir / "reference4.tsv",
+                    self.min_pidentity / 100,
+                    qcov,
+                    list(exon_queries),
+                )
+                reference_sequences = {
+                    feature.reference_name: str(reference.record.seq)
+                    for reference in references
+                    for feature in reference.features
+                }
+                models = assemble_exon_models(
+                    target_seq,
+                    exon_queries,
+                    exon_hits,
+                    reference_sequences,
+                )
+                _retranslate_cds_features(annotated, target_seq)
+                warnings.extend(
+                    _promote_complete_exon_models(
+                        annotated,
+                        models,
+                        ref_proteins,
+                        product_map,
+                    )
+                )
+
 
         _merge_abutting_parts(annotated)
         # A supplemented gene must end up an open reading frame: remnants of
@@ -415,17 +522,34 @@ class PlastomeAnnotationPipeline:
                 for f in annotated
                 if not (_name_of(f) in broken and _SUPPLEMENT_NOTE in f.qualifiers.get("note", []))
             ]
+        retired = _retire_remnants(annotated, references, transferred, target_seq)
+        if retired:
+            logger.info("CDS retired as pseudogene remnants: %s", retired)
+            warnings.append("pseudogene remnants (no CDS of reference length): " + ", ".join(retired))
         # One best hit per query leaves IR genes with a single copy; mirror the
         # refined copy into the other inverted repeat.
         mirror_ir_copies(annotated, target_seq, ir_regions)
         annotated = _drop_identical_features(annotated)
+        from .cds_refine import mark_edited_starts
+
+        mark_edited_starts(annotated, target_seq)
         # Gene features were transferred before CDS refinement and native RNA
         # detection; derive them from the final products instead.
         annotated = rebuild_gene_features(annotated, len(target_seq))
+        # Checks of a manual curation workflow (GeSeq/PGA curation): reported only, the annotation is unchanged.
+        warnings.extend(_short_cds_warnings(annotated))
+        warnings.extend(_overlap_warnings(annotated))
 
         if not annotated:
             raise ValueError(
-                f"No plastome features could be transferred from {reference.path.name}"
+                _no_features_message(
+                    reference.path.name,
+                    queries=len(queries),
+                    hits=len(hits),
+                    min_identity=self.min_pidentity,
+                    qcoverage=self.qcoverage_range,
+                    target_length=len(target_seq),
+                )
             )
         organism = _organism_for_sample(fasta_file.stem, target.description)
         _retranslate_cds_features(annotated, target_seq)
@@ -615,29 +739,6 @@ def _micro_exon_map(references: tuple[ReferenceRecord, ...]) -> dict[str, int]:
             ):
                 micro[feat.gene] = len(feat.sequence)
     return micro
-
-
-def _protein_extended_parts(items: list[tuple[ReferenceQuery, BlastHit]]) -> list[FeatureLocation]:
-    """Restore each reference exon's DNA span around its aligned complete codons.
-
-    Junction-spanning codons are excluded from the peptide query. Restore
-    their leading/trailing bases, unaligned residues and any terminal stop
-    from that exon's own DNA length, in its own genomic strand.
-    """
-    max_ext = 3000
-    parts = []
-    for query, hit in items:
-        start, end = hit.start, hit.end
-        if hit.qlen and hit.qstart and hit.qend:
-            offset = exon_frame_offset(query.reference_feature)
-            n5 = min(max_ext, offset + max(0, hit.qstart - 1) * 3)
-            n3 = min(max_ext, max(0, len(query.reference_feature.sequence) - offset - hit.qend * 3))
-            if hit.strand == 1:
-                start, end = max(0, start - n5), end + n3
-            else:
-                start, end = max(0, start - n3), end + n5
-        parts.append(FeatureLocation(start, end, strand=hit.strand))
-    return parts
 
 
 def _build_features_from_hits(
@@ -860,9 +961,194 @@ def _apply_transl_except(feature: SeqFeature, protein: str) -> str:
 _SUPPLEMENT_MIN_SHARE = 0.5
 _SUPPLEMENT_NOTE = "transferred from a secondary reference"
 
+# A refined CDS shorter than this share of the gene's median reference CDS is retired as a remnant of a gene lost
+# in this lineage (orchid ndhJ/ndhC, parasite rps16) when the transfer itself shows it is one; see _retire_remnants.
+_REMNANT_FRACTION = 0.4
+_REMNANT_NOTE = "pseudogene remnant: no open reading frame of reference length"
+_READ_THROUGH_NOTE = "read through as U-to-C"
+
+
+def _longest_open_share(location: Location, genome: str) -> float:
+    """Longest stop-free run of codons in any frame of the span, as a share of the span length.
+
+    A transfer often runs past the gene's own stop codon, so a stop near an end is no evidence; a lost gene's
+    span is broken by stops into runs well short of it.
+    """
+    nt = str(location.extract(Seq(genome))).upper()
+    best = 0
+    for frame in range(3):
+        run = 0
+        for i in range(frame, len(nt) - 2, 3):
+            run = 0 if nt[i : i + 3] in ("TAA", "TAG", "TGA") else run + 3
+            best = max(best, run)
+    return best / max(1, len(nt))
+
+
+def _open_run_nearby(location: Location, genome: str, flank: float) -> int:
+    """Longest stop-free run (nt) in any frame of the span's strand, the span extended by ``flank`` on both sides."""
+    strand = location.strand or 1
+    lo = max(0, int(location.start) - int(flank))
+    hi = min(len(genome), int(location.end) + int(flank))
+    nt = genome[lo:hi].upper()
+    if strand == -1:
+        nt = str(Seq(nt).reverse_complement())
+    best = 0
+    for frame in range(3):
+        run = 0
+        for i in range(frame, len(nt) - 2, 3):
+            run = 0 if nt[i : i + 3] in ("TAA", "TAG", "TGA") else run + 3
+            best = max(best, run)
+    return best
+
+
+def _retire_remnants(
+    features: list[SeqFeature],
+    references: tuple[ReferenceRecord, ...],
+    transferred: dict[int, Location],
+    genome: str,
+) -> list[str]:
+    """Turn CDS remnants of lost genes into pseudo gene features in place; return "gene N bp" for each.
+
+    A short refined CDS alone is no evidence: refinement also cuts real genes (psbA, rps4, fern ycf1 in the benchmark),
+    and those stay CDS. It is retired only when the transfer shows a lost gene: the transferred span is itself shorter
+    than the remnant share of the reference, or, in a genome without U-to-C editing, the transferred span is short of
+    80% of the reference and stops break every frame into runs below 80% of it (orchid ndhJ/ndhC). A full-length
+    transfer is never retired: a fern whose editing went undetected would otherwise lose real genes.
+    Kept as CDS also: genes without reference proteins, trans-spliced rps12 parts, and a CDS
+    within 3 nt of either sequence end (a gene cut by the end of a linear sequence is partial, not a remnant). The
+    pseudo gene feature takes the transferred span, which shows how much of the gene is left.
+    """
+    length = len(genome)
+    editing = any(
+        _READ_THROUGH_NOTE in note for f in features if f.type == "CDS" for note in f.qualifiers.get("note", [])
+    )
+    medians = {
+        gene: statistics.median(3 * len(p.rstrip("*")) + 3 for p in proteins)
+        for gene, proteins in _reference_protein_map(references).items()
+        if proteins
+    }
+    retired: list[str] = []
+    for i, feature in enumerate(features):
+        if feature.type != "CDS":
+            continue
+        gene = _name_of(feature)
+        median = medians.get(gene)
+        if not median or gene == "rps12" or "trans_splicing" in feature.qualifiers:
+            continue
+        n = len(feature.location)
+        if n >= _REMNANT_FRACTION * median:
+            continue
+        if int(feature.location.start) < 3 or int(feature.location.end) > length - 3:
+            continue
+        span = transferred.get(id(feature), feature.location)
+        lost = len(span) < _REMNANT_FRACTION * median or (
+            not editing and len(span) < 0.8 * median and _longest_open_share(span, genome) < 0.8
+        )
+        # A transfer can also hit only a piece of an intact gene (legume rps2, Pinus rps4): an open reading frame
+        # of near-reference length beside the span means the gene is there, so it is not called a pseudogene.
+        if not lost or _open_run_nearby(span, genome, median) >= 0.8 * median:
+            continue
+        features[i] = SeqFeature(
+            span,
+            type="gene",
+            qualifiers={"gene": [gene], "pseudo": [""], "note": [f"{_REMNANT_NOTE} ({n} of ~{median:.0f} bp)"]},
+        )
+        retired.append(f"{gene} {n} bp")
+    return retired
+
 
 def _name_of(feature: SeqFeature) -> str:
     return feature.qualifiers.get("gene", [""])[0]
+
+
+def _trnh_hit(queries: tuple[ReferenceQuery, ...], hits: dict[str, BlastHit]) -> BlastHit | None:
+    """Best-scoring search hit of a reference trnH-GUG, or None."""
+    best = None
+    for query in queries:
+        feature = query.reference_feature
+        if feature.feature_type != "tRNA" or not (feature.gene or "").lower().startswith("trnh"):
+            continue
+        hit = hits.get(query.query_id)
+        if hit is not None and (best is None or hit.bitscore > best.bitscore):
+            best = hit
+    return best
+
+
+def rotate_to_trnh(sequence: str, hit: BlastHit) -> tuple[str, bool, int]:
+    """Present a circular plastome with trnH-GUG on the reverse strand at its start (the usual GenBank layout).
+
+    ``hit`` is trnH's search hit on ``sequence`` (0-based start, end exclusive, strand). Returns the new sequence,
+    whether it was reverse-complemented, and the rotation in bp.
+    """
+    n = len(sequence)
+    start, end = hit.start, hit.end
+    flipped = hit.strand == 1
+    if flipped:
+        sequence = str(Seq(sequence).reverse_complement())
+        start, end = n - end, n - start
+    shift = start % n
+    return sequence[shift:] + sequence[:shift], flipped, shift
+
+
+# The shortest plastid CDS (petN) has 29 codons; a CDS below 33 bp is a fragment (manual curation threshold).
+_SHORT_CDS_NT = 33
+
+
+def _short_cds_warnings(features: list[SeqFeature]) -> list[str]:
+    out = []
+    for f in features:
+        if f.type != "CDS" or "trans_splicing" in f.qualifiers or _name_of(f) == "rps12":
+            continue
+        n = len(f.location)
+        if n < _SHORT_CDS_NT:
+            out.append(f"short CDS (< {_SHORT_CDS_NT} bp): {_name_of(f)} {n} bp at {_span_text(f)}")
+    return out
+
+
+# Neighbouring genes that overlap in most plastomes; within this many bp they are not reported.
+_KNOWN_OVERLAPS = frozenset(
+    frozenset(pair) for pair in (("psbC", "psbD"), ("atpB", "atpE"), ("ndhC", "ndhK"), ("rpl22", "rps3"))
+)
+_KNOWN_OVERLAP_NT = 100
+_OVERLAP_MIN_NT = 20
+
+
+def _overlap_warnings(features: list[SeqFeature]) -> list[str]:
+    """Product features whose exons overlap (introns do not count: matK inside the trnK-UUU intron is fine).
+
+    Reported: an overlap of at least 20 bp, except the usual neighbours (psbC/psbD, atpB/atpE, ndhC/ndhK,
+    rpl22/rps3) within 100 bp, and always one feature lying 90% or more inside another.
+    """
+    products = [f for f in features if f.type in ("CDS", "tRNA", "rRNA") and "trans_splicing" not in f.qualifiers]
+    parts = [[(int(p.start), int(p.end)) for p in f.location.parts] for f in products]
+    spans = [(min(s for s, _ in ps), max(e for _, e in ps)) for ps in parts]
+    order = sorted(range(len(products)), key=lambda i: spans[i])
+    out = []
+    for x, i in enumerate(order):
+        for j in order[x + 1 :]:
+            if spans[j][0] >= spans[i][1]:
+                break
+            shared = sum(max(0, min(e1, e2) - max(s1, s2)) for s1, e1 in parts[i] for s2, e2 in parts[j])
+            if not shared:
+                continue
+            a, b = products[i], products[j]
+            shorter = min(len(a.location), len(b.location))
+            contained = shared >= 0.9 * shorter
+            known = frozenset((_name_of(a), _name_of(b))) in _KNOWN_OVERLAPS and shared <= _KNOWN_OVERLAP_NT
+            if contained or (shared >= _OVERLAP_MIN_NT and not known):
+                kind = "inside" if contained else "overlap"
+                out.append(
+                    f"{kind}: {a.type} {_name_of(a) or '?'} {_span_text(a)} and {b.type} {_name_of(b) or '?'} "
+                    f"{_span_text(b)} share {shared} bp"
+                )
+    return out
+
+
+def _span_text(feature: SeqFeature) -> str:
+    ps = feature.location.parts
+    lo = min(int(p.start) for p in ps) + 1
+    hi = max(int(p.end) for p in ps)
+    return f"{lo}-{hi}({'+' if (feature.location.strand or 1) == 1 else '-'})"
 
 
 def _overlaps_cds(feature: SeqFeature, others: list[SeqFeature]) -> bool:
@@ -1124,3 +1410,64 @@ def _organism_for_sample(sample_name: str, description: str) -> str:
     if len(words) >= 2 and words[0][0].isupper() and words[1][0].islower():
         return f"{words[0]} {words[1]}"
     return sample_name.replace("_", " ")
+
+
+def _promote_complete_exon_models(
+    features: list[SeqFeature],
+    models: list[ExonModel],
+    ref_proteins: dict[str, list[str]],
+    product_map: dict[str, str],
+) -> list[str]:
+    """Promote strictly better complete products under a shared protein bank.
+
+    Equal scores retain the current model. Different-DNA score ties, and
+    overlapping alternative placements of one mature DNA, stay unresolved.
+    Identical shared exons are allowed between distinct trans-spliced copies.
+    """
+    warnings = []
+    for gene in sorted({m.gene for m in models}):
+        bank = ref_proteins.get(gene, [])
+        if not bank:
+            warnings.append(f"{gene} complete candidates lack a reference protein bank")
+            continue
+        scored = [
+            replace(m, protein_score=_common_protein_score(m.protein, bank))
+            for m in models
+            if m.gene == gene
+        ]
+        selected = select_mature_model_copies(scored)
+        if not selected:
+            warnings.append(f"{gene} complete candidates have unresolved mature-DNA score ties")
+            continue
+        # Boundary alternatives at the same physical locus are not extra copies.
+        overlaps = any(
+            a != b and max(a.start, b.start) < min(a.end, b.end)
+            for left, right in combinations(selected, 2)
+            for a in left.location.parts
+            for b in right.location.parts
+        )
+        if overlaps:
+            warnings.append(f"{gene} complete candidates have unresolved overlapping placements")
+            continue
+        current = [
+            f for f in features if f.type == "CDS" and f.qualifiers.get("gene", [""])[0] == gene
+        ]
+        # A missing translation is outside the protein objective's domain,
+        # not evidence of a lower score (for example, an RNA-edited CDS).
+        if any(not f.qualifiers.get("translation") for f in current):
+            warnings.append(f"{gene} complete candidates cannot compare an unscored current product")
+            continue
+        current_scores = [
+            _common_protein_score(f.qualifiers["translation"][0], bank)
+            for f in current
+            if f.qualifiers.get("translation")
+        ]
+        if current_scores and selected[0].protein_score <= max(current_scores):
+            continue
+        features[:] = [f for f in features if f not in current]
+        features.extend(_copy_feature(m.template, m.location, product_map) for m in selected)
+    return warnings
+
+
+def _common_protein_score(protein: str, bank: list[str]) -> float:
+    return max(_score(_san(p.rstrip("*")), _san(protein.rstrip("*"))) for p in bank)

@@ -26,13 +26,13 @@ from .policy import QcPolicy
 from .static import validate_gfa
 
 
-def _require_pysam() -> None:
-    """Fail closed if the optional pysam BAM backend is unavailable."""
-    if importlib_util.find_spec("pysam") is None:
+def _require_rubam() -> None:
+    """Fail closed if the optional rubam BAM backend is unavailable."""
+    if importlib_util.find_spec("rubam") is None:
         raise OrganelleDependencyError(
-            code="qc.pysam_missing",
-            message="pysam is required for BAM-based graph evidence; install with 'pip install organelleverse[qc]'.",
-            details={"package": "pysam", "extra": "qc"},
+            code="qc.rubam_missing",
+            message="rubam is required for BAM-based graph evidence; install with 'pip install organelleverse[qc]'.",
+            details={"package": "rubam", "extra": "qc"},
             retryable=False,
             suggested_action={"action": "install_extra", "extra": "qc"},
         )
@@ -76,7 +76,7 @@ def collect_graph_evidence(
 ) -> GraphEvidence:
     """Interpret only declared GFA paths and captured alignment artifacts."""
 
-    _require_pysam()
+    _require_rubam()
 
     graph_path = evidence.assembly_graph_path
     if graph_path is None:
@@ -332,14 +332,16 @@ def _junction_read_counts(
     insert_size: int | None,
     policy: QcPolicy,
 ) -> tuple[int, int, bool]:
-    import pysam
+    import rubam
 
-    with pysam.AlignmentFile(str(bam_path), "rb") as bam:
+    with rubam.AlignmentFile(str(bam_path), "rb") as bam:
         if junction.sequence_id not in bam.references:
             return (0, 0, False)
         alignments = [
             alignment
-            for alignment in bam.fetch(junction.sequence_id)
+            for alignment in bam.fetch(
+                junction.sequence_id, 0, bam.get_reference_length(junction.sequence_id)
+            )
             if not alignment.is_unmapped
             and not alignment.is_secondary
             and alignment.mapping_quality >= policy.minimum_mapping_quality
@@ -360,7 +362,7 @@ def _long_read_support(
         ends: set[str] = set()
         suitable = False
         for alignment in alignments:
-            query_length = int(alignment.infer_query_length(always=True) or 0)
+            query_length = _read_length(alignment)
             suitable = suitable or query_length >= 2 * anchor
             if int(alignment.reference_start) <= 0 and int(alignment.reference_end) >= anchor:
                 starts.add(str(alignment.query_name))
@@ -377,7 +379,7 @@ def _long_read_support(
     for alignment in alignments:
         if alignment.is_supplementary:
             continue
-        query_length = int(alignment.infer_query_length(always=True) or 0)
+        query_length = _read_length(alignment)
         suitable = suitable or query_length >= 2 * anchor
         start = int(alignment.reference_start)
         end = int(alignment.reference_end)
@@ -390,6 +392,12 @@ def _long_read_support(
         ) or (start == junction.center and end >= junction.center + anchor and left_soft >= anchor):
             contradicting.add(str(alignment.query_name))
     return (len(supporting), len(contradicting), suitable)
+
+
+def _read_length(alignment: Any) -> int:
+    """Infer the full read length, including soft and hard clips, from CIGAR."""
+    return sum(length for operation, length in (alignment.cigartuples or ())
+               if operation in {0, 1, 4, 5, 7, 8})
 
 
 def _short_read_support(

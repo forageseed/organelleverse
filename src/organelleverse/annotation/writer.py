@@ -309,7 +309,11 @@ def materialize_annotation(
 ) -> dict[str, Path]:
     """Atomically replace an output directory after complete validation."""
 
-    report = validate_document(document, document.requested_stages)
+    report = validate_document(
+        document,
+        document.requested_stages,
+        allow_partial=bool(document.source_metadata.get("stages_without_features")),
+    )
     if not report.valid:
         codes = ",".join(issue.code for issue in report.errors)
         raise ValueError(f"annotation_validation_failed: {codes}")

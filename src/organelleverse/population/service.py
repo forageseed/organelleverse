@@ -7,10 +7,15 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from organelleverse._public_validation import validated_public
+
 from ..core.result import OrganelleResult
+from ..inputs import Variants
 from ..runtime import managed_run_path
+from ..sequences import as_path
 
 
+@validated_public('population.call_variants', python_only=('executor',))
 def call_variants(
     bam_dir: str | Path,
     *,
@@ -39,13 +44,15 @@ def call_variants(
     )
 
 
+@validated_public('population.prepare_gemma_input', python_only=('executor',))
 def prepare_gemma_input(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     phenotype: str | Path,
     executor: Callable[[list[str]], Any] | None = None,
 ) -> OrganelleResult:
     """Plan or run GEMMA input preparation in a managed run directory."""
+    vcf_path = as_path(vcf_path)
     from .population import prepare_gemma_input as _run
 
     return _run(
@@ -56,8 +63,9 @@ def prepare_gemma_input(
     )
 
 
+@validated_public('population.cytonuclear_gwas', python_only=('executor',))
 def cytonuclear_gwas(
-    vcf_path: str | Path,
+    vcf_path: str | Path | Variants,
     *,
     phenotype: str | Path,
     method: str = "gemma",
@@ -65,6 +73,7 @@ def cytonuclear_gwas(
     prepare_input: bool = True,
 ) -> OrganelleResult:
     """Plan or run cytonuclear association in a managed run directory."""
+    vcf_path = as_path(vcf_path)
     from .population import cytonuclear_gwas as _run
 
     return _run(

@@ -12,6 +12,7 @@ description = "Detect source-derived transfer fragments in the target. Returns d
 keywords = ["analyze", "compute", "restored", "result", "transfer"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.transfer.transfer_core:compute_transfer"
@@ -32,3 +33,15 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "source_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "k"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_len"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"

@@ -12,7 +12,10 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import get_codon_table, get_codon_table_info, read_fasta
+from ..sequences import Sequences, as_path
 
 _BASES = "TCAG"
 _CODON_ORDER = tuple("".join(codon) for codon in product(_BASES, repeat=3))
@@ -41,13 +44,15 @@ _GENETIC_CODE_ALIASES = {
 }
 
 
+@validated_public('codon_composition.compute_codon_usage')
 def compute_codon_usage(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     organelle: str = "mito",
     genetic_code: int | str | None = None,
 ) -> dict[str, Any]:
     """Compute codon counts, RSCU, EMBOSS-like usage rows, ENC, and GC3s."""
+    cds_fasta = as_path(cds_fasta)
     table_id = resolve_genetic_code(organelle=organelle, genetic_code=genetic_code)
     codon_to_aa = get_codon_table(table_id)
     info = get_codon_table_info(table_id)
@@ -70,14 +75,16 @@ def compute_codon_usage(
     }
 
 
+@validated_public('codon_composition.compute_amino_acid_composition')
 def compute_amino_acid_composition(
-    cds_fasta: str | Path,
+    cds_fasta: str | Path | Sequences,
     *,
     organelle: str = "mito",
     genetic_code: int | str | None = None,
     include_stop: bool = False,
 ) -> dict[str, Any]:
     """Compute amino-acid composition from CDS using the selected code."""
+    cds_fasta = as_path(cds_fasta)
     table_id = resolve_genetic_code(organelle=organelle, genetic_code=genetic_code)
     codon_to_aa = get_codon_table(table_id)
     counts = _count_codons(cds_fasta, codon_to_aa)

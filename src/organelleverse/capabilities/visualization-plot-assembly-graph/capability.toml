@@ -1,0 +1,128 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_assembly_graph"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot Assembly Graph With Repeat Conformations"
+description = "Draw a GFA assembly graph natively (no Bandage) with repeat-mediated recombination conformation insets; frequencies come from long reads spanning each repeat. Render with ov.write."
+keywords = ["assembly", "bandage", "conformation", "gfa", "graph", "recombination", "repeat", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.assembly_graph:plot_assembly_graph"
+side_effects = ["read_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[[contract.dependencies]]
+kind = "python"
+name = "scipy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "gfa"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reads"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "read_type"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "plastid"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "display_names"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "style"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "color_by"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_conformations"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_insets"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ribbon_min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "flank"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "anchor"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_spanning_reads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mtpt_min_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mtpt_min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "layout_seed"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = { gfa = "fixtures/basic/input/graph.gfa" }
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

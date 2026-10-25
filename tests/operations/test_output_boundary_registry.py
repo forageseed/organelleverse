@@ -94,7 +94,11 @@ def test_capability_output_boundary_has_no_read_or_writer_exemption() -> None:
 
 
 def test_released_scientific_specs_with_final_write_match_frozen_pending() -> None:
-    actual = released_scientific_specs_with_final_write(default_registry)
+    from tests.capabilities.release_bundles import release_operation_ids
+
+    # The default registry also lists every admitted first-party capability
+    # (advisory verification); this ratchet pins the 20-operation release surface.
+    actual = released_scientific_specs_with_final_write(default_registry) & release_operation_ids()
     assert actual == FROZEN_RELEASED_SCIENTIFIC_PENDING, (
         f"released scientific pending inventory drifted: actual={sorted(actual)}"
     )

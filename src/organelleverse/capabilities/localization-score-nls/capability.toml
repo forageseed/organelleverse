@@ -12,6 +12,7 @@ description = "Detect classical nuclear localization signals."
 keywords = ["analyze", "localization", "nls", "restored", "result", "score"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.localization.localize_core:score_nls"

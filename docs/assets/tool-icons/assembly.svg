@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="assembly-title assembly-desc">
+  <title id="assembly-title">Assembly</title>
+  <desc id="assembly-desc">Sequence reads connecting into an assembly graph.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 15h12 M8 23h17 M8 31h12" stroke="#d9a33b" /><path d="M24 16l11 10 M26 25h9 M23 33l12-6 M35 27l13-9 M35 27l13 17" stroke="#355b43" /><path d="M48 18v26" stroke="#d9a33b" /><circle cx="35" cy="27" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="49" cy="17" r="4" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="49" cy="45" r="4" fill="#dc7147" stroke="white" stroke-width="1.4"/><circle cx="35" cy="49" r="3" fill="#d9a33b" stroke="white" stroke-width="1.4"/><path d="M35 49l13-5" stroke="#355b43" />
+  </g>
+</svg>

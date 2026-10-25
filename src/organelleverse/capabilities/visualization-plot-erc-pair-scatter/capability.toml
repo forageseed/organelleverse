@@ -30,3 +30,27 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "points"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gene_a"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gene_b"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "x_key"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "y_key"
+codec = "json"

@@ -373,17 +373,43 @@ def _looks_like_directory_annotation(expr: ast.expr | None) -> bool:
     return False
 
 
-def _looks_json_safe(expr: ast.expr | None) -> bool:
+def _looks_json_safe(
+    expr: ast.expr | None,
+    aliases: dict[str, ast.expr] | None = None,
+    _seen: frozenset[str] = frozenset(),
+) -> bool:
+    def child(value: ast.expr) -> bool:
+        return _looks_json_safe(value, aliases, _seen)
+
     if expr is None:
         return False
     if isinstance(expr, ast.Constant) and expr.value is None:
         return True
     if isinstance(expr, ast.Name):
+        if aliases and expr.id in aliases and expr.id not in _seen:
+            return _looks_json_safe(aliases[expr.id], aliases, _seen | {expr.id})
         return expr.id in _JSON_SAFE_NAMES
     if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.BitOr):
-        return _looks_json_safe(expr.left) and _looks_json_safe(expr.right)
+        return child(expr.left) and child(expr.right)
     if isinstance(expr, ast.Subscript) and isinstance(expr.value, ast.Name):
         container = expr.value.id
+        if container == "Literal":
+            elements = expr.slice.elts if isinstance(expr.slice, ast.Tuple) else (expr.slice,)
+            return bool(elements) and all(
+                isinstance(value, ast.Constant) and type(value.value) in (str, int, bool, type(None))
+                for value in elements
+            )
+        if container == "Annotated" and isinstance(expr.slice, ast.Tuple):
+            base, *metadata = expr.slice.elts
+            return child(base) and bool(metadata) and all(
+                isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Name)
+                and item.func.id in {"Ge", "Gt", "Le", "Lt", "MultipleOf"}
+                and len(item.args) == 1 and not item.keywords
+                and isinstance(item.args[0], ast.Constant)
+                and type(item.args[0].value) in (int, float)
+                for item in metadata
+            )
         if container in _JSON_SAFE_CONTAINERS:
             # Fully recursive, matching the strict codec-wall variant of the
             # runtime binder (``allow_path=False``): the outer container name
@@ -398,7 +424,7 @@ def _looks_json_safe(expr: ast.expr | None) -> bool:
                     len(elements) == 2
                     and isinstance(elements[0], ast.Name)
                     and elements[0].id == "str"
-                    and _looks_json_safe(elements[1])
+                    and child(elements[1])
                 )
             if container == "tuple":
                 if (
@@ -406,15 +432,15 @@ def _looks_json_safe(expr: ast.expr | None) -> bool:
                     and isinstance(elements[1], ast.Constant)
                     and elements[1].value is Ellipsis
                 ):
-                    return _looks_json_safe(elements[0])
-                return bool(elements) and all(_looks_json_safe(element) for element in elements)
-            return len(elements) == 1 and _looks_json_safe(elements[0])
+                    return child(elements[0])
+                return bool(elements) and all(child(element) for element in elements)
+            return len(elements) == 1 and child(elements[0])
         if container in _JSON_SAFE_SEQUENCE_ALIASES:
-            return _looks_json_safe(expr.slice)
+            return child(expr.slice)
         if container in _JSON_SAFE_MAPPING_ALIASES:
             if isinstance(expr.slice, ast.Tuple) and len(expr.slice.elts) == 2:
                 key, value = expr.slice.elts
-                return isinstance(key, ast.Name) and key.id == "str" and _looks_json_safe(value)
+                return isinstance(key, ast.Name) and key.id == "str" and child(value)
             return False
     return False
 
@@ -530,7 +556,7 @@ def _validate_named_parameter_override(
                     "path_role ('input' for a pre-existing directory tree, 'output' for a "
                     "write destination)"
                 )
-        if parameter.codec is ParameterCodec.JSON and not _looks_json_safe(annotation):
+        if parameter.codec is ParameterCodec.JSON and not _looks_json_safe(annotation, aliases):
             return f"parameter {parameter.name!r} uses codec 'json' but its annotation is not JSON-safe"
     return None
 
@@ -1024,7 +1050,7 @@ def _default_ledger() -> Path:
 
 
 def _default_current_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "src" / "organelleverse"
+    return Path(__file__).resolve().parents[2] / "src" / "organelleverse" / "organelleverse"
 
 
 def _default_output_root() -> Path:

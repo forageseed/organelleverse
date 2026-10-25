@@ -12,6 +12,7 @@ description = "Return ``None`` if the gene tree is an outlier, else the input un
 keywords = ["analyze", "coevolution", "filter", "outlier", "restored", "result", "tree"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution._bxb_extract:filter_outlier_tree"

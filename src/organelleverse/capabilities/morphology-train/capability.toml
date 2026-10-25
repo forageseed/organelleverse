@@ -29,3 +29,23 @@ result_codec = "canonical"
 name = "data_root"
 codec = "directory"
 path_role = "input"
+
+[[contract.binding.parameters]]
+name = "config"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "load_from"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "max_iters"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "batch_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "device"
+codec = "json"

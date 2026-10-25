@@ -39,7 +39,9 @@ def genbank(tmp_path: Path) -> Path:
 def test_both_operations_are_registered() -> None:
     ids = {spec.operation_id for spec in op.list()}
     assert {"io.read_fasta_genome", "io.read_genbank_genome"} <= ids
-    assert len(op.list()) == 20
+    from tests.capabilities.release_bundles import release_operation_ids
+
+    assert release_operation_ids() <= ids
 
 
 def test_fasta_populates_sequence_only(fasta: Path) -> None:

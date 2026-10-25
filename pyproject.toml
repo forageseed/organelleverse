@@ -50,17 +50,13 @@ dependencies = [
 [project.scripts]
 organelleverse-environments = "organelleverse.tools.environment_cli:main"
 organelleverse-capability = "organelleverse.tools.capability_cli:main"
+organelleverse-agent = "organelleverse.agent_guide:main"
 
 [project.optional-dependencies]
 orf = ["orfipy>=0.0.4"]
 hotplug = ["watchdog>=4,<7"]
-# BAM/alignment evidence (qc.assembly graph/mapping evidence, transfer depth
-# validation). pysam publishes no Windows wheel (T-G2), so it can never be a
-# core dependency; without it the affected operations fail closed naming the
-# missing package and this extra.
-qc = [
-    "pysam>=0.22",
-]
+# Optional BAM support for the committed scientific implementation.
+qc = ["rubam==0.3.13"]
 # Anchored segmental alignment for comparative.compute_genome_identity
 # (mVISTA-style tracks). Neither mappy nor edlib publishes a Windows wheel,
 # so like pysam they stay optional; identity.py imports them lazily and fails

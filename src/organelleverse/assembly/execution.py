@@ -12,6 +12,11 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
+from organelleverse.operations.process_registry import (
+    register_process,
+    terminate_tree,
+    unregister_process,
+)
 from organelleverse.operations.spec import StrictSpecModel
 
 __all__ = ["CommandOutcome", "CommandRunner", "managed_prefix_environment"]
@@ -103,6 +108,14 @@ class CommandRunner:
         popen: subprocess.Popen[bytes] | None = None
         try:
             factory = self._popen_factory if self._popen_factory is not None else subprocess.Popen
+            # Injected factories are test doubles; a real spawn gets its own
+            # process group so cancellation kills the whole tree, and
+            # registers under the current turn's execution owner.
+            spawn_options: dict[str, object] = (
+                {}
+                if self._popen_factory is not None
+                else {"start_new_session": os.name == "posix"}
+            )
             try:
                 popen = factory(
                     list(argv),
@@ -113,6 +126,7 @@ class CommandRunner:
                     shell=False,
                     env=_resolved_env(env),
                     close_fds=True,
+                    **spawn_options,
                 )
             except (OSError, FileNotFoundError, ValueError) as error:
                 return _launch_error_outcome(
@@ -120,10 +134,12 @@ class CommandRunner:
                 )
 
             assert popen is not None
+            if self._popen_factory is None:
+                register_process(popen)
             try:
                 popen.communicate(timeout=timeout_seconds)
             except subprocess.TimeoutExpired:
-                popen.kill()
+                terminate_tree(popen)
                 # Best-effort reap after kill; the process may already be dead.
                 with contextlib.suppress(Exception):
                     popen.communicate(timeout=5)
@@ -170,6 +186,8 @@ class CommandRunner:
         finally:
             # Close file handles even on cancellation/KeyboardInterrupt; the exception
             # then propagates unchanged.
+            if popen is not None:
+                unregister_process(popen)
             stdout_handle.close()
             stderr_handle.close()
             if stdin_handle is not None:

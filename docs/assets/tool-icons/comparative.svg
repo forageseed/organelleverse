@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="comparative-title comparative-desc">
+  <title id="comparative-title">Comparison</title>
+  <desc id="comparative-desc">Two aligned genomes connected by homologous blocks.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 15h50 M7 48h50" stroke="#355b43" /><rect x="11" y="11" width="13" height="8" rx="2" fill="#e9efe5"/><rect x="33" y="11" width="17" height="8" rx="2" fill="#fbf1d8"/><rect x="9" y="44" width="17" height="8" rx="2" fill="#fbf1d8"/><rect x="35" y="44" width="13" height="8" rx="2" fill="#e9efe5"/><path d="M12 20l24 23 M23 20l24 23" stroke="#d9a33b" stroke-width="1.6"/><path d="M34 20L10 43 M49 20L25 43" stroke="#355b43" stroke-width="1.6"/>
+  </g>
+</svg>

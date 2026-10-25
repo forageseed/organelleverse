@@ -27,3 +27,19 @@ result_codec = "canonical"
 [[contract.binding.parameters]]
 name = "fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "backend"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "deeploc_model"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "deeploc_device"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organism"
+codec = "json"

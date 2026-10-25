@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from organelleverse._layout import checkout_root
+
 import os
 import shutil
 from pathlib import Path
@@ -40,23 +42,39 @@ def _resolve_losat(losat_path: str | os.PathLike[str] | None) -> str | None:
     if env_value:
         # Explicit opt-out (A/B runs against NCBI BLAST+): the checkout
         # otherwise always finds its vendored build.
-        if env_value.strip().casefold() in {"none", "off", "disable", "ncbi", "0"}:
+        if env_value.strip().casefold() in LOSAT_OPT_OUT_TOKENS:
             return None
         resolved = _resolve_executable(env_value, "LOSAT")
         if resolved is not None:
             return resolved
-    candidate = (
-        Path(__file__).resolve().parents[4]
-        / "external_tools"
-        / "LOSAT"
-        / "LOSAT"
-        / "target"
-        / "release"
-        / "LOSAT"
-    )
-    if candidate.is_file() and os.access(candidate, os.X_OK):
-        return str(candidate)
+    for root in _checkout_roots():
+        candidate = (
+            root / "external_tools" / "LOSAT" / "LOSAT" / "target" / "release" / "LOSAT"
+        )
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
     return shutil.which("losat") or shutil.which("LOSAT")
+
+
+LOSAT_OPT_OUT_TOKENS = frozenset({"none", "off", "disable", "ncbi", "0"})
+
+
+def losat_opted_out() -> bool:
+    """True when ORG_VERSE_LOSAT_BIN asks for NCBI BLAST+ on purpose."""
+
+    return os.environ.get("ORG_VERSE_LOSAT_BIN", "").strip().casefold() in LOSAT_OPT_OUT_TOKENS
+
+
+def _checkout_roots() -> tuple[Path, ...]:
+    """This checkout and, inside ``<repo>/.worktrees/<name>``, the repository root.
+
+    ``external_tools`` is not versioned, so a worktree has none of its own.
+    """
+
+    here = checkout_root()
+    if here.parent.name == ".worktrees":
+        return (here, here.parent.parent)
+    return (here,)
 
 
 def run_command(cmd: list[str], *, timeout: int) -> None:

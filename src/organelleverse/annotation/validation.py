@@ -280,6 +280,8 @@ def _validate_cds(
 def validate_document(
     document: AnnotationDocument,
     required_stages: tuple[str, ...] = (),
+    *,
+    allow_partial: bool = False,
 ) -> AnnotationValidationReport:
     """Validate coordinates, hierarchy, translation, and requested stages."""
 
@@ -360,8 +362,28 @@ def validate_document(
         "rrna": sum(count for name, count in feature_counts.items() if name.casefold() == "rrna"),
     }
     completed = {stage.casefold() for stage in document.completed_stages}
+    # A fragment can legitimately lack a whole feature class (no rRNA on a 49 kb piece), so with
+    # allow_partial a stage that ran and found nothing is a warning while some other stage found
+    # something. A stage that did not run, or an annotation with nothing at all, still fails.
+    some_stage_found = any(
+        counts_by_stage.get(stage.casefold(), 0) > 0 for stage in required_stages if stage != "orf"
+    )
     for stage in dict.fromkeys(required_stages):
         normalized = stage.casefold()
+        if (
+            allow_partial
+            and some_stage_found
+            and normalized in completed
+            and normalized != "orf"
+            and counts_by_stage.get(normalized, 0) == 0
+        ):
+            warnings.append(
+                _issue(
+                    "stage_no_features",
+                    f"annotation stage ran but produced no features: {stage}",
+                )
+            )
+            continue
         # ORF discovery can legitimately complete with zero new candidates.
         if normalized not in completed or (
             normalized != "orf" and counts_by_stage.get(normalized, 0) == 0

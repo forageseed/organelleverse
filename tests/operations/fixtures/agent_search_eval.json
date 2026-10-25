@@ -1,0 +1,607 @@
+{
+  "about": "Natural-language requests an Agent turns into an OV operation, each with the operations that correctly answer it. Used by test_operation_search.py (recall@1 / recall@5) and by hosts comparing their own ranking. Written 2026-10-16 from the default registry; extend it when an Agent picks a wrong operation in real use.",
+  "cases": [
+    {
+      "q": "calculate GC content of my mitochondrial genome",
+      "ok": [
+        "composition.gc_content"
+      ]
+    },
+    {
+      "q": "GC content and GC skew in sliding windows",
+      "ok": [
+        "composition.gc_content"
+      ]
+    },
+    {
+      "q": "计算线粒体基因组的GC含量",
+      "ok": [
+        "composition.gc_content"
+      ]
+    },
+    {
+      "q": "find SSR microsatellites in the plastome",
+      "ok": [
+        "structure.repeats"
+      ]
+    },
+    {
+      "q": "识别叶绿体基因组中的简单重复序列",
+      "ok": [
+        "structure.repeats"
+      ]
+    },
+    {
+      "q": "repeat-mediated recombination configurations of a mitogenome",
+      "ok": [
+        "structure.multiconf",
+        "structure.resolve_configs"
+      ]
+    },
+    {
+      "q": "线粒体基因组的重组构型",
+      "ok": [
+        "structure.multiconf",
+        "structure.resolve_configs"
+      ]
+    },
+    {
+      "q": "annotate mitochondrial genome",
+      "ok": [
+        "annotation.annotate"
+      ]
+    },
+    {
+      "q": "注释叶绿体基因组",
+      "ok": [
+        "annotation.annotate"
+      ]
+    },
+    {
+      "q": "predict genes on an assembled plastome",
+      "ok": [
+        "annotation.annotate"
+      ]
+    },
+    {
+      "q": "assemble a mitochondrial genome from HiFi reads",
+      "ok": [
+        "assembly.assemble"
+      ]
+    },
+    {
+      "q": "用ONT读长组装叶绿体基因组",
+      "ok": [
+        "assembly.assemble"
+      ]
+    },
+    {
+      "q": "quality control of an assembly",
+      "ok": [
+        "qc.assembly"
+      ]
+    },
+    {
+      "q": "组装结果质控",
+      "ok": [
+        "qc.assembly"
+      ]
+    },
+    {
+      "q": "read statistics N50 and mean quality of a FASTQ",
+      "ok": [
+        "qc.read_statistics"
+      ]
+    },
+    {
+      "q": "filter long reads by length and quality",
+      "ok": [
+        "qc.filter_long_reads"
+      ]
+    },
+    {
+      "q": "过滤短读长测序数据的接头和低质量",
+      "ok": [
+        "qc.filter_short_reads"
+      ]
+    },
+    {
+      "q": "build a maximum likelihood phylogenetic tree",
+      "ok": [
+        "phylogeny.build_tree",
+        "phylogeny.run_build_tree"
+      ]
+    },
+    {
+      "q": "构建系统发育树",
+      "ok": [
+        "phylogeny.build_tree",
+        "phylogeny.run_build_tree"
+      ]
+    },
+    {
+      "q": "multiple sequence alignment of orthologs",
+      "ok": [
+        "phylogeny.align"
+      ]
+    },
+    {
+      "q": "多序列比对",
+      "ok": [
+        "phylogeny.align",
+        "selection.align_protein"
+      ]
+    },
+    {
+      "q": "trim poorly aligned columns with trimAl",
+      "ok": [
+        "phylogeny.trim_alignment",
+        "phylogeny.run_trim_alignment"
+      ]
+    },
+    {
+      "q": "Bayesian tree with MrBayes",
+      "ok": [
+        "phylogeny.run_mrbayes"
+      ]
+    },
+    {
+      "q": "species tree from gene trees with ASTRAL",
+      "ok": [
+        "phylogeny.run_astral"
+      ]
+    },
+    {
+      "q": "estimate divergence times",
+      "ok": [
+        "phylogeny.date_tree"
+      ]
+    },
+    {
+      "q": "估计分化时间",
+      "ok": [
+        "phylogeny.date_tree"
+      ]
+    },
+    {
+      "q": "haplotype network",
+      "ok": [
+        "phylogeny.haplotype_network"
+      ]
+    },
+    {
+      "q": "构建单倍型网络",
+      "ok": [
+        "phylogeny.haplotype_network"
+      ]
+    },
+    {
+      "q": "concatenate shared genes into a partitioned supermatrix",
+      "ok": [
+        "phylogeny.build_partitioned_supermatrix"
+      ]
+    },
+    {
+      "q": "compare two tree topologies Robinson-Foulds",
+      "ok": [
+        "phylogeny.compare_trees"
+      ]
+    },
+    {
+      "q": "Ka/Ks selection pressure between CDS pairs",
+      "ok": [
+        "selection.kaks",
+        "selection.run_kaks_calculator_workflow"
+      ]
+    },
+    {
+      "q": "kaks",
+      "ok": [
+        "selection.kaks",
+        "selection.run_kaks_calculator_workflow"
+      ]
+    },
+    {
+      "q": "计算选择压力",
+      "ok": [
+        "selection.kaks",
+        "selection.run_kaks_calculator_workflow",
+        "selection.run_codeml"
+      ]
+    },
+    {
+      "q": "positive selection sites with codeml site model",
+      "ok": [
+        "selection.run_codeml",
+        "selection.write_site_model",
+        "selection.write_codeml_inputs"
+      ]
+    },
+    {
+      "q": "episodic diversifying selection with HyPhy BUSTED",
+      "ok": [
+        "selection.hyphy_busted"
+      ]
+    },
+    {
+      "q": "relaxed selection test RELAX",
+      "ok": [
+        "selection.hyphy_relax"
+      ]
+    },
+    {
+      "q": "codon usage RSCU and ENC",
+      "ok": [
+        "codon_composition.codon_usage"
+      ]
+    },
+    {
+      "q": "密码子偏好分析",
+      "ok": [
+        "codon_composition.codon_usage"
+      ]
+    },
+    {
+      "q": "amino acid composition of CDS",
+      "ok": [
+        "codon_composition.amino_acid"
+      ]
+    },
+    {
+      "q": "nucleotide diversity pi across an alignment",
+      "ok": [
+        "diversity.nucleotide_diversity",
+        "diversity.sliding_window_diversity"
+      ]
+    },
+    {
+      "q": "核苷酸多样性",
+      "ok": [
+        "diversity.nucleotide_diversity",
+        "diversity.sliding_window_diversity"
+      ]
+    },
+    {
+      "q": "Tajima's D neutrality test",
+      "ok": [
+        "diversity.neutral_tests"
+      ]
+    },
+    {
+      "q": "mutation hotspots sliding window pi",
+      "ok": [
+        "diversity.sliding_window_diversity"
+      ]
+    },
+    {
+      "q": "SNPs relative to a reference sequence",
+      "ok": [
+        "variation.snp"
+      ]
+    },
+    {
+      "q": "SNP density per kb",
+      "ok": [
+        "variation.snp_density"
+      ]
+    },
+    {
+      "q": "predict RNA editing sites in mitochondrial CDS",
+      "ok": [
+        "rna_editing.predict_edits",
+        "rna_editing.predict_edits_deepred",
+        "rna_editing.predict_edits_prep"
+      ]
+    },
+    {
+      "q": "预测RNA编辑位点",
+      "ok": [
+        "rna_editing.predict_edits",
+        "rna_editing.predict_edits_deepred",
+        "rna_editing.predict_edits_plantc2u",
+        "rna_editing.predict_edits_prep"
+      ]
+    },
+    {
+      "q": "detect C-to-U editing from RNA-seq BAM",
+      "ok": [
+        "rna_editing.detect_editing_sites"
+      ]
+    },
+    {
+      "q": "RNA editing efficiency at known sites",
+      "ok": [
+        "rna_editing.quantify_efficiency"
+      ]
+    },
+    {
+      "q": "IR boundary analysis of chloroplast genomes",
+      "ok": [
+        "ir_boundary.ir_boundary"
+      ]
+    },
+    {
+      "q": "叶绿体IR边界",
+      "ok": [
+        "ir_boundary.ir_boundary",
+        "visualization.plot_ir_boundaries"
+      ]
+    },
+    {
+      "q": "draw a circular genome map",
+      "ok": [
+        "visualization.plot_genome_map",
+        "visualization.plot_ogdraw_map",
+        "visualization.plot_structure_map"
+      ]
+    },
+    {
+      "q": "画线粒体基因组圈图",
+      "ok": [
+        "visualization.plot_genome_map",
+        "visualization.plot_ogdraw_map",
+        "visualization.plot_structure_map"
+      ]
+    },
+    {
+      "q": "plot a phylogenetic tree",
+      "ok": [
+        "visualization.plot_tree"
+      ]
+    },
+    {
+      "q": "detect plastid-derived DNA in the mitochondrial genome MTPT",
+      "ok": [
+        "transfer.detect_mtpt"
+      ]
+    },
+    {
+      "q": "叶绿体来源的线粒体序列",
+      "ok": [
+        "transfer.detect_mtpt"
+      ]
+    },
+    {
+      "q": "find NUMTs in a nuclear genome",
+      "ok": [
+        "transfer.detect_transfers_evidence",
+        "population.detect_numt"
+      ]
+    },
+    {
+      "q": "horizontal gene transfer between donor and recipient",
+      "ok": [
+        "hgt.detect_hgt"
+      ]
+    },
+    {
+      "q": "gene presence absence table across genomes",
+      "ok": [
+        "comparative.gene_table",
+        "comparative.compare_genes",
+        "pangenome.gene_pav"
+      ]
+    },
+    {
+      "q": "synteny between annotated genomes",
+      "ok": [
+        "comparative.synteny"
+      ]
+    },
+    {
+      "q": "共线性分析",
+      "ok": [
+        "comparative.synteny",
+        "visualization.plot_collinearity",
+        "visualization.plot_synteny_matrix"
+      ]
+    },
+    {
+      "q": "structural variants inversions translocations",
+      "ok": [
+        "comparative.detect_structural_variants"
+      ]
+    },
+    {
+      "q": "build a pangenome graph",
+      "ok": [
+        "pangenome.build_graph"
+      ]
+    },
+    {
+      "q": "泛基因组",
+      "ok": [
+        "pangenome.build_graph",
+        "pangenome.analyze_graph"
+      ]
+    },
+    {
+      "q": "heteroplasmy variant fractions from BAM",
+      "ok": [
+        "heteroplasmy.quantify_variant_fractions"
+      ]
+    },
+    {
+      "q": "predict subcellular localization of proteins",
+      "ok": [
+        "localization.predict"
+      ]
+    },
+    {
+      "q": "亚细胞定位预测",
+      "ok": [
+        "localization.predict"
+      ]
+    },
+    {
+      "q": "segment mitochondria in electron microscopy images",
+      "ok": [
+        "morphology.segment"
+      ]
+    },
+    {
+      "q": "measure organelle morphology from label maps",
+      "ok": [
+        "morphology.measure",
+        "morphology.batch_measure"
+      ]
+    },
+    {
+      "q": "predict CMS candidate genes",
+      "ok": [
+        "phenotype.cms",
+        "phenotype.assess_cms_candidates"
+      ]
+    },
+    {
+      "q": "细胞质雄性不育候选基因",
+      "ok": [
+        "phenotype.cms",
+        "phenotype.assess_cms_candidates",
+        "phenotype.assess_cms_annotation"
+      ]
+    },
+    {
+      "q": "download organelle genomes from NCBI by accession",
+      "ok": [
+        "fetch.accession_list"
+      ]
+    },
+    {
+      "q": "下载参考基因组",
+      "ok": [
+        "fetch.accession_list",
+        "fetch.refseq_snapshot",
+        "fetch.entrez_query",
+        "fetch.nuclear_assembly",
+        "fetch.ngdc_gwh"
+      ]
+    },
+    {
+      "q": "convert GenBank to GFF3",
+      "ok": [
+        "format_conversion.convert"
+      ]
+    },
+    {
+      "q": "格式转换 GenBank 转 FASTA",
+      "ok": [
+        "format_conversion.convert"
+      ]
+    },
+    {
+      "q": "read a genome FASTA",
+      "ok": [
+        "io.read_fasta_genome"
+      ]
+    },
+    {
+      "q": "design DNA barcode regions",
+      "ok": [
+        "barcode.design_barcode",
+        "barcode.design_marker_primers"
+      ]
+    },
+    {
+      "q": "find trans-spliced genes",
+      "ok": [
+        "trans_splicing.detect_trans_splicing"
+      ]
+    },
+    {
+      "q": "反式剪接基因",
+      "ok": [
+        "trans_splicing.detect_trans_splicing"
+      ]
+    },
+    {
+      "q": "gene expression CPM from RNA-seq",
+      "ok": [
+        "rna_seq.quantify_exon_expression"
+      ]
+    },
+    {
+      "q": "intron splicing efficiency",
+      "ok": [
+        "rna_seq.quantify_splicing_efficiency"
+      ]
+    },
+    {
+      "q": "Fst between two populations",
+      "ok": [
+        "population.fst_scan",
+        "population.compute_fst"
+      ]
+    },
+    {
+      "q": "evolutionary rate covariation coevolution",
+      "ok": [
+        "coevolution.rate_covariation",
+        "coevolution.run_erc"
+      ]
+    },
+    {
+      "q": "find ORFs",
+      "ok": [
+        "annotation.find_orfs"
+      ]
+    },
+    {
+      "q": "PPR binding site prediction",
+      "ok": [
+        "ppr.predict_binding_sites"
+      ]
+    },
+    {
+      "q": "线粒体组装质量评估",
+      "ok": [
+        "qc.assembly"
+      ]
+    },
+    {
+      "q": "绘制系统发育树",
+      "ok": [
+        "visualization.plot_tree"
+      ]
+    },
+    {
+      "q": "RNA编辑效率",
+      "ok": [
+        "rna_editing.quantify_efficiency"
+      ]
+    },
+    {
+      "q": "检测核内线粒体DNA片段",
+      "ok": [
+        "transfer.detect_transfers_evidence",
+        "population.detect_numt"
+      ]
+    },
+    {
+      "q": "线粒体中的质体来源序列",
+      "ok": [
+        "transfer.detect_mtpt"
+      ]
+    },
+    {
+      "q": "预测转运肽",
+      "ok": [
+        "localization.score_transit_peptides",
+        "localization.predict"
+      ]
+    },
+    {
+      "q": "估计分歧时间",
+      "ok": [
+        "phylogeny.date_tree"
+      ]
+    },
+    {
+      "q": "核内质体DNA插入片段",
+      "ok": [
+        "transfer.detect_transfers_evidence",
+        "transfer.detect_transfers_blast"
+      ]
+    }
+  ]
+}

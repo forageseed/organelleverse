@@ -12,6 +12,7 @@ description = "Build a ``{gene: compartment}`` map from name-prefix rules."
 keywords = ["analyze", "coevolution", "compartment", "from", "map", "prefix", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "internal"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution.coevolution:compartment_map_from_prefix"
@@ -30,4 +31,8 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "prefix_rules"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "default"
 codec = "json"

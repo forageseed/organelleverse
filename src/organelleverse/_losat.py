@@ -23,6 +23,8 @@ so failures carry the same stderr-rich error shape as other externals.
 
 from __future__ import annotations
 
+from organelleverse._layout import checkout_root
+
 import os
 import shutil
 import tempfile
@@ -124,7 +126,7 @@ def resolve_losat() -> str | None:
         if resolved:
             return resolved
     candidate = (
-        Path(__file__).resolve().parents[2]
+        checkout_root()
         / "external_tools"
         / "LOSAT"
         / "LOSAT"

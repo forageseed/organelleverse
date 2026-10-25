@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import heapq
 import json
+import os
+import pickle
 import re
+import threading
 import zlib
 from collections.abc import Iterable
+from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -40,7 +45,52 @@ def _load_reference_cached(
     manifest = Path(manifest_text) if manifest_text else None
     if manifest and manifest.exists():
         return _load_preprocessed_reference(path, manifest)
-    return _parse_reference(path)
+    return _parse_reference_stored(path)
+
+
+def _code_digest() -> bytes:
+    """Digest of the code a parsed reference depends on: a change to it invalidates every stored parse."""
+    import Bio
+
+    from . import models
+
+    h = hashlib.sha256(Bio.__version__.encode())
+    for source in (Path(__file__), Path(models.__file__)):
+        h.update(source.read_bytes())
+    return h.digest()
+
+
+_CODE_DIGEST = _code_digest()
+
+
+def _parse_reference_stored(path: Path) -> ReferenceRecord:
+    """``_parse_reference(path)``, kept on disk under the cache root between runs.
+
+    Parsing the 46 shipped GenBank files took 9-15 s of every plastome annotation (as long as PGA's whole run).
+    The stored object is the pickled result of the same call, keyed by the file's path and bytes and by this
+    module's and the models' source, so it is used only for exactly the input and code that produced it. Any
+    problem with the store falls back to parsing.
+    """
+    try:
+        from ...runtime import cache_root
+
+        key = hashlib.sha256(_CODE_DIGEST + str(path.resolve()).encode() + b"\0" + path.read_bytes()).hexdigest()
+        store = cache_root() / "plastome-references" / f"{key}.pickle"
+        if store.exists():
+            with store.open("rb") as fh:
+                return pickle.load(fh)
+    except Exception:
+        return _parse_reference(path)
+    reference = _parse_reference(path)
+    try:
+        store.parent.mkdir(parents=True, exist_ok=True)
+        tmp = store.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+        with tmp.open("wb") as fh:
+            pickle.dump(reference, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        tmp.replace(store)
+    except Exception:
+        pass
+    return reference
 
 
 @lru_cache(maxsize=8)
@@ -491,27 +541,40 @@ def clean_seq(seq: str) -> str:
     (Panax ginseng NC_006290 carries 4 R and 1 Y: genes downstream of each came
     out one base further off).
     """
-    return "".join(base if base in "ACGT" else "N" for base in seq.upper().replace("U", "T") if not base.isspace())
+    # str.split() drops exactly the characters str.isspace() reports; then every non-ACGT symbol becomes N.
+    return _NON_ACGT.sub("N", "".join(seq.upper().replace("U", "T").split()))
+
+
+_NON_ACGT = re.compile(r"[^ACGT]")
+_COMPLEMENT = str.maketrans("ACGTN", "TGCAN")
 
 
 def sample_kmers(seq: str) -> set[str]:
+    """The 1,200 canonical 31-mers with the smallest CRC32 (ties by k-mer), over the circular sequence.
+
+    The reverse complement is taken once for the whole sequence and each k-mer's is a slice of it, and only the
+    smallest entries are kept (heapq.nsmallest equals sorted(...)[:n]): the same set as building a Seq per k-mer and
+    sorting all of them, which took about half of a plastome annotation.
+    """
     clean = clean_seq(seq)
     kmer_size = 31
     max_kmers = 1200
     if len(clean) < kmer_size:
         return {clean}
     circular = clean + clean[: kmer_size - 1]
-    ranked = sorted(
-        (
-            _stable_kmer_hash(_canonical_kmer(circular[i : i + kmer_size])),
-            _canonical_kmer(circular[i : i + kmer_size]),
-        )
-        for i in range(len(clean))
-        if "N" not in circular[i : i + kmer_size]
-    )
+    rc = circular.translate(_COMPLEMENT)[::-1]
+    n = len(circular)
+    ranked = []
+    for i in range(len(clean)):
+        kmer = circular[i : i + kmer_size]
+        if "N" in kmer:
+            continue
+        rev = rc[n - i - kmer_size : n - i]
+        canonical = kmer if kmer <= rev else rev
+        ranked.append((zlib.crc32(canonical.encode("ascii")), canonical))
     if not ranked:
         return {clean[i : i + kmer_size] for i in range(0, len(clean) - kmer_size + 1)}
-    return {kmer for _, kmer in ranked[:max_kmers]}
+    return {kmer for _, kmer in heapq.nsmallest(max_kmers, ranked)}
 
 
 def _canonical_kmer(kmer: str) -> str:
@@ -524,6 +587,10 @@ def _stable_kmer_hash(kmer: str) -> int:
 
 
 def _reference_choice_kmers(reference: ReferenceRecord) -> frozenset[str]:
+    # A reference parsed from GenBank already carries sample_kmers() of that file's sequence: the same set that
+    # reading the file again gives, without a second parse.
+    if reference.record.seq and reference.kmers:
+        return reference.kmers
     if reference.path.exists():
         stat = reference.path.stat()
         return _reference_choice_kmers_cached(
@@ -630,3 +697,24 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def build_exon_query_panel(references: tuple[ReferenceRecord, ...]) -> tuple[ReferenceQuery, ...]:
+    """Retain each complete reference architecture; no gene or exon-count rule."""
+    panel = []
+    for reference_index, reference in enumerate(references):
+        products: dict[str, list[ReferenceQuery]] = {}
+        for query in build_plastome_queries(reference):
+            feature = query.reference_feature
+            if feature.feature_type == "CDS_exon":
+                products.setdefault(feature.feature_id.rsplit(":exon", 1)[0], []).append(query)
+        for queries in products.values():
+            ordered = sorted(queries, key=lambda q: q.reference_feature.exon_index)
+            count = ordered[0].reference_feature.exon_count
+            if count > 1 and [q.reference_feature.exon_index for q in ordered] == list(
+                range(1, count + 1)
+            ):
+                panel.extend(
+                    replace(q, query_id=f"exon_{reference_index}_{q.query_id}") for q in ordered
+                )
+    return tuple(panel)

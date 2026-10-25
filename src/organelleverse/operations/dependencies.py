@@ -146,7 +146,20 @@ def _check_path(
 ) -> DependencyCheck:
     if not dependency.locator:
         return _unverified(dependency, "missing_locator")
-    path = Path(dependency.locator)
+    if dependency.locator.startswith("ov-asset:"):
+        # A packaged asset is identified by a stable locator, not a file name: resolve it first.
+        try:
+            from organelleverse.assets import locate
+
+            path = Path(locate(dependency.locator))
+        except Exception:  # noqa: BLE001 - an unresolvable asset is simply not present
+            return DependencyCheck(
+                dependency=dependency,
+                state=DependencyState.MISSING,
+                resolved_locator=dependency.locator,
+            )
+    else:
+        path = Path(dependency.locator)
     try:
         present = path.is_dir() if requires_directory else path.is_file()
     except OSError:

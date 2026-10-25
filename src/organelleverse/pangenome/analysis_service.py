@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Literal
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
 from ..core.errors import OrganelleInputError
 from ..core.result import ErrorDetail, OrganelleResult
@@ -15,6 +17,7 @@ from .graph_selection import verified_artifact
 from .workflow_models import WorkflowRequest
 
 
+@validated_public('pangenome.analyze_graph')
 def analyze_graph(
     result: OrganelleResult,
     *,

@@ -27,3 +27,631 @@ result_codec = "artifact"
 [[contract.binding.parameters]]
 name = "inputs"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "input_format"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "formats"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "blast"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "conservation_blast"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "depth"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "depth_track"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "losatp_bin"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ncbi_blastp_bin"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "losatp_threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "protein_blastp_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "protein_blastp_max_hits"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "protein_blastp_candidate_limit"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "align_orthogroup_feature"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_search_scope"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_min_anchors"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_max_unit_gap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_max_diagonal_drift"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "collinear_color_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "pairwise_match_style"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "evalue"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "bitscore"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "alignment_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "palette"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "table"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "default_colors"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "nt"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "step"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "strain"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "features"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "feature_shape"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "block_stroke_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "block_stroke_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "axis_stroke_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "axis_stroke_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "line_stroke_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "line_stroke_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "definition_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "definition_line_style"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "plot_title_position"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "plot_title_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "legend"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "separate_strands"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "resolve_overlaps"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_placement"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_rendering"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_rotation"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "linear_label_spacing"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "circular_label_spacing"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "label_whitelist"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "label_blacklist"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "qualifier_priority"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "label_table"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "feature_visibility_table"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "track_layout"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "track_axis_gap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "linear_track_order"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "linear_track_slot"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "linear_track_axis_index"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ruler_on_axis"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "align_center"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "keep_definition_left_aligned"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "record_label"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "record_subtitle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_replicon"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "hide_accession"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "hide_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "feature_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "comparison_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "scale_style"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "scale_stroke_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "scale_stroke_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "scale_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ruler_label_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "ruler_label_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "normalize_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "region"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "record_id"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "reverse_complement"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "multi_record_canvas"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "multi_record_size_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "multi_record_min_radius_ratio"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "multi_record_column_gap_ratio"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "multi_record_row_gap_ratio"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "multi_record_position"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "keep_full_definition_with_plot_title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "center_reserved_radius"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "track_type"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "outer_label_x_radius_offset"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "outer_label_y_radius_offset"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "inner_label_x_radius_offset"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "inner_label_y_radius_offset"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "scale_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "tick_label_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "feature_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "circular_track_order"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "circular_track_slot"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "circular_track_axis_index"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_radius"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_skew_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_skew_radius"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_gc"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_skew"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "suppress_gc"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "suppress_skew"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_mode"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_min_percent"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_max_percent"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_large_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_small_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "gc_content_tick_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_gc_content_axis"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_gc_content_ticks"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_depth"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_track_label"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_track_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_track_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_track_large_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_track_small_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_track_tick_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_color"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_window"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_step"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "share_depth_axis"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_min"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_max"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_log_scale"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_depth_axis"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "show_depth_ticks"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_large_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_small_tick_interval"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "depth_tick_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "conservation_reference"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "conservation_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "conservation_colors"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "conservation_ring_width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "conservation_ring_gap"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "legend_box_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "legend_font_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "save_session"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "white_background"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "extra_args"
+codec = "json"

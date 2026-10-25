@@ -6,9 +6,13 @@
 """
 
 from __future__ import annotations
+
 from pathlib import Path
+
+from organelleverse._public_validation import validated_public
+
 from ..core.result import ErrorDetail, OrganelleResult
-from .._bio import read_fasta
+from ..sequences import Sequences, as_path, as_records
 from ._contract import (
     OPERATION_VERSION,
     RESULT_SCOPE,
@@ -20,8 +24,9 @@ from ._contract import (
 )
 
 
+@validated_public('barcode.design_barcode')
 def design_barcode(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     min_window: int = 100,
     min_p_variability: float = 0.05,
@@ -37,8 +42,8 @@ def design_barcode(
     """
     started_at = utc_now()
     parameters = {"min_window": min_window, "min_p_variability": min_p_variability}
-    alignment_artifact = fasta_artifact(alignment_fasta, kind="alignment")
-    seqs = [s.upper() for _, s in read_fasta(Path(alignment_fasta))]
+    alignment_artifact = fasta_artifact(as_path(alignment_fasta), kind="alignment")
+    seqs = [s.upper() for _, s in as_records(alignment_fasta)]
     if len(seqs) < 2:
         return OrganelleResult(
             operation_id="barcode.design_barcode",
@@ -114,9 +119,10 @@ def design_barcode(
     )
 
 
+@validated_public('barcode.identify')
 def identify(
-    query_fasta: str | Path,
-    reference_fasta: str | Path,
+    query_fasta: str | Path | Sequences,
+    reference_fasta: str | Path | Sequences,
     *,
     k: int = 31,
 ) -> OrganelleResult:
@@ -126,11 +132,11 @@ def identify(
     """
     started_at = utc_now()
     parameters = {"k": k}
-    query_artifact = fasta_artifact(query_fasta, kind="query_sequence")
-    reference_artifact = fasta_artifact(reference_fasta, kind="barcode_reference")
+    query_artifact = fasta_artifact(as_path(query_fasta), kind="query_sequence")
+    reference_artifact = fasta_artifact(as_path(reference_fasta), kind="barcode_reference")
     artifact_hashes = input_hashes(query_artifact, reference_artifact)
-    query = "".join(s.upper() for _, s in read_fasta(Path(query_fasta)))
-    refs = read_fasta(Path(reference_fasta))
+    query = "".join(s.upper() for _, s in as_records(query_fasta))
+    refs = as_records(reference_fasta)
     if not query or not refs:
         return OrganelleResult(
             operation_id="barcode.identify",

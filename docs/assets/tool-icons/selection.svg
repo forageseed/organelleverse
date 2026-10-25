@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="selection-title selection-desc">
+  <title id="selection-title">Selection</title>
+  <desc id="selection-desc">Two codon tracks and differing evolutionary rate profiles.</desc>
+  <g fill="none" stroke="#355b43" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 13h47 M8 25h47" stroke="#355b43" /><rect x="13" y="9" width="9" height="8" rx="1" fill="#e9efe5"/><rect x="28" y="9" width="9" height="8" rx="1" fill="#fbf1d8"/><rect x="43" y="9" width="9" height="8" rx="1" fill="#e9efe5"/><rect x="13" y="21" width="9" height="8" rx="1" fill="#e9efe5"/><rect x="28" y="21" width="9" height="8" rx="1" fill="#f7dfd2"/><rect x="43" y="21" width="9" height="8" rx="1" fill="#fbf1d8"/><path d="M10 51h46 M14 45l11-8 11 5 14-11" stroke="#d9a33b" /><circle cx="25" cy="37" r="3" fill="#355b43" stroke="white" stroke-width="1.4"/><circle cx="50" cy="31" r="3" fill="#dc7147" stroke="white" stroke-width="1.4"/>
+  </g>
+</svg>

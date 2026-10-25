@@ -1,0 +1,129 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "visualization.plot_presence_tracks"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Plot Presence Tracks"
+description = "Prepare a multi-sample presence/absence track view of one reference interval from pangenome graph paths or PAF alignments: blocks coloured by group, sample annotation strips (e.g. DNA source), SV sites and gene arrows; render with ov.write."
+keywords = ["pangenome", "pav", "presence-absence", "tracks", "visualization"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.visualization.popgen_plots:plot_presence_tracks"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[[contract.dependencies]]
+kind = "python"
+name = "matplotlib"
+
+[[contract.dependencies]]
+kind = "python"
+name = "scipy"
+
+[[contract.dependencies]]
+kind = "python"
+name = "Bio"
+locator = "biopython"
+
+[[contract.dependencies]]
+kind = "python"
+name = "vcfpy"
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "gfa"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "paf"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "reference"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "start"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "end"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "groups"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "group_order"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "annotations"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "annotation_colors"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "sample_labels"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "svs"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "min_sv_length"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "genbank"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_block"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "group_colors"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "title"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "organelle"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "width"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "row_height"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dpi"
+codec = "json"
+
+[[fixture]]
+case = "basic"
+input = { kind = "none" }
+parameters = {gfa = "fixtures/basic/input/toy.gfa", reference = "REF", start = 1, end = 2000, groups = {W1 = "wild", W2 = "wild", W3 = "wild", W4 = "wild", C1 = "crop", C2 = "crop", C3 = "crop", C4 = "crop"}, annotations = {"DNA source" = {W1 = "Mt", W2 = "Pt", W3 = "Mt", W4 = "Mt", C1 = "Mt", C2 = "Mt", C3 = "Mt", C4 = "Mt"}}, genbank = "fixtures/basic/input/ref.gb", min_sv_length = 100}
+expect = "fixtures/basic/expected.json"
+equivalence = "exact"

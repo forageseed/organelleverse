@@ -12,6 +12,7 @@ description = "Reconcile a gene tree against a species tree using LCA mapping."
 keywords = ["analyze", "coevolution", "reconcile", "restored", "result", "trees"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.coevolution.coevolution:reconcile_trees"
@@ -29,4 +30,8 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "species_tree_newick"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_map"
 codec = "json"

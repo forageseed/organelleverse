@@ -19,7 +19,8 @@ object. The wrapper is what turns clusters back into ``OrganelleData``.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from collections.abc import Sequence
+from typing import Annotated, Any, Literal
 
 from annotated_types import Ge, Le
 
@@ -44,13 +45,11 @@ __all__ = [
 ]
 
 
-def op_refseq_snapshot(
-    organelle: str,
-    *,
-    dest: str,
-    release: int,
-) -> OrganelleData:
-    """Download a pinned RefSeq release snapshot for one organelle."""
+def op_refseq_snapshot(organelle: str, *, dest: str, release: int | None = None) -> OrganelleData:
+    """Fetch a RefSeq snapshot; None resolves and records the current release.
+
+    A supplied release must equal the current release retained by NCBI.
+    """
     return refseq_snapshot(organelle=organelle, dest=dest, release=release)
 
 
@@ -68,6 +67,10 @@ def op_entrez_query(
     max_records: int | None = None,
     genbank_metadata: bool = False,
     group_genomes: bool = True,
+    formats: Sequence[str] = ("genbank",),
+    page_size: int = 500,
+    try_name_variants: bool = True,
+    baseline: str | None = None,
 ) -> OrganelleData:
     """Search live nuccore for organelle genomes, filtering before download."""
     filters = FetchFilters(
@@ -86,15 +89,21 @@ def op_entrez_query(
         max_records=max_records,
         genbank_metadata=genbank_metadata,
         group_genomes=group_genomes,
+        formats=formats,
+        page_size=page_size,
+        try_name_variants=try_name_variants,
+        baseline=baseline,
     )
 
 
 def op_accession_list(
-    organelle: str,
+    organelle: str = "plastid",
     *,
     dest: str,
     accessions: list[str],
     genbank_metadata: bool = False,
+    formats: Sequence[str] = ("genbank",),
+    page_size: int = 500,
 ) -> OrganelleData:
     """Fetch an explicit accession list — how someone else's dataset is reproduced."""
     return fetch_accessions(
@@ -102,6 +111,8 @@ def op_accession_list(
         dest=dest,
         organelle=organelle,
         genbank_metadata=genbank_metadata,
+        formats=formats,
+        page_size=page_size,
     )
 
 
@@ -110,20 +121,22 @@ def op_gene_records(
     *,
     dest: str,
     taxon: str | None = None,
-    scope: str = "plastid",
+    scope: Literal["mitochondrion", "plastid", "nuclear"] = "plastid",
     max_records: int | None = None,
     min_length: int | None = None,
     max_length: int | None = None,
+    page_size: int = 500,
 ) -> OrganelleData:
     """Fetch gene records. Fragments are the target here, not noise."""
     return fetch_genes(
         gene=gene,
         dest=dest,
         taxon=taxon,
-        scope=scope,  # type: ignore[arg-type]
+        scope=scope,
         max_records=max_records,
         min_length=min_length,
         max_length=max_length,
+        page_size=page_size,
     )
 
 
@@ -131,21 +144,26 @@ def op_nuclear_assembly(
     taxon: str,
     *,
     dest: str,
-    assembly_level: str | None = "chromosome",
+    assembly_level: Literal["complete_genome", "chromosome", "scaffold", "contig"]
+    | None = "chromosome",
     reference_only: bool = True,
     include: tuple[str, ...] = ("protein",),
     max_records: int = 20,
     download: bool = True,
+    allow_partial: bool = False,
+    source: Literal["auto", "ncbi", "gir", "imp", "pgd", "tair"] = "ncbi",
 ) -> OrganelleData:
     """Fetch nuclear assemblies from NCBI Datasets — the other half of an ERC run."""
     return fetch_nuclear_genome(
         taxon=taxon,
         dest=dest,
-        assembly_level=assembly_level,  # type: ignore[arg-type]
+        assembly_level=assembly_level,
         reference_only=reference_only,
         include=include,
         max_records=max_records,
         download=download,
+        allow_partial=allow_partial,
+        source=source,
     )
 
 
@@ -196,20 +214,22 @@ def op_dedup_genomes(data: OrganelleData) -> OrganelleData:
 
 
 def op_ngdc_gwh(
-    organelle: str,
+    organelle: Literal["mitochondrion", "plastid"],
     *,
     dest: str,
     taxon: str | None = None,
     formats: tuple[str, ...] = ("fasta",),
     with_metadata: bool = True,
     max_records: int | None = None,
+    max_gz_bytes: int = 12582912,
 ) -> OrganelleData:
     """Fetch organelle genomes from NGDC/GWH — the ones NCBI does not have."""
     return fetch_ngdc(
-        organelle=organelle,  # type: ignore[arg-type]
+        organelle=organelle,
         dest=dest,
         taxon=taxon,
         formats=formats,
         with_metadata=with_metadata,
         max_records=max_records,
+        max_gz_bytes=max_gz_bytes,
     )

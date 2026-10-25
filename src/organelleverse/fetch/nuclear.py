@@ -27,6 +27,8 @@ import os
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..core.artifacts import ArtifactRef
 from ..core.data import OrganelleData
 from ..core.errors import OrganelleError, OrganelleExecutionError, OrganelleParameterError
@@ -130,6 +132,7 @@ def _records_of(data: OrganelleData) -> list[dict[str, Any]]:
     return cast("list[dict[str, Any]]", thawed) if isinstance(thawed, list) else []
 
 
+@validated_public('fetch.nuclear_assembly', python_only=('transport',))
 def fetch_nuclear_genome(
     *,
     taxon: str,

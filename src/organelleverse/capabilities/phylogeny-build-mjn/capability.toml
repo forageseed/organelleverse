@@ -12,6 +12,7 @@ description = "Median-joining network (Bandelt, Forster & R\u00f6hl 1999)."
 keywords = ["analyze", "build", "mjn", "phylogeny", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.phylogeny.hapnet:build_mjn"
@@ -26,4 +27,12 @@ result_key = "mjn_network"
 
 [[contract.binding.parameters]]
 name = "haplotypes"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "epsilon"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "max_iterations"
 codec = "json"

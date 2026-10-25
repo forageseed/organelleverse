@@ -31,3 +31,7 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "reference_fasta"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "k"
+codec = "json"

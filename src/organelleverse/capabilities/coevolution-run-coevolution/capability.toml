@@ -28,3 +28,28 @@ result_codec = "canonical"
 name = "proteome_dir"
 codec = "directory"
 path_role = "input"
+
+[[contract.binding.parameters]]
+name = "method"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "results_dir"
+codec = "directory"
+path_role = "input"
+
+[[contract.binding.parameters]]
+name = "transform"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "fdr_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "r_threshold"
+codec = "json"

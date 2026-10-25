@@ -787,8 +787,7 @@ def _refine_boundary_by_tblastn(
             },
         )
 
-    ref_dir = db_manager.blast_ref_dir
-    ref_file = ref_dir / f"{ann.gene_name}.Protein.fasta"
+    ref_file = db_manager.boundary_reference(ann.gene_name)
     if not ref_file.exists():
         return ann
 

@@ -14,6 +14,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, cast
 
+from organelleverse._public_validation import validated_public
+
 from ..annotation.genbank import parse_genbank
 from ..annotation.models import AnnotationRecord
 from ..core.frozen import FrozenMap, thaw_json
@@ -110,6 +112,7 @@ def _annotation_path(genome: OrganelleGenome) -> Path | None:
     return genome.annotation.resolve() if genome.annotation is not None else None
 
 
+@validated_public('comparative.synteny')
 def synteny(
     genomes: list[OrganelleGenome],
 ) -> OrganelleResult:
@@ -152,6 +155,7 @@ def synteny(
     )
 
 
+@validated_public('comparative.compare_genes')
 def compare_genes(
     genomes: list[OrganelleGenome],
 ) -> OrganelleResult:
@@ -192,6 +196,7 @@ def compare_genes(
     )
 
 
+@validated_public('comparative.gene_table')
 def gene_table(
     genomes: list[OrganelleGenome],
 ) -> OrganelleResult:
@@ -278,6 +283,7 @@ def write_gene_comparison(
     return path
 
 
+@validated_public('comparative.compare_genomes')
 def compare_genomes(
     genomes: list[OrganelleGenome],
 ) -> OrganelleResult:
@@ -338,6 +344,7 @@ def write_genome_comparison(
     return path
 
 
+@validated_public('comparative.normalize_genes')
 def normalize_genes(gene_names: list[str]) -> dict[str, str]:
     """Normalize organelle gene-name variants to canonical names.
 

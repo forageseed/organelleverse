@@ -28,8 +28,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from organelleverse._public_validation import validated_public
+
 from .._bio import read_fasta
 from ..core.result import OrganelleResult
+from ..sequences import Sequences, as_path, as_records
 from ..visualization.plot_object import OrganellePlot, plot_result
 from ._results import failed_result, findings, ok_result, provenance
 
@@ -38,6 +41,7 @@ from ._results import failed_result, findings, ok_result, provenance
 # ===========================================================================
 
 
+@validated_public('phylogeny.collapse_haplotypes')
 def collapse_haplotypes(
     seqs: list[tuple[str, str]],
     population_map: dict[str, str] | None = None,
@@ -79,6 +83,7 @@ def collapse_haplotypes(
 # ===========================================================================
 
 
+@validated_public('phylogeny.pdistance')
 def pdistance(a: str, b: str) -> int:
     """Uncorrected p-distance (number of differing ACGT columns).
 
@@ -108,6 +113,7 @@ def pairwise_distances(haplotypes: list[Mapping[str, str | int | float | bool | 
 # ===========================================================================
 
 
+@validated_public('phylogeny.tcs_connection_limit')
 def tcs_connection_limit(
     n_haplotypes: int,
     sequence_length: int = 0,
@@ -143,6 +149,7 @@ def tcs_connection_limit(
 # ===========================================================================
 
 
+@validated_public('phylogeny.build_msn')
 def build_msn(
     haplotypes: list[Mapping[str, str | int | float | bool | None]],
     connection_limit: int | None = None,
@@ -186,6 +193,7 @@ def build_msn(
 # ===========================================================================
 
 
+@validated_public('phylogeny.build_tcs_network')
 def build_tcs_network(
     haplotypes: list[Mapping[str, str | int | float | bool | None]],
     members: dict[str, list[str]],
@@ -378,6 +386,7 @@ def _three_way_median(a: str, b: str, c: str) -> str:
     return "".join(out)
 
 
+@validated_public('phylogeny.build_mjn')
 def build_mjn(
     haplotypes: list[Mapping[str, str | int | float | bool | None]],
     epsilon: int = 0,
@@ -478,6 +487,7 @@ _POP_COLORS = [
 ]
 
 
+@validated_public('phylogeny.render_network')
 def render_network(
     haplotypes: list[Mapping[str, str | int | float | bool | None]],
     members: dict[str, list[str]],
@@ -675,8 +685,9 @@ def _dot_text(haplotypes, freq, edges) -> str:
 # ===========================================================================
 
 
+@validated_public('phylogeny.haplotype_network')
 def haplotype_network(
-    alignment_fasta: str | Path,
+    alignment_fasta: str | Path | Sequences,
     *,
     method: str = "auto",
     connection_limit: int | None = None,
@@ -708,7 +719,7 @@ def haplotype_network(
     :func:`write_haplotype_network` to write ``haplotypes.tsv``,
     ``network.dot``, and ``network.png``.
     """
-    seqs = read_fasta(Path(alignment_fasta))
+    seqs = as_records(alignment_fasta)
     if len(seqs) < 2:
         return failed_result(
             "haplotype_network",
@@ -809,7 +820,7 @@ def haplotype_network(
             "haplotype_network",
             method=method_label,
             parameters={
-                "alignment_fasta": str(alignment_fasta),
+                "alignment_fasta": str(as_path(alignment_fasta)),
                 "method": method,
                 "connection_limit": connection_limit,
                 "confidence": confidence,

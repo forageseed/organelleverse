@@ -12,6 +12,7 @@ description = "Compute Wright's effective number of codons (ENC)."
 keywords = ["analyze", "codon_composition", "compute", "enc", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
+visibility = "step"
 input_kind = "none"
 output_kind = "result"
 callable_locator = "organelleverse.codon_composition.codon_core:compute_enc"
