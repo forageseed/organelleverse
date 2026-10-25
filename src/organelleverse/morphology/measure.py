@@ -108,10 +108,25 @@ def _split_touching(mask: np.ndarray) -> np.ndarray:
     # min_distance large enough to merge spurious double peaks.
     peak = float(distance.max())
     min_dist = int(max(3, min(round(peak * 0.8), 30)))
-    coords = peak_local_max(distance, labels=mask, min_distance=min_dist)
+    # Seeds are sought per connected object and up to the image edge. With the
+    # whole mask as one region (and the default border exclusion), a small object
+    # within min_dist of a larger one or of the edge got no seed and vanished from
+    # the result: 4 separate mitochondria came back as 2.
+    components = skmeasure.label(mask)
+    coords = peak_local_max(distance, labels=components, min_distance=min_dist, exclude_border=False)
     markers = np.zeros(distance.shape, dtype=np.int32)
     for i, (y, x) in enumerate(coords, start=1):
         markers[y, x] = i
+    seeded = set(components[markers > 0].tolist())
+    next_id = int(markers.max()) + 1
+    for region in skmeasure.regionprops(components):
+        if region.label in seeded:
+            continue
+        # every object keeps at least one seed, at its deepest point
+        rows, cols = region.coords[:, 0], region.coords[:, 1]
+        best = int(np.argmax(distance[rows, cols]))
+        markers[rows[best], cols[best]] = next_id
+        next_id += 1
     if markers.max() == 0:
         return skmeasure.label(mask).astype(np.int32)
     labels = watershed(-distance, markers, mask=mask)
