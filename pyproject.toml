@@ -55,7 +55,7 @@ organelleverse-agent = "organelleverse.agent_guide:main"
 [project.optional-dependencies]
 morphology-models = ["pooch>=1.8", "xxhash>=3.4"]
 morphology-cellpose = ["cellpose==4.2.1.1"]
-morphology-cpdino = ["cellpose==4.2.1.1", "dinov3 @ https://codeload.github.com/facebookresearch/dinov3/zip/6876159a11b4df116f30f667f8c9888617df0751"]
+morphology-cpdino = ["cellpose==4.2.1.1", "dinov3 @ https://github.com/facebookresearch/dinov3/archive/6876159a11b4df116f30f667f8c9888617df0751.zip"]
 morphology-microsam = ["micro-sam==1.8.14"]
 orf = ["orfipy>=0.0.4"]
 hotplug = ["watchdog>=4,<7"]
