@@ -949,6 +949,32 @@ def _validate_binding_completeness(
             )
 
 
+def _json_array_as_tuple(value: object) -> object:
+    """JSON arrays represent declared Python tuples; scalar coercion stays strict."""
+    return tuple(value) if type(value) is list else value
+
+
+def _json_tuple_transport(annotation: object) -> object:
+    """Decode tuple containers at the JSON boundary without changing their schema.
+
+    A strict Python model correctly rejects a list for a tuple. JSON has only
+    arrays, so Agent fields need this container conversion; native Python and
+    environment-injected objects never pass through this annotation projection.
+    """
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if origin is Annotated:
+        return Annotated[_json_tuple_transport(args[0]), *args[1:]]
+    if origin in (Union, UnionType):
+        return Union[tuple(_json_tuple_transport(item) for item in args)]
+    if origin is tuple:
+        projected = tuple[tuple(_json_tuple_transport(item) for item in args)]
+        return Annotated[projected, BeforeValidator(_json_array_as_tuple)]
+    if origin in (list, dict, Sequence):
+        return origin[tuple(_json_tuple_transport(item) for item in args)]
+    return annotation
+
+
 def _bind_named_parameters(
     spec: OperationSpec,
     implementation: Callable[..., object],
@@ -1053,7 +1079,7 @@ def _bind_named_parameters(
                     "with an unsupported-type codec instead",
                     operation_id=spec.operation_id,
                 )
-            fields[name] = (annotation, default)
+            fields[name] = (_json_tuple_transport(annotation), default)
         elif parameter_binding.codec is ParameterCodec.LEGACY_RESULT:
             # The agent-facing field IS the L1 result model (Ruling 2): Pydantic
             # validates the submitted JSON against the frozen OrganelleResult

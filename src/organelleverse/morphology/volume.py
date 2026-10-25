@@ -9,7 +9,7 @@ def measure_volume(labels, *, voxel_size_um, min_area, class_names, instance_map
     if spacing is not None and (len(spacing) != 3 or not np.all(np.isfinite(spacing)) or min(spacing) <= 0):
         raise ValueError("voxel_size_um must contain positive finite (z, y, x) spacings")
     rows, counts = [], {}
-    classes = [(1, class_names[1] if len(class_names)>1 else "object")] if instance_map else list(enumerate(class_names))[1:]
+    classes = [(1, class_names[1] if len(class_names)==2 else "object")] if instance_map else list(enumerate(class_names))[1:]
     for class_id, name in classes:
         instances = labels if instance_map else ndi.label(labels == class_id)[0]
         counts[name] = 0

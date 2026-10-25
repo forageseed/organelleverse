@@ -55,12 +55,14 @@ def test_calibrated_2d_and_3d_measurements_use_different_units(tmp_path):
     mask[2:12, 3:13] = 70001
     result = morphology.measure(mask, instance_map=True, pixel_size_um=.2, network_metrics=False)
     assert result['per_object'][0]['area_um2'] == pytest.approx(4)
+    assert result['counts'] == {'object':1}
     volume = np.zeros((4, 14, 14), np.uint32)
     volume[1:3, 2:12, 2:12] = 70001
     path = save_instances(volume, tmp_path/'volume.tif')
     result = morphology.measure(path, instance_map=True, voxel_size_um=(2., .5, .5))
     row = result['per_object'][0]
     assert result['dimensionality'] == 3
+    assert result['counts'] == {'object':1}
     assert row['volume_um3'] == pytest.approx(100)
     assert row['surface_area_um2'] > 0
     assert 'area_um2' not in row and 'perimeter_um' not in row
@@ -177,6 +179,40 @@ def test_registered_parameters_follow_public_signatures():
         names = {p.name for p in bound.spec.binding.parameters}
         assert set(fields) <= names
         assert set(fields) <= inspect.signature(function).parameters.keys()
+
+
+@pytest.mark.parametrize('volume',[False,True])
+def test_agent_json_and_native_measurement_share_calibration_and_instance_semantics(tmp_path,volume):
+    import organelleverse as ov
+    labels=np.zeros((4,12,12) if volume else (12,12),np.uint32)
+    if volume:labels[1:3,2:10,2:10]=70001
+    else:labels[2:10,2:10]=70001
+    path=save_instances(labels,tmp_path/'labels.tif')
+    parameters={'label_map':str(path),'instance_map':True,'network_metrics':False}
+    if volume:parameters['voxel_size_um']=[.3,.1,.1]
+    else:parameters['pixel_size_um']=.25
+    result=ov.operations.invoke('morphology.measure',input=None,parameters=parameters)
+    assert result.status=='ok'
+    measured=result.metrics['morphometrics']
+    assert measured['counts']=={'object':1}
+    if volume:assert measured['per_object'][0]['volume_um3']==pytest.approx(.384)
+    else:assert measured['per_object'][0]['area_um2']==4.
+
+
+def test_json_tuple_transport_keeps_elements_strict_and_native_types_unchanged(tmp_path):
+    import organelleverse as ov
+    labels=np.zeros((4,12,12),np.uint32);labels[1:3,2:10,2:10]=70001
+    path=save_instances(labels,tmp_path/'volume.tif')
+    for spacing in ([.3,'0.1',.1],[.3,True,.1],[.3,.1],[.3,.1,.1,.1],{.3,.1,.2}):
+        with pytest.raises(Exception):
+            ov.operations.invoke('morphology.measure',input=None,parameters={
+                'label_map':str(path),'instance_map':True,'voxel_size_um':spacing})
+    with pytest.raises(Exception):
+        morphology.measure(labels,instance_map=True,voxel_size_um=[.3,.1,.1])
+    result=ov.operations.invoke('morphology.measure',input=None,parameters={
+        'label_map':str(path),'instance_map':True,'class_names':['background','cell'],
+        'watershed_classes':[],'voxel_size_um':[.3,.1,.1]})
+    assert result.metrics['morphometrics']['counts']=={'cell':1}
 
 
 def test_morphology_generator_and_registry_use_the_same_calibration_contract():

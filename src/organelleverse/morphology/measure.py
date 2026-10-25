@@ -537,14 +537,15 @@ def measure(
         / nuclei / vacuoles are larger and rarely need splitting.
     class_names
         Class-index -> name mapping (default OrgSegNet 5-class). With
-        ``instance_map=True`` only ``class_names[1]`` is used, as the generic
-        object class name.
+        For ``instance_map=True``, a two-name background/object mapping supplies
+        the object name. Otherwise the name is ``object``; the default OrgSegNet
+        table never classifies instance IDs.
     instance_map
         When True, the label map carries per-instance ids (0 = background,
         1..N = objects), as produced by micro-SAM's automatic instance
         segmentation. Every id is already one separated object, so no
         connected-component or watershed split is applied, and every object
-        is reported under the single generic class ``class_names[1]``
+        is reported under a single generic object class
         (instance segmentation carries no semantic class).
     label_source
         Provenance of the label map being measured, recorded verbatim on
@@ -647,7 +648,7 @@ def measure(
     if instance_map:
         # Pre-segmented instance ids: each nonzero id is one object of the
         # single generic class; never re-split, never invent semantics.
-        generic_class = class_names[1] if len(class_names) > 1 else "object"
+        generic_class = class_names[1] if len(class_names) == 2 else "object"
         counts = {generic_class: 0}
         instance_labels = lab
         if int(instance_labels.max()) == 0:

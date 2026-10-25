@@ -34,7 +34,7 @@ def list_models() -> list[dict]:
     rows = []
     for name, digest in _CP_WEIGHTS.items():
         rows.append(dict(
-            id=name, backend="cellpose", package="cellpose", runtime_version="4.2.1.1",
+            id=name, backend="cellpose", package="cellpose", runtime_version="4.2.1.1", execution="native",
             modality="light microscopy; generic cells/objects, validate organelle-specific use",
             mask_kind="instance", dimensions=[2, 3], license="BSD-3-Clause",
             source="https://huggingface.co/mouseland/cellpose-sam", revision=_CP_REVISION,
@@ -47,7 +47,7 @@ def list_models() -> list[dict]:
     for name, (record, encoder, digest, decoder_digest) in _EM_WEIGHTS.items():
         base = f"https://uk1s3.embassy.ebi.ac.uk/public-datasets/bioimage.io/{record}/files"
         rows.append(dict(
-            id=name, backend="micro_sam", package="micro-sam", runtime_version="1.8.14",
+            id=name, backend="micro_sam", package="micro-sam", runtime_version="1.8.14", execution="native",
             modality="electron microscopy; organelle instances, no semantic classes",
             mask_kind="instance", dimensions=[2, 3], license="CC-BY-4.0 (weights)",
             source=f"https://bioimage.io/#/artifacts/{record}", revision=record,
@@ -56,7 +56,7 @@ def list_models() -> list[dict]:
                    dict(name=encoder+"_decoder.pt", url=base+f"/{encoder}_decoder.pt", digest="xxh128:"+decoder_digest)],
         ))
     rows.append(dict(
-        id="orgsegnet-v1", backend="orgseg", package="mmsegmentation", runtime_version="1.0.0",
+        id="orgsegnet-v1", backend="orgseg", package="mmsegmentation", runtime_version="1.0.0", execution="upstream_orgseg_executor",
         modality="plant transmission electron microscopy; Chloroplast/Mitochondria/Vacuole/Nucleus",
         mask_kind="semantic", dimensions=[2], license="CC-BY-4.0 (weights)",
         source="https://zenodo.org/records/8419877", revision="8419877",
