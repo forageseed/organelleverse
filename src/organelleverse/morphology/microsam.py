@@ -64,13 +64,14 @@ def default_micro_sam_executor(
             raise RuntimeError("microSAM did not produce the requested label maps")
         return outputs
     import numpy as np
+    import torch
     from micro_sam.instance_segmentation import (  # type: ignore
         AutomaticMaskGenerator,
     )
     from micro_sam.util import get_sam_model  # type: ignore
     from .mask_io import save_instances, spatial_image
 
-    predictor = get_sam_model(model_type=model_type, device=device)
+    predictor = get_sam_model(model_type=model_type, device=torch.device(device))
     # micro-sam 1.8.x: construct the AMG directly (the old get_amg() factory
     # is gone); threshold/point defaults are the library's own.
     amg: AutomaticMaskGenerator = AutomaticMaskGenerator(predictor)
@@ -104,12 +105,14 @@ def execute_offline_micro_sam(model_type, checkpoint, decoder, device, image_pat
                               *, is_3d_stack=False):
     """micro-SAM 1.8.14 AIS with local encoder/decoder; preserve full volumes."""
     from micro_sam.util import get_sam_model
+    import torch
     from micro_sam.automatic_segmentation import get_predictor_and_segmenter, automatic_instance_segmentation
     from .mask_io import save_instances, spatial_image
+    model_device = torch.device(device)
     predictor, state = get_sam_model(model_type=model_type, checkpoint_path=checkpoint,
-                                    decoder_path=decoder, device=device, return_state=True)
+                                    decoder_path=decoder, device=model_device, return_state=True)
     predictor, segmenter = get_predictor_and_segmenter(
-        model_type, predictor=predictor, state=state, device=device, segmentation_mode="ais")
+        model_type, predictor=predictor, state=state, device=model_device, segmentation_mode="ais")
     outputs = []
     for index, path in enumerate(image_paths):
         image = spatial_image(path, is_3d_stack=is_3d_stack)

@@ -41,9 +41,11 @@ def test_auto_routing_is_deterministic_per_hardware_and_backend() -> None:
     # orgseg never routes to xpu/mps even when they are the only accelerators.
     only_igpu = resolve_device("auto", backend="orgseg", detected=(IGPU, CPU))
     assert only_igpu.device is not None and only_igpu.device.kind == "cpu"
-    # micro_sam on the same hardware takes the accelerator.
+    # micro-SAM 1.8.14 explicitly supports CUDA/MPS/CPU, not XPU.
     msam = resolve_device("auto", backend="micro_sam", detected=(IGPU, CPU))
-    assert msam.device is not None and msam.device.kind == "xpu"
+    assert msam.device is not None and msam.device.kind == "cpu"
+    explicit = resolve_device("xpu", backend="micro_sam", detected=(IGPU, CPU))
+    assert not explicit.ok and explicit.error_code == "morphology.device_backend_unsupported"
 
 
 def test_explicit_unavailable_device_fails_with_feasible_list() -> None:
@@ -53,12 +55,12 @@ def test_explicit_unavailable_device_fails_with_feasible_list() -> None:
     assert resolution.feasible == ("cpu",)
 
 
-def test_orgseg_rejects_mps_and_xpu_pointing_at_micro_sam() -> None:
+def test_orgseg_rejects_mps_and_xpu_with_accurate_guidance() -> None:
     for requested in ("mps", "xpu"):
         resolution = resolve_device(requested, backend="orgseg", detected=(MPS, IGPU, CPU))
         assert not resolution.ok
         assert resolution.error_code == "morphology.device_backend_unsupported"
-        assert "micro_sam" in (resolution.error_message or "")
+        assert ("micro_sam" in (resolution.error_message or "")) == (requested == "mps")
 
 
 def test_integrated_gpu_training_is_rejected_before_running() -> None:

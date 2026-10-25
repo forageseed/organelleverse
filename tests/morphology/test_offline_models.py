@@ -111,6 +111,42 @@ def test_instance_overlay_retains_large_ids_without_semantic_colors():
     assert overlay[4,4].any()
 
 
+@pytest.mark.parametrize('volume',[False,True])
+def test_microsam_adapter_keeps_gpu_index_and_all_spatial_axes(tmp_path,monkeypatch,volume):
+    import sys,types
+    from organelleverse.morphology.microsam import execute_offline_micro_sam
+    class Device:
+        def __init__(self,name):self.type,self.index=name.split(':')
+    fake_torch=types.ModuleType('torch');fake_torch.device=Device
+    parent=types.ModuleType('micro_sam');parent.__path__=[]
+    util=types.ModuleType('micro_sam.util')
+    automatic=types.ModuleType('micro_sam.automatic_segmentation')
+    seen=[]
+    def predictor(**kwargs):
+        assert kwargs['device'].type=='cuda' and kwargs['device'].index=='2'
+        assert kwargs['checkpoint_path']==tmp_path/'encoder.pt'
+        assert kwargs['decoder_path']==tmp_path/'decoder.pt'
+        seen.append(kwargs['device'])
+        return object(),{'decoder_state':object()}
+    def segmenter(*args,**kwargs):
+        assert kwargs['device'] is seen[0] and kwargs['segmentation_mode']=='ais'
+        return object(),object()
+    def inference(predictor,segmenter,image,**kwargs):
+        assert kwargs['ndim']==(3 if volume else 2)
+        assert image.shape==((4,12,13) if volume else (12,13))
+        labels=np.zeros(image.shape,np.uint32);labels[...] = 70001
+        return labels
+    util.get_sam_model=predictor
+    automatic.get_predictor_and_segmenter=segmenter
+    automatic.automatic_instance_segmentation=inference
+    for name,module in [('torch',fake_torch),('micro_sam',parent),('micro_sam.util',util),('micro_sam.automatic_segmentation',automatic)]:
+        monkeypatch.setitem(sys.modules,name,module)
+    path=save_instances(np.zeros((4,12,13) if volume else (12,13),np.uint32),tmp_path/'input.tif')
+    outputs=execute_offline_micro_sam('vit_b_em_organelles',tmp_path/'encoder.pt',tmp_path/'decoder.pt',
+                                    'cuda:2',[str(path)],tmp_path/'output',is_3d_stack=volume)
+    assert np.all(read_image(outputs[0])==70001)
+
+
 def test_public_model_call_keeps_injected_executor_and_tiff_metadata(tmp_path):
     image = tmp_path/'image.png'
     Image.fromarray(np.zeros((20,20), np.uint8)).save(image)
