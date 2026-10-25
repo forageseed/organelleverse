@@ -23,7 +23,8 @@ OrganelleVerse 是一个底层平台，让 AI 助手（或者你自己）分析�
 - **看清一个基因组**：重复序列、密码子偏好、RNA 编辑、反式剪接、IR 边界。
 - **比较**多个基因组：基因组成、基因顺序、泛基因组、条形码。
 - **研究进化**：进化树、分歧时间、选择压力、协同进化、群体、基因转移。
-- **画图**：基因组图、进化树、热图；还能**测量**显微镜图像里的细胞器。
+- **画图**：基因组图、进化树、热图。
+- **显微图像分割与测量**：从掩膜和标尺计算面积、形状；支持 OrgSegNet、micro-SAM 和新版 Cellpose。需配套运行环境和离线权重，见[模型使用指南](docs/microscopy-models.md)。
 
 结果都是常见文件：FASTA、GenBank、GFF3、表格、图和可读的报告。
 
@@ -45,7 +46,7 @@ OrganelleVerse 是一个底层平台，让 AI 助手（或者你自己）分析�
 | `hgt` | 供体和受体基因组之间的水平基因转移。 | 自研 |
 | `ir_boundary` | 叶绿体反向重复区（LSC / IRb / SSC / IRa）的边界和每个边界上的基因，并出图。 | 自研 |
 | `localization` | 预测蛋白在细胞里去哪里。 | 整合现有程序（DeepLoc、TargetP） |
-| `morphology` | 在显微镜图像里找出并测量叶绿体、线粒体、液泡和细胞核；训练模型、修正标注。 | 自研（测量）+ 整合现有程序（分割） |
+| `morphology` | 分割显微图像并按标尺测量掩膜。OrgSegNet 适用于植物电镜的四类细胞器；micro-SAM/Cellpose 输出实例，不能靠编号认定细胞器类别。 | 自研（测量）+ 整合现有程序（分割） |
 | `pangenome` | 构建图泛基因组、基因有无、核心和可变部分、子图、格式转换。 | 整合现有程序（minigraph、PGGB、PanTools）+ 自研分析 |
 | `phenotype` | 筛选细胞质雄性不育（CMS）候选基因，并评估每个候选的证据。 | 自研 |
 | `phylogeny` | 比对、修剪、最大似然和贝叶斯进化树、分歧时间、单倍型网络、祖先状态、树的比较。 | 整合现有程序（MAFFT、IQ-TREE、MrBayes、RAxML、LSD2、MCMCTree）+ 自研网络 |
@@ -226,8 +227,13 @@ ov.localization.predict("results/annotation/proteins.fasta")
 ### `ov.morphology`：显微镜图像里的细胞器
 
 ```python
-ov.morphology.segment("cells.tif")                # 找出叶绿体、线粒体、液泡、细胞核
-ov.morphology.measure("labels.tif")               # 每个的大小和形状
+ov.morphology.list_models()                       # 模型、适用图像、版本和标签含义
+print(ov.morphology.model_guide())                # 普通安装也可读取的指南
+result = ov.morphology.segment(
+    "plant-tem.tif", model_id="vit_b_em_organelles",
+    model_dir="/data/ov-models", pixel_size_um=0.01,
+)                                                 # 需已安装对应运行环境及权重
+ov.morphology.measure("labels.tif", instance_map=True, pixel_size_um=0.01)
 ```
 
 ### `ov.pangenome`：泛基因组

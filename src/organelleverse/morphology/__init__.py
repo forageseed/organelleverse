@@ -11,6 +11,7 @@ from .train import training_code_snippet, validate_dataset
 from .verify import verify
 from .webapp import build_app, serve
 from .service import segment, train
+from .models import list_models, model_status, download_models, model_guide
 
 read = make_reader("morphology", "image")
 
@@ -24,6 +25,10 @@ __all__ = [
     "measure",
     "overlay",
     "segment",
+    "list_models",
+    "model_status",
+    "download_models",
+    "model_guide",
     "serve",
     "summarize",
     "train",

@@ -72,3 +72,7 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "network_metrics"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "voxel_size_um"
+codec = "json"

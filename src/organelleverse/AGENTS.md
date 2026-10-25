@@ -125,3 +125,12 @@ for JSON fields. Executors, transports and rich Python data retain their native
 interfaces. The installed `organelleverse.operations.python_only` module records
 every argument intentionally excluded from JSON, with a reason. A successful
 plan is still not evidence that a backend ran.
+
+## Microscopy models and calibrated measurement
+
+For microscopy images, read `organelleverse.morphology.model_guide()` and
+inspect `list_models()` / `model_status()` in the selected runtime. The pinned
+`model_id` path uses explicit offline weights; it does not download or silently
+switch methods. Cellpose and micro-SAM instance IDs are not semantic organelle
+classes. Check image modality, dimensions, calibration and segmentation quality.
+A model plan is not a completed measurement.
