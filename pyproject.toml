@@ -118,6 +118,10 @@ slurm = "organelleverse.compute.providers.slurm:provider_factory"
 [tool.hatch.build.targets.wheel]
 packages = ["src/organelleverse"]
 
+[tool.hatch.metadata]
+# CP-DINO uses Meta's pinned upstream implementation, not an unrelated PyPI name.
+allow-direct-references = true
+
 [tool.hatch.build.targets.sdist]
 # The Python distribution is the src package; frontends, vendored runtimes,
 # and agent working dirs ship through their own channels. Without these
