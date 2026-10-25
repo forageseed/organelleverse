@@ -41,7 +41,7 @@ def default_micro_sam_executor(
     """Default micro-SAM automatic-segmentation executor.
 
     Runs Automatic Mask Generation (AMG) with a micro-SAM EM organelle model
-    over each image and saves each label map as a PNG, returning the label-map
+    over each 2D image and saves each label map as a uint32 TIFF, returning the label-map
     paths — the same return contract as the OrgSegNet default executor, so
     downstream measurement consumes both backends identically.
 
@@ -58,8 +58,8 @@ def default_micro_sam_executor(
         runtime = check_backend("micro_sam", scan_envs=True)
         if not runtime["installed"] or not runtime.get("env"):
             raise RuntimeError("microSAM runtime is not installed")
-        subprocess.run([runtime["path"], str(Path(__file__).resolve()), "--worker", model_type, device, str(out_dir), *image_paths], check=True)
-        outputs = [Path(out_dir) / (Path(path).stem + "_label.png") for path in image_paths]
+        subprocess.run([runtime["path"], "-m", "organelleverse.morphology.microsam", "--worker", model_type, device, str(out_dir), *image_paths], check=True)
+        outputs = [Path(out_dir) / (Path(path).stem + "_label.tif") for path in image_paths]
         if not all(path.is_file() for path in outputs):
             raise RuntimeError("microSAM did not produce the requested label maps")
         return outputs
@@ -68,7 +68,7 @@ def default_micro_sam_executor(
         AutomaticMaskGenerator,
     )
     from micro_sam.util import get_sam_model  # type: ignore
-    from PIL import Image
+    from .mask_io import save_instances, spatial_image
 
     predictor = get_sam_model(model_type=model_type, device=device)
     # micro-sam 1.8.x: construct the AMG directly (the old get_amg() factory
@@ -82,8 +82,9 @@ def default_micro_sam_executor(
         # (H, W, 3) RGB image would be embedded as H slices. EM input is
         # single-channel anyway: pass 2D (H, W); the library expands
         # channels internally.
-        with Image.open(img_path) as source:
-            image = np.array(source if len(source.getbands()) == 1 else source.convert("L"))
+        image = spatial_image(img_path, is_3d_stack=False)
+        if image.ndim == 3:
+            image = image[..., :3].mean(axis=-1)
         amg.initialize(image, verbose=False)
         generated = amg.generate()
         if isinstance(generated, np.ndarray):
@@ -94,10 +95,28 @@ def default_micro_sam_executor(
             label_map = np.zeros(image.shape[:2], dtype=np.uint32)
             for instance_id, instance in enumerate(generated, start=1):
                 label_map[instance["segmentation"]] = instance_id
-        p = out / (Path(img_path).stem + "_label.png")
-        Image.fromarray(label_map.astype(np.uint16)).save(str(p))
+        p = save_instances(label_map, out / (Path(img_path).stem + "_label.tif"))
         label_paths.append(p)
     return label_paths
+
+
+def execute_offline_micro_sam(model_type, checkpoint, decoder, device, image_paths, out_dir,
+                              *, is_3d_stack=False):
+    """micro-SAM 1.8.14 AIS with local encoder/decoder; preserve full volumes."""
+    from micro_sam.util import get_sam_model
+    from micro_sam.automatic_segmentation import get_predictor_and_segmenter, automatic_instance_segmentation
+    from .mask_io import save_instances, spatial_image
+    predictor, state = get_sam_model(model_type=model_type, checkpoint_path=checkpoint,
+                                    decoder_path=decoder, device=device, return_state=True)
+    predictor, segmenter = get_predictor_and_segmenter(
+        model_type, predictor=predictor, state=state, device=device, segmentation_mode="ais")
+    outputs = []
+    for index, path in enumerate(image_paths):
+        image = spatial_image(path, is_3d_stack=is_3d_stack)
+        labels = automatic_instance_segmentation(predictor, segmenter, image,
+                                                ndim=3 if is_3d_stack else 2, verbose=False)
+        outputs.append(save_instances(labels, Path(out_dir)/f"{index:04d}_{Path(path).stem}_label.tif"))
+    return outputs
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Segment"
-description = "Segment images with intermediates in a platform-managed run."
+description = "Segment microscopy with a pinned offline model or an injected executor; measure calibrated masks. Cellpose/micro-SAM instance IDs have no semantic organelle classes."
 keywords = ["analyze", "electron-micrograph", "morphology", "restored", "result", "segment"]
 execution_mode = "inline"
 stage = "analyze"
@@ -62,4 +62,17 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "micro_sam_model_type"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "model_id"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "model_dir"
+codec = "directory"
+path_role = "input"
+
+[[contract.binding.parameters]]
+name = "voxel_size_um"
 codec = "json"

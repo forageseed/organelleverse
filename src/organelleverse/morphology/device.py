@@ -47,6 +47,7 @@ AUTO_PREFERENCE = ("cuda", "mps", "xpu", "cpu")
 BACKEND_DEVICE_SUPPORT: dict[str, tuple[str, ...]] = {
     "orgseg": ("cuda", "cpu"),
     "micro_sam": ("cuda", "mps", "xpu", "cpu"),
+    "cellpose": ("cuda", "mps", "cpu"),
 }
 
 #: Declared VRAM floor (GiB) for OrgSegNet fine-tuning (PSPNet-R50-d8 at

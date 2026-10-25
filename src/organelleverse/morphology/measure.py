@@ -38,8 +38,9 @@ import csv
 import math
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
+from annotated_types import Ge, Gt, Le
 import numpy as np
 from organelleverse._public_validation import validated_public
 from scipy import ndimage as ndi
@@ -50,6 +51,9 @@ from skimage.segmentation import watershed
 from ..core.errors import OrganelleInputError
 from ..inputs import Images
 from ..sequences import as_path
+
+Micrometers = Annotated[float, Gt(0)]
+VoxelSize = tuple[Micrometers, Micrometers, Micrometers]
 
 __all__ = [
     "ORGSEG_CLASSES",
@@ -79,13 +83,11 @@ ORGSEG_PALETTE: dict[int, tuple[int, int, int]] = {
 
 
 def _load_image(path: str | Path | np.ndarray) -> np.ndarray:
-    """Load an image as a numpy array (supports TIF/PNG via PIL)."""
+    """Load an image, retaining every TIFF plane and integer instance ID."""
     if isinstance(path, np.ndarray):
         return path
-    from PIL import Image
-
-    img = Image.open(str(path))
-    return np.array(img)
+    from .mask_io import read_image
+    return read_image(path)
 
 
 def _split_touching(mask: np.ndarray) -> np.ndarray:
@@ -483,7 +485,8 @@ def measure(
     label_map: str | Path | np.ndarray | Images,
     *,
     intensity_image: str | Path | np.ndarray | Images | None = None,
-    pixel_size_um: float | None = None,
+    pixel_size_um: Micrometers | None = None,
+    voxel_size_um: VoxelSize | None = None,
     min_area: int = 10,
     watershed_classes: tuple[int, ...] = (2,),
     class_names: tuple[str, ...] = ORGSEG_CLASSES,
@@ -506,6 +509,10 @@ def measure(
     pixel_size_um
         Physical pixel size in µm/pixel. When given, area is also reported in
         µm² (``area_um2 = area_px * pixel_size_um**2``).
+    voxel_size_um
+        Optional positive (z, y, x) spacing in micrometers. Declares a 3D
+        label volume; returns volume/surface metrics instead of 2D area/perimeter.
+        min_area is then a minimum voxel count.
     min_area
         Minimum object area in pixels; smaller objects (noise) are dropped.
     watershed_classes
@@ -571,15 +578,37 @@ def measure(
     # bridge is opt-in by explicit request, never by what happens to be
     # installed.
 
+    if pixel_size_um is not None and (not np.isfinite(pixel_size_um) or pixel_size_um <= 0):
+        raise ValueError("pixel_size_um must be positive and finite")
+    if min_area < 1:
+        raise ValueError("min_area must be a positive pixel/voxel count")
     lab = _load_image(label_map)
+    if lab.ndim == 3 and voxel_size_um is None and lab.shape[-1] in (3, 4):
+        if instance_map:
+            raise ValueError("Instance masks must contain integer IDs, not RGB colors")
+        rgb = lab[..., :3]
+        decoded = np.full(rgb.shape[:2], -1, dtype=np.int64)
+        for key, color in ORGSEG_PALETTE.items():
+            decoded[np.all(rgb == color, axis=-1)] = key
+        if np.any(decoded < 0):
+            raise ValueError("RGB labels must use the documented OrgSegNet palette")
+        lab = decoded
+    if lab.dtype.kind not in "uib" or lab.size == 0 or np.any(lab < 0):
+        raise ValueError("Label maps must contain nonnegative integer class/instance IDs")
+    if not instance_map and np.any(lab >= len(class_names)):
+        raise ValueError("Semantic label IDs are not covered by class_names; use instance_map=True for instance IDs")
     if lab.ndim == 3:
-        # A colorized label PNG: reduce to its class index by summing channels.
-        # OrgSegNet palette is unique per class, but a raw integer label PNG
-        # loaded by PIL may come back as RGB; take the first channel if it's a
-        # single-value image, else assume class index = R + 256*G + 65536*B is
-        # wrong -- fall back to the max across channels.
-        lab = lab[..., 0] if lab.shape[-1] == 3 else lab
-    lab = lab.astype(np.int32)
+        if voxel_size_um is None:
+            raise ValueError("Declare voxel_size_um=(z,y,x) for calibrated 3D measurement; no slice is selected implicitly")
+        if pixel_size_um is not None or intensity_image is not None:
+            raise ValueError("3D measurement uses voxel_size_um; 2D pixel/intensity arguments are not supported")
+        from .volume import measure_volume
+        return measure_volume(lab, voxel_size_um=voxel_size_um, min_area=min_area,
+                              class_names=class_names, instance_map=instance_map, label_source=label_source)
+    if lab.ndim != 2 or voxel_size_um is not None:
+        raise ValueError("Expected a 2D label map, or a 3D map with voxel_size_um")
+    # Signed int64 preserves uint32 instance IDs through regionprops.
+    lab = lab.astype(np.int64)
 
     img = None
     background_mean: float | None = None
@@ -588,6 +617,8 @@ def measure(
         img = _load_image(intensity_image)
         if img.ndim == 3:
             img = img.mean(axis=-1)  # grayscale electron density
+        if img.shape != lab.shape:
+            raise ValueError("Intensity image and label map must have identical spatial shape")
         img = img.astype(np.float64)
         bg = img[lab == 0]
         if bg.size:
@@ -785,7 +816,8 @@ def overlay(
     image: str | Path | np.ndarray | Images,
     label_map: str | Path | np.ndarray | Images,
     *,
-    alpha: float = 0.5,
+    alpha: Annotated[float, Ge(0), Le(1)] = 0.5,
+    instance_map: bool = False,
     palette: dict[int, tuple[int, int, int]] | None = None,
 ) -> np.ndarray:
     """Render a colorized segmentation overlay on the source image.
@@ -798,6 +830,9 @@ def overlay(
         Integer label map (array or path).
     alpha
         Overlay opacity (0 = source only, 1 = mask only).
+    instance_map
+        Color each instance without assigning organelle classes. Required for
+        Cellpose and micro-SAM instance masks. Only 2D overlays are supported.
     palette
         Class-index -> RGB. Defaults to :data:`ORGSEG_PALETTE`.
 
@@ -812,6 +847,8 @@ def overlay(
     if palette is None:
         palette = ORGSEG_PALETTE
     img = _load_image(image).astype(np.float64)
+    if img.ndim != 2 and not (img.ndim == 3 and img.shape[-1] in (3, 4)):
+        raise ValueError("Overlay requires a 2D image; select a Z plane explicitly")
     if img.ndim == 2:
         img = np.stack([img] * 3, axis=-1)
     elif img.shape[-1] == 4:
@@ -822,8 +859,21 @@ def overlay(
 
     lab = _load_image(label_map)
     if lab.ndim == 3:
-        lab = lab[..., 0]
-    lab = lab.astype(np.int32)
+        if instance_map or lab.shape[-1] not in (3, 4):
+            raise ValueError("Overlay requires a 2D integer label map")
+        rgb = lab[..., :3]
+        lab = np.full(rgb.shape[:2], -1, dtype=np.int64)
+        for key, color in palette.items():
+            lab[np.all(rgb == color, axis=-1)] = key
+    if lab.ndim != 2 or lab.dtype.kind not in "uib" or np.any(lab < 0):
+        raise ValueError("Overlay labels must contain nonnegative integer IDs or known palette colors")
+    if lab.shape != img.shape[:2]:
+        raise ValueError("Overlay image and labels must have identical spatial shape")
+    if instance_map:
+        from skimage.color import label2rgb
+        return np.round(label2rgb(lab, image=img/255., alpha=alpha, bg_label=0)*255).astype(np.uint8)
+    if not np.all(np.isin(lab, list(palette))):
+        raise ValueError("Semantic IDs are not covered by palette; use instance_map=True for instance IDs")
 
     color = np.zeros((*lab.shape, 3), dtype=np.float64)
     for cls_idx, rgb in palette.items():
