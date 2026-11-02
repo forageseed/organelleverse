@@ -83,3 +83,6 @@ lto = true
 codegen-units = 1
 panic = "abort"
 opt-level = 3
+
+# Keep cargo from picking up rust/Cargo.toml (the OrganelleVerse kernel crate) as a parent workspace.
+[workspace]
