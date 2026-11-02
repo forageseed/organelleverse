@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def test_backend_modules_match_the_released_implementation_set() -> None:
-    root = Path(__file__).parents[2] / "src" / "organelleverse" / "assembly"
+    root = Path(__file__).parents[2] / "src" / "assembly"
     backend_modules = {
         path.stem for path in (root / "backends").glob("*.py") if path.name != "__init__.py"
     }

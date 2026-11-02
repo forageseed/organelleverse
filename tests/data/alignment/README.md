@@ -1,0 +1,1 @@
+Small synthetic CRAM fixture generated with pysam 0.24.1 on the server. Reference c is 100 bases, C at position 10. Ten 20M primary reads start at position 1: six carry C, four T; MAPQ 60, Phred 40. No downloaded data. Used to verify the Rust reader independently of pysam runtime.

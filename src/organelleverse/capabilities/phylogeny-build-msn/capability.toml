@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Build Msn"
-description = "Minimum-spanning network: Kruskal greedy join at ascending distances."
+description = "Union of all minimum spanning trees, retaining equal-distance links."
 keywords = ["analyze", "build", "msn", "phylogeny", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"

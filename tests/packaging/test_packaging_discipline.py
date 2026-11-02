@@ -21,7 +21,7 @@ LICENSE_RESTRICTED_HOSTS = ("zenodo.org",)
 
 
 def _pyproject() -> dict:
-    return tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
+    return tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
 def test_banned_gui_toolkit_packages_are_nowhere_in_dependency_lists() -> None:
@@ -38,7 +38,7 @@ def test_banned_gui_toolkit_packages_are_nowhere_in_dependency_lists() -> None:
 
 def test_no_license_restricted_download_path_exists() -> None:
     """No code path downloads the OrgSegNet weights (or any Zenodo artifact)."""
-    src = PROJECT_ROOT / "src" / "organelleverse"
+    src = PROJECT_ROOT / "src"
     download_call = re.compile(r"urlretrieve|urlopen|requests\.get|httpx\.(get|stream)|urlretrieve")
     offenders: list[str] = []
     for path in src.rglob("*.py"):
@@ -60,7 +60,7 @@ def test_no_license_restricted_download_path_exists() -> None:
 
 def test_no_auto_install_framework_exists() -> None:
     """No downloader/managed-install machinery for advanced capabilities."""
-    src = PROJECT_ROOT / "src" / "organelleverse"
+    src = PROJECT_ROOT / "src"
     banned_patterns = (
         re.compile(r"def\s+\w*auto_?install", re.IGNORECASE),
         re.compile(r"pip\.main|pip_install|subprocess.*\bpip\b.*\binstall\b"),
@@ -82,7 +82,7 @@ def test_no_auto_install_framework_exists() -> None:
 
 def test_packaging_code_never_targets_user_environments() -> None:
     """Nothing may write into a system Python or a user's conda env."""
-    src = PROJECT_ROOT / "src" / "organelleverse"
+    src = PROJECT_ROOT / "src"
     offenders: list[str] = []
     for path in src.rglob("*.py"):
         if "__pycache__" in str(path):
@@ -94,3 +94,12 @@ def test_packaging_code_never_targets_user_environments() -> None:
             if re.search(r"write|mkdir|open\([^)]*[\"']w", line):
                 offenders.append(f"{path.relative_to(src)}: {line.strip()[:80]}")
     assert offenders == []
+
+
+def test_documented_development_extras_exist():
+    """Source installation instructions must name extras the package provides."""
+    extras = set(_pyproject()["project"]["optional-dependencies"])
+    for name in ("README.md", "README.zh-CN.md", "CONTRIBUTING.md"):
+        text = (PROJECT_ROOT / name).read_text(encoding="utf-8")
+        for group in re.findall(r"\.\[([a-zA-Z0-9_, -]+)\]", text):
+            assert set(part.strip() for part in group.split(",")) <= extras, (name, group)

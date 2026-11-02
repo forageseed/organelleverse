@@ -18,6 +18,12 @@ Molecules for a conformation are spelled by walking the graph with the state
 ``(previous oriented segment, current oriented segment)``: at a resolved repeat
 the chosen matching decides the successor, elsewhere the successor must be
 unique.  Adjacent and inverted repeats need no node copying in this walk.
+
+When a segment outside the repeats still branches, the graph alone spells no
+molecules; a conformation then takes them from the assembler's reported GFA
+paths (``reported_molecules``): as reported when every pass of the repeat
+uses its junctions, re-paired when that is unique (``recombine_paths``), or
+the reported molecules that use some of its junctions.
 """
 
 from __future__ import annotations
@@ -83,6 +89,8 @@ class AssemblyGraph:
     links: list[Link]
     paths: list[tuple[str, list[Oriented]]] = field(default_factory=list)
     successors: dict[Oriented, list[tuple[Oriented, int]]] = field(default_factory=dict)
+    #: GFA path name -> its ``TP:Z`` topology tag (``circular`` / ``linear``) when given.
+    path_topology: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         succ: dict[Oriented, list[tuple[Oriented, int]]] = defaultdict(list)
@@ -139,6 +147,7 @@ def read_assembly_graph(path: str | Path) -> AssemblyGraph:
     segments: dict[str, Segment] = {}
     links: list[Link] = []
     paths: list[tuple[str, list[Oriented]]] = []
+    topology: dict[str, str] = {}
     for raw in Path(path).read_text().splitlines():
         fields = raw.split("\t")
         if fields[0] == "S":
@@ -162,6 +171,9 @@ def read_assembly_graph(path: str | Path) -> AssemblyGraph:
         elif fields[0] == "P":
             steps = [parse_node_label(step) for step in fields[2].split(",") if step]
             paths.append((fields[1], steps))
+            tag = next((item[5:] for item in fields[4:] if item.startswith("TP:Z:")), None)
+            if tag:
+                topology[fields[1]] = tag
     if not segments:
         raise OrganelleInputError(
             code="structure.graph_empty",
@@ -176,7 +188,7 @@ def read_assembly_graph(path: str | Path) -> AssemblyGraph:
                     message="A GFA link names a segment that is not declared.",
                     details={"segment": name},
                 )
-    return AssemblyGraph(segments, links, paths)
+    return AssemblyGraph(segments, links, paths, path_topology=topology)
 
 
 def _tags(fields: Sequence[str]) -> dict[str, float]:
@@ -536,6 +548,182 @@ def _molecule(graph: AssemblyGraph, walk: Sequence[Oriented], circular: bool) ->
     }
 
 
+def reported_molecules(graph: AssemblyGraph) -> list[tuple[list[Oriented], bool]]:
+    """Molecules the assembler reported as GFA paths, with their topology.
+
+    PanSN names (``sample#haplotype#contig``) keep only the first path's
+    haplotype: ovasm writes its chosen molecules as ``#1#`` and alternative
+    covers as later haplotypes. Topology is the ``TP:Z`` tag, else whether the
+    last step links back to the first.
+    """
+    if not graph.paths:
+        return []
+    first = graph.paths[0][0]
+    group = first.rsplit("#", 1)[0] + "#" if first.count("#") >= 2 else ""
+    molecules = []
+    for name, steps in graph.paths:
+        if not steps or not name.startswith(group):
+            continue
+        topology = graph.path_topology.get(name)
+        circular = topology == "circular" if topology else len(steps) > 1 and steps[0] in graph.succ(steps[-1])
+        molecules.append((list(steps), circular))
+    return molecules
+
+
+def _traversals(
+    molecules: Sequence[tuple[Sequence[Oriented], bool]], repeat: str
+) -> list[tuple[int, tuple[Oriented, Oriented]]] | None:
+    """Every pass of ``repeat`` as (molecule index, (predecessor, successor) on ``repeat+``).
+
+    ``None`` when a molecule ends on the repeat or passes it twice in a row:
+    such a pass has no flank to re-pair.
+    """
+    passes = []
+    for index, (steps, circular) in enumerate(molecules):
+        count = len(steps)
+        for i, (name, orient) in enumerate(steps):
+            if name != repeat:
+                continue
+            if count < 2 or (not circular and i in (0, count - 1)):
+                return None
+            prev, nxt = steps[i - 1], steps[(i + 1) % count]
+            if repeat in (prev[0], nxt[0]):
+                return None
+            passes.append((index, (prev, nxt) if orient == "+" else (flip(nxt), flip(prev))))
+    return passes
+
+
+def recombine_paths(
+    graph: AssemblyGraph,
+    molecules: Sequence[tuple[Sequence[Oriented], bool]],
+    repeat: str,
+    matching: Sequence[tuple[Oriented, Oriented]],
+) -> list[dict[str, Any]] | None:
+    """Molecules through ``repeat`` after re-pairing every pass by ``matching``.
+
+    The molecules are cut at each pass of the repeat and the pieces rejoined so
+    that each predecessor continues to its matched successor. Defined only when
+    the passes' predecessors are distinct, their successors are distinct and
+    ``matching`` maps the one set onto the other; otherwise ``None``.
+    """
+    passes = _traversals(molecules, repeat)
+    if not passes:
+        return None
+    rule = dict(matching)
+    preds = [pair[0] for _, pair in passes]
+    succs = [pair[1] for _, pair in passes]
+    if len(set(preds)) < len(preds) or len(set(succs)) < len(succs) or not all(p in rule for p in preds):
+        return None
+    if sorted(rule[p] for p in preds) != sorted(succs):
+        return None
+    rules = {"+": rule, "-": {flip(s): flip(p) for p, s in matching}}
+    # pieces between passes: (steps, orientation of the repeat before, after); None at a molecule end
+    pieces: list[tuple[list[Oriented], str | None, str | None]] = []
+    for index in sorted({i for i, _ in passes}):
+        steps, circular = list(molecules[index][0]), molecules[index][1]
+        at = [i for i, (name, _) in enumerate(steps) if name == repeat]
+        if circular:
+            for j, here in enumerate(at):
+                after = at[(j + 1) % len(at)]
+                body = steps[here + 1 : after] if after > here else steps[here + 1 :] + steps[:after]
+                pieces.append((body, steps[here][1], steps[after][1]))
+        else:
+            for here, after in itertools.pairwise([-1, *at, len(steps)]):
+                pieces.append(
+                    (
+                        steps[here + 1 : after],
+                        steps[here][1] if here >= 0 else None,
+                        steps[after][1] if after < len(steps) else None,
+                    )
+                )
+    other = {"+": "-", "-": "+", None: None}
+    oriented: dict[tuple[int, int], tuple[list[Oriented], str | None, str | None]] = {}
+    starts: dict[tuple[Oriented, str], tuple[int, int]] = {}
+    for k, (body, head, tail) in enumerate(pieces):
+        back = ([flip(x) for x in reversed(body)], other[tail], other[head])
+        for direction, view in ((1, (body, head, tail)), (-1, back)):
+            oriented[(k, direction)] = view
+            if view[1] is not None:
+                key = (view[0][0], view[1])
+                if key in starts:
+                    return None
+                starts[key] = (k, direction)
+    used: set[int] = set()
+
+    def follow(state: tuple[int, int]) -> tuple[list[Oriented], bool] | None:
+        walk: list[Oriented] = []
+        first = state
+        while True:
+            used.add(state[0])
+            body, _, tail = oriented[state]
+            walk.extend(body)
+            if tail is None:
+                return walk, False
+            walk.append((repeat, tail))
+            nxt = starts.get((rules[tail].get(body[-1]), tail))
+            if nxt == first:
+                return walk, True
+            if nxt is None or nxt[0] in used:
+                return None
+            state = nxt
+
+    walks = []
+    for state, (_, head, _) in oriented.items():
+        if head is None and state[0] not in used:
+            result = follow(state)
+            if result is None or result[1]:
+                return None
+            walks.append(result)
+    for k in range(len(pieces)):
+        if k not in used:
+            result = follow((k, 1))
+            if result is None or not result[1]:
+                return None
+            walks.append(result)
+    try:
+        spelled = [_molecule(graph, walk, circular) for walk, circular in walks]
+    except KeyError:
+        return None
+    return sorted(spelled, key=lambda m: -m["length"])
+
+
+def _path_molecules(
+    graph: AssemblyGraph,
+    reported: Sequence[tuple[Sequence[Oriented], bool]],
+    repeat: str,
+    matching: Sequence[tuple[Oriented, Oriented]],
+) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """Molecules for one conformation from the reported paths, and how they were obtained.
+
+    ``paths``: every pass of the repeat already uses this conformation's
+    junctions, so the reported molecules through it are given as they are;
+    ``paths_recombined``: re-pairing the passes is unique (``recombine_paths``);
+    ``paths_partial``: the passes mix both conformations (a repeat passed more
+    than twice) and these reported molecules use some of this one's junctions.
+    """
+    passes = _traversals(reported, repeat)
+    if not passes:
+        return None, None
+    chosen = set(matching)
+
+    def through(indices: set[int]) -> list[dict[str, Any]] | None:
+        try:
+            spelled = [_molecule(graph, reported[i][0], reported[i][1]) for i in sorted(indices)]
+        except KeyError:
+            return None
+        return sorted(spelled, key=lambda m: -m["length"])
+
+    if all(pair in chosen for _, pair in passes):
+        molecules = through({i for i, _ in passes})
+        return (molecules, "paths") if molecules else (None, None)
+    recombined = recombine_paths(graph, reported, repeat, matching)
+    if recombined is not None:
+        return recombined, "paths_recombined"
+    using = {i for i, pair in passes if pair in chosen}
+    molecules = through(using) if using else None
+    return (molecules, "paths_partial") if molecules else (None, None)
+
+
 # ------------------------------------------------------------------- top level
 
 
@@ -560,6 +748,10 @@ def analyze_conformations(
     Conformation support comes from ``reads`` (spanning-read counts) when
     given, otherwise from ``pairings`` (per-repeat matchings with read counts,
     e.g. ovasm ``evidence.json``), otherwise the conformations are candidates.
+    Each conformation's ``molecules_source`` says where its molecules come
+    from: ``graph`` (spelled from the graph), ``paths``, ``paths_recombined``
+    or ``paths_partial`` (the reported GFA paths, see ``_path_molecules``),
+    or ``None`` when neither gives molecules.
     """
     from .graph_origin import find_mtpts, mtpt_probes, plastid_reference, segment_origin
 
@@ -643,15 +835,18 @@ def analyze_conformations(
             )
         )
     chosen = {row["name"]: row["reference_pairs"] for row in rows if row["reference_pairs"]}
+    reported = reported_molecules(graph)
     for row in rows:
         for conf in row["configurations"]:
             matching = [tuple(map(parse_node_label, pair)) for pair in conf["pairs"]]
             molecules = spell_molecules(graph, {**chosen, row["name"]: matching})
-            conf["molecules"] = (
-                None
-                if molecules is None
-                else [m for m in molecules if any(s[:-1] == row["name"] for s in m["steps"])]
-            )
+            if molecules is not None:
+                conf["molecules"] = [m for m in molecules if any(s[:-1] == row["name"] for s in m["steps"])]
+                conf["molecules_source"] = "graph"
+            else:
+                conf["molecules"], conf["molecules_source"] = _path_molecules(
+                    graph, reported, row["name"], matching
+                )
         del row["reference_pairs"]
     master = spell_molecules(graph, chosen)
 
@@ -829,6 +1024,8 @@ __all__ = [
     "find_repeats",
     "parse_paf",
     "read_assembly_graph",
+    "recombine_paths",
+    "reported_molecules",
     "single_copy_depth",
     "spell_molecules",
 ]

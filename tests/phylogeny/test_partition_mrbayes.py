@@ -140,7 +140,31 @@ def _toy_genomes(tmp_path: Path, n_taxa: int = 5) -> list[Path]:
     return paths
 
 
-def test_supermatrix_codon_partitions(tmp_path: Path) -> None:
+@pytest.fixture
+def fixed_protein_alignment(monkeypatch):
+    """The toy genes have equal lengths; isolate partition coordinate tests.
+
+    No alignment inference is being tested: each fixture's proteins already
+    have the intended homologous columns. Real MAFFT has separate integration
+    coverage in test_alignment_integrity.py.
+    """
+    from organelleverse.phylogeny import phylo
+    from organelleverse.phylogeny._results import ok_result
+    from organelleverse.sequences import as_records
+
+    def aligned(source, *, method="auto", alphabet="auto"):
+        assert alphabet == "protein"
+        records = as_records(source)
+        assert len({len(sequence) for _, sequence in records}) == 1
+        return ok_result(
+            "align", summary_text="Fixed homologous toy-protein columns.",
+            metrics={"alignment": records, "method": "fixture_alignment"},
+        )
+
+    monkeypatch.setattr(phylo, "align", aligned)
+
+
+def test_supermatrix_codon_partitions(tmp_path: Path, fixed_protein_alignment) -> None:
     paths = _toy_genomes(tmp_path)
     result = build_partitioned_supermatrix(paths, output_dir=tmp_path / "out")
     assert result.status == "ok", result.summary_text
@@ -159,7 +183,7 @@ def test_supermatrix_codon_partitions(tmp_path: Path) -> None:
     assert fasta[0] == ">taxon0" and len(fasta[1]) == 225
 
 
-def test_supermatrix_length_outlier_and_gene_mode(tmp_path: Path) -> None:
+def test_supermatrix_length_outlier_and_gene_mode(tmp_path: Path, fixed_protein_alignment) -> None:
     paths = _toy_genomes(tmp_path)
     _write_genbank(
         paths[1],

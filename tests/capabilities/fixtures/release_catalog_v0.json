@@ -965,7 +965,7 @@
       {
         "kind": "python",
         "locator": "",
-        "name": "pysam",
+        "name": "rubam",
         "optional": true,
         "version_spec": ""
       },

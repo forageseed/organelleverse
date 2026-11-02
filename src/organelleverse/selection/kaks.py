@@ -31,6 +31,7 @@ from organelleverse._public_validation import validated_public
 
 from .._bio import get_codon_table
 from ..core.result import OrganelleResult
+from ..core.errors import OrganelleInputError
 from ..sequences import Sequences, as_records
 from . import _contract
 
@@ -65,30 +66,18 @@ def kaks(
             parameters=parameters,
         )
 
-    results = []
-    for a in range(len(seqs)):
-        for b in range(a + 1, len(seqs)):
-            r = _nei_gojobori(seqs[a][1].upper(), seqs[b][1].upper(), jukes_cantor=jukes_cantor)
-            if r:
-                pair_ratio, pair_ratio_state = _ratio_with_zero_denominator_state(r["Ka"], r["Ks"])
-                r["Ka_Ks"] = pair_ratio
-                r["Ka_Ks_state"] = pair_ratio_state
-                results.append(r)
-
-    if not results:
-        return _contract.failed(
-            "kaks",
-            summary_text="No comparable codon pairs.",
-            anomalies=["no_comparable"],
-            parameters=parameters,
-        )
-
-    mean_ka = sum(r["Ka"] for r in results) / len(results)
-    mean_ks = sum(r["Ks"] for r in results) / len(results)
-    ratio, ratio_state = _ratio_with_zero_denominator_state(mean_ka, mean_ks)
-    ratio_value = round(ratio, 6) if ratio is not None else None
-    if ratio_state == "infinite":
-        flags = ("positive_selection", "ka_ks_infinite")
+    metrics = _pairwise_kaks(seqs, jukes_cantor=jukes_cantor)
+    if metrics["pairs"] == 0:
+        return _contract.failed("kaks", summary_text="No comparable codon pairs.",
+                                anomalies=["no_comparable"], parameters=parameters)
+    mean_ka, mean_ks = metrics["Ka"], metrics["Ks"]
+    ratio, ratio_state = metrics["Ka_Ks"], metrics["Ka_Ks_state"]
+    ratio_value = ratio
+    if ratio_state == "saturated":
+        flags = ("selection_undefined", "ng86_saturated")
+        ratio_text = "not estimable (JC saturation)"
+    elif ratio_state == "infinite":
+        flags = ("ka_ks_infinite",)
         ratio_text = "infinite (Ks=0)"
     elif ratio_state == "undefined":
         flags = ("selection_undefined", "ka_ks_undefined")
@@ -96,38 +85,57 @@ def kaks(
     else:
         flags = ("purifying" if ratio < 1 else "positive_selection" if ratio > 1 else "neutral",)
         ratio_text = f"{ratio:.4f}"
+    if metrics["saturated_pairs"] and "ng86_saturated" not in flags:
+        flags += ("ng86_saturated_pairs_excluded",)
 
     return _contract.ok(
         "kaks",
         artifacts=(),
-        metrics={
-            "Ka": round(mean_ka, 6),
-            "Ks": round(mean_ks, 6),
-            "Ka_Ks": ratio_value,
-            "Ka_Ks_state": ratio_state,
-            "pairs": len(results),
-            "method": "NG86" + ("+JC" if jukes_cantor else ""),
-            "pair_results": results,
-        },
+        metrics=metrics,
         # The Ka/Ks zero-denominator state stays machine-readable in
         # ``metrics["Ka_Ks_state"]``; a Finding carries one scalar value.
         findings=_contract.findings(
             "kaks",
             (
-                ("Ka", round(mean_ka, 6)),
-                ("Ks", round(mean_ks, 6)),
+                ("Ka", mean_ka),
+                ("Ks", mean_ks),
                 ("Ka_Ks", ratio_value),
             ),
         ),
         flags=flags,
         summary_text=(
-            f"Mean Ka={mean_ka:.4f}, Ks={mean_ks:.4f}, "
-            f"Ka/Ks={ratio_text} over {len(results)} pairs "
+            f"Mean Ka={mean_ka}, Ks={mean_ks}, "
+            f"Ka/Ks={ratio_text} over {metrics['estimable_pairs']} estimable pairs "
             f"(NG86{'+JC' if jukes_cantor else ''})."
         ),
         method="nei_gojobori_1986",
         parameters=parameters,
     )
+
+
+def _pairwise_kaks(seqs: list[tuple[str, str]], *, jukes_cantor: bool = False) -> dict[str, Any]:
+    """Shared native/result contract; average only jointly estimable pairs."""
+    results = []
+    for a in range(len(seqs)):
+        for b in range(a + 1, len(seqs)):
+            row = _nei_gojobori(seqs[a][1].upper().replace("U", "T"),
+                                seqs[b][1].upper().replace("U", "T"),
+                                jukes_cantor=jukes_cantor)
+            if row is not None:
+                row["sequence_a"], row["sequence_b"] = seqs[a][0], seqs[b][0]
+                ratio, state = _ratio_with_zero_denominator_state(row["Ka"], row["Ks"])
+                row.update(Ka_Ks=ratio, Ka_Ks_state=state)
+                results.append(row)
+    estimable = [r for r in results if r["Ka"] is not None and r["Ks"] is not None]
+    ka = sum(r["Ka"] for r in estimable) / len(estimable) if estimable else None
+    ks = sum(r["Ks"] for r in estimable) / len(estimable) if estimable else None
+    ratio, state = _ratio_with_zero_denominator_state(ka, ks)
+    return {"Ka": round(ka, 6) if ka is not None else None,
+            "Ks": round(ks, 6) if ks is not None else None,
+            "Ka_Ks": round(ratio, 6) if ratio is not None else None,
+            "Ka_Ks_state": state if results else "no_comparable", "pairs": len(results),
+            "estimable_pairs": len(estimable), "saturated_pairs": len(results)-len(estimable),
+            "method": "NG86" + ("+JC" if jukes_cantor else ""), "pair_results": results}
 
 
 def write_kaks(
@@ -169,8 +177,10 @@ def _resolve_output_path(output: str | Path, default_name: str) -> Path:
 
 
 def _ratio_with_zero_denominator_state(
-    numerator: float, denominator: float
+    numerator: float | None, denominator: float | None
 ) -> tuple[float | None, str]:
+    if numerator is None or denominator is None:
+        return None, "saturated"
     if denominator != 0:
         return numerator / denominator, "finite"
     if numerator > 0:
@@ -203,7 +213,10 @@ def _nei_gojobori(s1: str, s2: str, *, jukes_cantor: bool = False) -> dict | Non
 
     Returns {"Ka", "Ks"} or None if too few comparable codons.
     """
-    L = min(len(s1), len(s2)) // 3
+    if len(s1) != len(s2) or len(s1) % 3:
+        raise OrganelleInputError(code="selection.kaks_alignment",
+                                  message="Ka/Ks requires equal-length, in-frame codon alignments.")
+    L = len(s1) // 3
     if L < 3:
         return None
 
@@ -214,7 +227,7 @@ def _nei_gojobori(s1: str, s2: str, *, jukes_cantor: bool = False) -> dict | Non
     for i in range(L):
         c1 = s1[i * 3 : i * 3 + 3]
         c2 = s2[i * 3 : i * 3 + 3]
-        if c1 not in _CODONS or c2 not in _CODONS:
+        if c1 not in _CODONS or c2 not in _CODONS or c1 in _STOP_CODONS or c2 in _STOP_CODONS:
             continue
         n_compared += 1
         syn1, stop1 = _count_syn_and_stop_neighbors(c1)
@@ -261,7 +274,9 @@ def _nei_gojobori(s1: str, s2: str, *, jukes_cantor: bool = False) -> dict | Non
         Ks = pS
         Ka = pN
 
-    return {"Ka": Ka, "Ks": Ks}
+    return {"Ka": Ka, "Ks": Ks,
+            "Ka_state": "saturated" if Ka is None else "finite",
+            "Ks_state": "saturated" if Ks is None else "finite"}
 
 
 def _count_syn_and_stop_neighbors(codon: str) -> tuple[int, int]:
@@ -369,12 +384,14 @@ def _count_diffs_pathway(c1: str, c2: str) -> tuple[float, float]:
     return (total_sd / valid_pathways, total_nd / valid_pathways)
 
 
-def _jukes_cantor(p: float) -> float:
+def _jukes_cantor(p: float) -> float | None:
     """Jukes-Cantor (1969) correction: d = -3/4 * ln(1 - 4p/3).
 
-    Returns 0 if p <= 0, and 0 if p >= 0.75 (saturation), like PAML's clamps.
+    Saturated p >= 0.75 is not estimable; retain it as None, never zero.
     """
-    if p <= 0 or p >= 0.75:
+    if p >= 0.75:
+        return None
+    if p <= 0:
         return 0.0
     import math
 

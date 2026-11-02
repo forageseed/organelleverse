@@ -1,0 +1,89 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "phylogeny.phylogenetic_mixed_model"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Phylogenetic Mixed Model"
+description = "Bayesian phylogenetic mixed model (PGLMM, MCMCglmm-style Gibbs sampler) of a species trait on predictors with a tree random effect: Gaussian or binary probit; posterior mean, 95% HPD, pMCMC, ESS and phylogenetic heritability H2."
+keywords = ["comparative", "heritability", "mcmcglmm", "mixed", "pglmm", "phylogeny", "regression", "trait"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.phylogeny.pglmm:phylogenetic_mixed_model"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "tree"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "table"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "response"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "predictors"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_column"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "family"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "response_level"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "log_response"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "standardize"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "iterations"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "burnin"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "thin"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "prior_v"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "prior_nu"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "prior_alpha_v"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
+codec = "json"

@@ -471,3 +471,45 @@ def test_a_consecutive_run_holding_six_cultivars_is_cut_at_each_repeat() -> None
     units = group_records(panel)
     assert len(units) == 6  # six genomes, not one 18-molecule chimera
     assert {u.molecule_count for u in units} == {3}
+
+
+# ─────────────────────────────────────────────────────────────
+# Fragments are not molecules — the rice case, from real data (2026-10-16)
+# ─────────────────────────────────────────────────────────────
+
+RICE_ESUMMARY = [
+    ("NC_011033.1", 490_520, "Oryza sativa Japonica Group mitochondrion, complete genome"),
+    ("BA000029.3", 490_520, "Oryza sativa Japonica Group mitochondrial DNA, complete genome"),
+    *(
+        (accession, length, f"Oryza sativa Japonica Group mitochondrial {what}")
+        for accession, length, what in [
+            ("D13097.1", 2_177, "gene for tRNA-Cys, complete sequence, clone: pMTVSCT1"),
+            ("D13099.1", 1_620, "gene for tRNA-Arg, complete sequence, clone: pMTVSCT4"),
+            ("D13101.1", 3_019, "gene for tRNA-His, complete sequence, clone: pMTVSCT"),
+            ("D13102.1", 800, "genes for tRNA-Trp, tRNA-Pro, complete sequence, clone: pMTVSXT9"),
+            ("D13106.1", 811, "gene for tRNA-Ile, complete sequence, clone: pMTVSCT14"),
+            ("D13107.1", 1_092, "gene for tRNA-Asn, complete sequence, clone: pMTVSCT15"),
+            ("D13112.1", 4_894, "genes for tRNA-Ser, tRNA-Ser, tRNA-Phe, complete sequence"),
+        ]
+    ),
+]
+
+
+def test_gene_clones_do_not_make_one_circle_look_like_nine_pieces() -> None:
+    """NC_011033.1 and BA000029.3 are one 490 kb circle, deposited twice. The
+    seven 1990s tRNA clones of the same cultivar pass any "complete sequence"
+    title clause; counted as molecules they turn the RefSeq/GenBank pair into a
+    suspected nine-piece genome."""
+    from organelleverse.fetch.ncbi import suspect_multipartite
+
+    records = [
+        {"accession": a, "length": n, "title": t, "organism": "Oryza sativa Japonica Group"}
+        for a, n, t in RICE_ESUMMARY
+    ]
+    assert len(records) == 9
+    assert suspect_multipartite(records) is False
+    # The Begonia guard still holds once fragments are gone.
+    begonia = [
+        {"title": "Begonia fimbristipula mitochondrion, complete genome", "organism": "B. f."}
+    ] * 3
+    assert suspect_multipartite([*records, *begonia]) is True

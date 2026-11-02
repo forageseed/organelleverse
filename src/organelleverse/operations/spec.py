@@ -112,11 +112,6 @@ class ProgressSource(StrEnum):
     NONE = "none"
 
 
-class AgentSurface(StrEnum):
-    """How much of an interactive plugin is exposed to the agent."""
-
-    GRANULAR = "granular"
-    INTERACTIVE = "interactive"
 
 
 class ResultCodec(StrEnum):

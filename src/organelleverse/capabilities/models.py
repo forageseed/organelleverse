@@ -24,7 +24,6 @@ from pydantic import (
 )
 
 from organelleverse.operations.spec import (
-    AgentSurface,
     DependencyKind,
     OperationSpec,
     PluginOperationSpec,
@@ -635,46 +634,10 @@ SUPPORTED_BUNDLE_SCHEMA_VERSIONS = frozenset(
 )
 
 
-class PluginMetadata(StrictSpecModel):
-    """Authorship and discovery presentation for one v2 plugin bundle."""
-
-    name: str = Field(min_length=1)
-    version: str = Field(min_length=1)
-    author: str = Field(min_length=1)
-    summary: str = Field(min_length=1)
-    tags: tuple[str, ...] = ()
-    icon: str = ""
-    category: Literal["mito", "chloro", "general", "image"] = "general"
-    badge: Literal["job", "read"] = "read"
-
-    @field_validator("tags")
-    @classmethod
-    def validate_tags(cls, tags: tuple[str, ...]) -> tuple[str, ...]:
-        if any(not tag.strip() for tag in tags):
-            raise ValueError("plugin tags must not be blank")
-        return tags
 
 
-class AgentMetadata(StrictSpecModel):
-    """Agent-facing task description for one v2 plugin bundle."""
-
-    task_description: str = Field(min_length=1)
-    examples: tuple[str, ...] = ()
-    prompt: str = ""
-    agent_surface: AgentSurface = AgentSurface.GRANULAR
-
-    @field_validator("examples")
-    @classmethod
-    def validate_examples(cls, examples: tuple[str, ...]) -> tuple[str, ...]:
-        if any(not example.strip() for example in examples):
-            raise ValueError("agent examples must not be blank")
-        return examples
 
 
-class GuiMetadata(StrictSpecModel):
-    """Optional custom desktop page entry for one v2 plugin bundle."""
-
-    page: str | None = None
 
 
 class CapabilityBundle(StrictSpecModel):
@@ -760,11 +723,10 @@ class CapabilityBundle(StrictSpecModel):
 
 
 class PluginCapabilityBundle(CapabilityBundle):
-    """One v2 plugin ``capability.toml``: the v1 bundle plus plugin metadata.
+    """One v2 scientific capability: named outputs and plugin execution contracts.
 
     Inherits every v1 rule (id equality, probe/implementation pairing,
-    fixture case uniqueness, composite pairing). The v2 additions are the
-    ``plugin``/``agent``/``gui`` presentation sections and a contract that
+    fixture case uniqueness, composite pairing). The v2 scientific contract
     permits named outputs, an optimization declaration, presentation
     schemas, and the ``plugin_protocol`` argument mode.
     """
@@ -775,9 +737,15 @@ class PluginCapabilityBundle(CapabilityBundle):
         alias="schema"
     )
     contract: PluginOperationSpec  # pyright: ignore[reportIncompatibleVariableOverride] - v2 narrows the contract to the plugin operation model
-    plugin: PluginMetadata
-    agent: AgentMetadata
-    gui: GuiMetadata = GuiMetadata()
+
+    @model_validator(mode="before")
+    @classmethod
+    def scientific_sections(cls, value: object) -> object:
+        """Accept legacy v2 documents; the application owns their display sections."""
+        if isinstance(value, dict):
+            return {key: item for key, item in value.items()
+                    if key not in {"plugin", "agent", "gui"}}
+        return value
 
 
 #: What ``parse_capability_bundle`` returns after schema dispatch: the exact
@@ -788,7 +756,6 @@ BundleDocument = CapabilityBundle | PluginCapabilityBundle
 
 __all__ = [
     "SUPPORTED_BUNDLE_SCHEMA_VERSIONS",
-    "AgentMetadata",
     "BundleDocument",
     "CapabilityBundle",
     "CapabilityDeclaration",
@@ -803,12 +770,10 @@ __all__ = [
     "DataContractReference",
     "EquivalenceMethod",
     "FixtureSpec",
-    "GuiMetadata",
     "ImplementationKind",
     "ManagedOutputBinding",
     "MappedInput",
     "PluginCapabilityBundle",
-    "PluginMetadata",
     "ProbeSpec",
     "StepConditionBranch",
     "StepOutputReference",

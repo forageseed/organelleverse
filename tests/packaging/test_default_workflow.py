@@ -1,6 +1,6 @@
 """G5.1: the zero-click default workflow's dependency closure.
 
-The default workflow (docs/TASK-G-desktop-packaging.md):
+The scientific default workflow (CONTRIBUTING.md):
 
     ov.read / fetch -> annotation.annotate -> qc.annotation -> ov.write
     morphology.segment (orgseg) -> measure

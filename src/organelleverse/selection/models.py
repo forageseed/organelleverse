@@ -21,6 +21,7 @@ execution itself uses the standard PAML codeml binary as a subprocess.
 from __future__ import annotations
 
 import re
+import math
 import shutil
 import subprocess
 import tempfile
@@ -32,6 +33,7 @@ from organelleverse._public_validation import validated_public
 from scipy import stats as _scipy_stats
 
 from ..core.result import OrganelleResult
+from ..core.errors import OrganelleInputError
 from . import _contract
 
 __all__ = [
@@ -160,7 +162,10 @@ def write_branch_model(
       - null:   model=0 (one-ratio, all branches share ω)
       - alt:    model=2 (two-ratio, foreground #1 vs background)
 
-    Runs both if codeml is available; computes LRT (df=1).
+    Runs both if codeml is available; computes LRT (df=1) for omega
+    heterogeneity. Foreground omega > 1 is descriptive, not an independent
+    positive-selection test; use a branch-site test or an appropriate null
+    that constrains the foreground omega when testing positive selection.
 
     Parameters
     ----------
@@ -175,6 +180,11 @@ def write_branch_model(
     _prepare_tree(tree, foreground_labels, out / treefile)
     seq_path = Path(alignment)
     _ensure_paml_format(seq_path, out / seqfile)
+
+    branch_types = _branch_types(out / treefile)
+    if branch_types != {0, 1}:
+        raise OrganelleInputError(code="selection.branch_model_labels",
+                                  message="two-ratio branch model requires background #0 and foreground #1 branches")
 
     # null model: one ratio (model=0)
     null_ctl = write_ctl_file(
@@ -199,17 +209,24 @@ def write_branch_model(
     alt_result = run_codeml(alt_ctl, out) if run else None
 
     metrics: dict[str, Any] = {"model_type": "branch"}
+    if run and not (_parsed_likelihood(null_result) and _parsed_likelihood(alt_result)):
+        return _codeml_failed("branch_model", {"run": run})
     if null_result and alt_result:
         lrt = likelihood_ratio_test(null_result["lnL"], alt_result["lnL"], df=1)
         metrics.update(
             {
                 "lnL_null": null_result["lnL"],
                 "lnL_alt": alt_result["lnL"],
+                "execution": {"null": null_result.get("execution"), "alternative": alt_result.get("execution")},
                 "lrt_stat": round(lrt["lrt_stat"], 4),
                 "p_value": round(lrt["p_value"], 6),
                 "omega_foreground": alt_result.get("omega_foreground"),
                 "omega_background": alt_result.get("omega_background"),
                 "significant": lrt["p_value"] < 0.05,
+                "test": "M0_vs_two_ratio_heterogeneity",
+                "foreground_omega_above_one": (alt_result.get("omega_foreground") is not None
+                                                and alt_result["omega_foreground"] > 1),
+                "inference_note": "This LRT tests branch omega heterogeneity; foreground omega above one is descriptive. Use branch-site or an appropriate foreground-constrained null to test positive selection.",
             }
         )
 
@@ -218,9 +235,7 @@ def write_branch_model(
         artifacts=_contract.artifacts((null_ctl, alt_ctl)),
         metrics=metrics,
         findings=_contract.findings("branch_model", _branch_key_findings(metrics)),
-        flags=("positive_selection_branch",)
-        if metrics.get("significant") and metrics.get("omega_foreground", 0) > 1
-        else (),
+        flags=("branch_rate_heterogeneity",) if metrics.get("significant") else (),
         summary_text=_branch_summary(metrics),
         method="codeml_branch",
         parameters={
@@ -284,7 +299,7 @@ def write_site_model(
       - M1a vs M2a (test for positive selection, df=2)
       - M7 vs M8  (test for positive selection, df=2)
 
-    BEB sites with Pr(ω>1) > 0.95 are reported as positive-selection sites.
+    BEB sites with Pr(ω>1) > 0.95 are reported only after the corresponding LRT is significant.
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -302,7 +317,7 @@ def write_site_model(
     )
 
     result = run_codeml(ctl, out) if run else None
-    if run and result is None:
+    if run and not result:
         return _contract.failed(
             "site_model",
             summary_text=(
@@ -317,15 +332,28 @@ def write_site_model(
 
     metrics: dict[str, Any] = {"model_type": "site", "models": models}
     if result:
-        metrics.update(
-            {
-                "lnL": result["lnL"],
-                "kappa": result.get("kappa"),
-                "site_classes": result.get("site_classes", {}),
-                "beb_sites": result.get("beb_sites", []),
-                "n_positive_sites": len(result.get("beb_sites", [])),
-            }
-        )
+        per_model = result.get("model_results")
+        if per_model is None:
+            requested = models.split()
+            per_model = {requested[0]: result} if len(requested) == 1 else {}
+        if (set(per_model) != set(models.split())
+                or any(not _parsed_likelihood(value) for value in per_model.values())):
+            return _codeml_failed("site_model", {"models": models, "run": run})
+        tests = {}
+        positive = []
+        for null_id, alt_id in (("1", "2"), ("7", "8")):
+            if null_id in per_model and alt_id in per_model:
+                test = likelihood_ratio_test(per_model[null_id]["lnL"], per_model[alt_id]["lnL"], 2)
+                test["significant"] = test["p_value"] < 0.05
+                tests[f"M{null_id}_vs_M{alt_id}"] = test
+                if test["significant"]:
+                    positive.extend({**site, "model": alt_id}
+                                    for site in per_model[alt_id].get("beb_sites", [])
+                                    if site["prob"] > 0.95)
+        metrics.update(model_results=per_model, likelihood_ratio_tests=tests,
+                       execution=result.get("execution"),
+                       positive_sites=positive, n_positive_sites=len({s["site"] for s in positive}),
+                       n_positive_site_model_calls=len(positive))
 
     return _contract.ok(
         "site_model",
@@ -429,18 +457,31 @@ def write_branch_site_model(
 
     metrics: dict[str, Any] = {"model_type": "branch_site"}
     beb_sites: list[dict] = []
+    if run and not (_parsed_likelihood(null_result) and _parsed_likelihood(alt_result)):
+        return _codeml_failed("branch_site_model", {"run": run})
     if null_result and alt_result:
         lrt = likelihood_ratio_test(null_result["lnL"], alt_result["lnL"], df=1)
-        beb_sites = alt_result.get("beb_sites", [])
+        # The null distribution is a 50:50 point mass at 0 and chi-square(1).
+        conservative_p = lrt["p_value"]
+        lrt["p_value"] = 0.5 * lrt["p_value"] if lrt["lrt_stat"] > 0 else 1.0
+        beb_sites = [site for site in alt_result.get("beb_sites", [])
+                     if site["prob"] > 0.95 and lrt["p_value"] < 0.05]
         metrics.update(
             {
                 "lnL_null": null_result["lnL"],
                 "lnL_alt": alt_result["lnL"],
+                "execution": {"null": null_result.get("execution"), "alternative": alt_result.get("execution")},
                 "lrt_stat": round(lrt["lrt_stat"], 4),
                 "p_value": round(lrt["p_value"], 6),
                 "significant": lrt["p_value"] < 0.05,
                 "omega_foreground": alt_result.get("omega_foreground"),
+                "null_distribution": "0.5*point_mass_0 + 0.5*chi2(1)",
+                "p_value_chi2_conservative": conservative_p,
+                "distribution_note": "The boundary mixture is used; the conservative chi-square(1) probability is reported separately.",
                 "beb_sites": beb_sites,
+                "site_classes": alt_result.get("site_classes", {}),
+                "omega_foreground_classes": alt_result.get("omega_foreground_classes", []),
+                "omega_background_classes": alt_result.get("omega_background_classes", []),
                 "n_positive_sites": len(beb_sites),
             }
         )
@@ -522,16 +563,18 @@ def write_clade_model(
     """Clade model C (CmC): detect divergent selection between clades.
 
     Generates:
-      - null:  model=0 (one-ratio)
+      - null:  model=0, NSsites=22 (M2a_rel)
       - alt:   model=3, NSsites=2 (clade model, two clade partitions)
 
-    LRT (df=2) tests for divergent selection between clades.
+    LRT df is the number of effective branch types minus one.
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     # mark clade1 as #1, clade2 as #2 in tree
     clade_labels = {}
+    if set(clade1_labels or ()) & set(clade2_labels or ()):
+        raise OrganelleInputError(code="selection.clade_labels_overlap", message="clade label sets must be disjoint")
     if clade1_labels:
         for s in clade1_labels:
             clade_labels[s] = "#1"
@@ -540,6 +583,14 @@ def write_clade_model(
             clade_labels[s] = "#2"
     _prepare_tree(tree, None, out / treefile, label_map=clade_labels)
     _ensure_paml_format(Path(alignment), out / seqfile)
+    branch_types = _branch_types(out / treefile)
+    if len(branch_types) < 2:
+        raise OrganelleInputError(code="selection.clade_model_labels",
+                                  message="clade model requires at least two effective branch types")
+    if branch_types != set(range(len(branch_types))):
+        raise OrganelleInputError(code="selection.clade_model_label_order",
+                                  message="clade branch labels must be consecutive from background #0")
+    df = len(branch_types) - 1
 
     null_ctl = write_ctl_file(
         out / "clade_null.ctl",
@@ -547,7 +598,7 @@ def write_clade_model(
         treefile=treefile,
         outfile="clade_null.out",
         model=0,
-        NSsites="0",
+        NSsites="22",
     )
     alt_ctl = write_ctl_file(
         out / "clade_alt.ctl",
@@ -561,13 +612,20 @@ def write_clade_model(
     null_result = run_codeml(null_ctl, out) if run else None
     alt_result = run_codeml(alt_ctl, out) if run else None
 
-    metrics: dict[str, Any] = {"model_type": "clade"}
+    metrics: dict[str, Any] = {"model_type": "clade", "null_model": "M2a_rel",
+                               "branch_types": sorted(branch_types), "df": df}
+    if run and not (_parsed_likelihood(null_result) and _parsed_likelihood(alt_result)):
+        return _codeml_failed("clade_model", {"run": run})
     if null_result and alt_result:
-        lrt = likelihood_ratio_test(null_result["lnL"], alt_result["lnL"], df=2)
+        if ("n_params" in null_result and "n_params" in alt_result
+                and alt_result["n_params"] - null_result["n_params"] != df):
+            return _codeml_failed("clade_model", {"run": run, "expected_df": df})
+        lrt = likelihood_ratio_test(null_result["lnL"], alt_result["lnL"], df=df)
         metrics.update(
             {
                 "lnL_null": null_result["lnL"],
                 "lnL_alt": alt_result["lnL"],
+                "execution": {"null": null_result.get("execution"), "alternative": alt_result.get("execution")},
                 "lrt_stat": round(lrt["lrt_stat"], 4),
                 "p_value": round(lrt["p_value"], 6),
                 "significant": lrt["p_value"] < 0.05,
@@ -599,173 +657,182 @@ def write_clade_model(
 
 
 def run_codeml(ctl_path: str | Path, work_dir: str | Path, *, timeout: float | None = 3600.0) -> dict[str, Any] | None:
-    """Run codeml via Bio.Phylo.PAML.codeml wrapper.
-
-    Reads the .ctl file, configures the Codeml object, runs it, and parses output.
-    Falls back to raw subprocess if Bio.PAML is not available.
-    Returns None if codeml binary is not installed or fails.
-
-    ``timeout`` bounds the raw-subprocess fallback in seconds. Real
-    site-model runs (M7/M8 + BEB on dozens of taxa) regularly exceed the old
-    hard-coded 600 s and were silently killed mid-optimization; the default
-    is now one hour, and ``None`` means no cap.
-    """
+    """Run PAML once, respecting timeout and refusing stale output files."""
     codeml_bin = shutil.which("codeml")
     if not codeml_bin:
         return None
-
-    work_dir = Path(work_dir)
-    ctl_path = Path(ctl_path)
-
-    # Try Bio.Phylo.PAML.codeml wrapper
-    try:
-        from Bio.Phylo.PAML import codeml as _paml_codeml
-
-        c = _paml_codeml.Codeml()
-        c.read_ctl_file(str(ctl_path))
-        c.working_dir = str(work_dir)
-
-        # Parse the ctl to get alignment/tree/outfile paths
-        ctl_text = ctl_path.read_text()
-        seq_m = re.search(r"seqfile\s*=\s*(\S+)", ctl_text)
-        tree_m = re.search(r"treefile\s*=\s*(\S+)", ctl_text)
-        out_m = re.search(r"outfile\s*=\s*(\S+)", ctl_text)
-        if seq_m:
-            c.alignment = str(work_dir / seq_m.group(1))
-        if tree_m:
-            c.tree = str(work_dir / tree_m.group(1))
-        if out_m:
-            c.out_file = str(work_dir / out_m.group(1))
-
-        c.run(codeml_bin, verbose=False)
-
-        out_path = work_dir / (out_m.group(1) if out_m else "out.txt")
-        if out_path.exists():
-            return parse_codeml_output(out_path)
+    ctl_path, work_dir = Path(ctl_path), Path(work_dir)
+    match = re.search(r"(?m)^\s*outfile\s*=\s*(\S+)", ctl_path.read_text())
+    if match is None:
         return None
-    except Exception:
-        # the wrapper aborts on codeml's non-zero exit even when the output
-        # file is complete and parseable (PAML exits 1 after warnings);
-        # fall through and salvage the output below if it exists
-        out_m2 = re.search(r"outfile\s*=\s*(\S+)", ctl_path.read_text())
-        if out_m2:
-            salvage = work_dir / out_m2.group(1)
-            if salvage.exists():
-                try:
-                    return parse_codeml_output(salvage)
-                except Exception:
-                    pass
-
-    # Fallback: raw subprocess (same as before). PAML's codeml routinely
-    # exits non-zero after writing complete results, so the exit code is
-    # NOT a failure signal — parse whatever output exists.
+    out_path = work_dir / match.group(1)
+    if out_path.exists():
+        raise OrganelleInputError(code="selection.codeml_output_exists",
+                                  message=f"refusing to reuse existing codeml output: {out_path}")
     try:
-        subprocess.run(
-            [codeml_bin, ctl_path.name],
-            cwd=str(work_dir),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        completed = subprocess.run([codeml_bin, str(ctl_path.resolve())], cwd=work_dir,
+                                   capture_output=True, text=True, timeout=timeout)
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
-    except subprocess.CalledProcessError:
-        pass  # output may still be complete; try to parse it
-
-    ctl_text = ctl_path.read_text()
-    m = re.search(r"outfile\s*=\s*(\S+)", ctl_text)
-    if not m:
-        return None
-    out_path = work_dir / m.group(1)
     if not out_path.exists():
         return None
-    return parse_codeml_output(out_path)
+    # CODEML writes this footer only after Forestry has completed all models.
+    # An lnL is printed earlier, before detailed estimates/BEB, and is insufficient.
+    text = out_path.read_text(errors="replace")
+    if completed.returncode < 0 or not re.search(r"(?m)^\s*Time used:\s*\S", text):
+        return None
+    if "check convergence.." in text:
+        return None
+    parsed = parse_codeml_output(out_path)
+    parsed["execution"] = {"returncode": completed.returncode, "complete": True,
+                           "completion_marker": "Time used", "timeout_seconds": timeout}
+    if _parsed_likelihood(parsed) or (parsed.get("model_results") and
+            all(_parsed_likelihood(value) for value in parsed["model_results"].values())):
+        return parsed
+    return None
+
+
+_NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 
 
 @validated_public('selection.parse_codeml_output')
 def parse_codeml_output(out_path: str | Path) -> dict[str, Any]:
-    """Parse a codeml output file for lnL, ω, kappa, and BEB sites.
+    """Parse actual PAML fields, preserving each NSsites model separately.
 
-    Self-contained parser (no Biopython/PAML dependency).
+    Multi-model output has ``model_results`` keyed by the NSsites number.
+    No aggregate lnL or BEB table is invented across different models.
     """
     text = Path(out_path).read_text(errors="replace")
+    starts = list(re.finditer(r"(?m)^\s*(?:NSsites\s+)?Model\s+(\d+)\s*:", text))
+    if not starts:
+        return _parse_codeml_model(text)
+    model_results = {}
+    for index, match in enumerate(starts):
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(text)
+        model_results[match.group(1)] = _parse_codeml_model(text[match.end():end])
+    if len(model_results) == 1:
+        return {**next(iter(model_results.values())), "model_results": model_results}
+    return {"model_results": model_results}
+
+
+def _parse_codeml_model(text: str) -> dict[str, Any]:
     result: dict[str, Any] = {}
-
-    # lnL (log-likelihood)
-    m = re.search(r"lnL.*?np:\s*(\d+)\s+:\s+([-.\d]+)", text)
-    if m:
-        result["n_params"] = int(m.group(1))
-        result["lnL"] = float(m.group(2))
-    else:
-        m2 = re.search(r"lnL\(.*?\)\s*:\s*([-.\d]+)", text)
-        if m2:
-            result["lnL"] = float(m2.group(1))
-
-    # kappa
-    m = re.search(r"kappa\s*\(ts/ts\)\s*=\s*([\d.]+)", text)
-    if m:
-        result["kappa"] = float(m.group(1))
-
-    # omega estimates for branch models
-    for branch_label in ("foreground", "background"):
-        m = re.search(rf"omega\s*\({branch_label}\)\s*=\s*([\d.]+)", text)
-        if m:
-            result[f"omega_{branch_label}"] = float(m.group(1))
-
-    # generic omega
-    m = re.search(r"^\s*omega\s*=\s*([\d.]+)", text, re.MULTILINE)
-    if m and "omega" not in result:
-        result["omega"] = float(m.group(1))
-
-    # site classes (dN/dS classes for site models)
-    site_classes: dict[str, dict[str, float]] = {}
-    for cm in re.finditer(r"site class\s+(\d+).*?(?=site class|\Z)", text, re.DOTALL):
-        cls = cm.group(1)
-        block = cm.group(0)
-        omega_m = re.search(r"omega\s*=\s*([\d.]+)", block)
-        prop_m = re.search(r"proportion\s*=\s*([\d.]+)", block)
-        if omega_m:
-            site_classes[cls] = {
-                "omega": float(omega_m.group(1)),
-                "proportion": float(prop_m.group(1)) if prop_m else 0,
-            }
-    if site_classes:
-        result["site_classes"] = site_classes
-
-    # BEB positive-selection sites
-    beb_sites: list[dict] = []
-    beb_section = re.search(r"Bayes Empirical Bayes.*?(?:\Z)", text, re.DOTALL)
-    if beb_section:
-        beb_text = beb_section.group(0)
-        for line in beb_text.splitlines():
-            # format: "   123 A 0.987*"  or "   123  0.987*"
-            m = re.match(r"\s+(\d+)\s+([A-Z\*])?\s+([\d.]+)(\*+)?", line)
-            if m:
-                prob = float(m.group(3))
-                if prob > 0.5:
-                    beb_sites.append(
-                        {
-                            "site": int(m.group(1)),
-                            "aa": m.group(2) or "",
-                            "prob": prob,
-                            "significant": prob > 0.95,
-                        }
-                    )
-    if beb_sites:
-        result["beb_sites"] = beb_sites
-
+    likelihood = re.search(r"lnL\([^)]*\)\s*:\s*(" + _NUMBER + r")", text)
+    if likelihood:
+        result["lnL"] = float(likelihood.group(1))
+        count = re.search(r"\bnp\s*:\s*(\d+)", likelihood.group(0))
+        if count:
+            result["n_params"] = int(count.group(1))
+    kappa = re.search(r"kappa\s*\(ts/tv\)\s*=\s*(" + _NUMBER + r")", text)
+    if kappa:
+        result["kappa"] = float(kappa.group(1))
+    omega = re.search(r"(?m)^\s*omega\s*(?:\(dN/dS\))?\s*=\s*(" + _NUMBER + r")", text)
+    if omega:
+        result["omega"] = float(omega.group(1))
+    branch = re.search(r"w\s*\(dN/dS\)\s+for branches:\s*([^\n]+)", text)
+    if branch:
+        ratios = [float(value) for value in re.findall(_NUMBER, branch.group(1))]
+        result["omega_by_branch_type"] = ratios
+        if len(ratios) == 2:
+            result.update(omega_background=ratios[0], omega_foreground=ratios[1])
+    # PAML prints site classes as aligned rows, not repeated omega= blocks.
+    props = re.search(r"(?m)^\s*(?:p:|proportion)\s+([^\n]+)", text)
+    omegas = re.search(r"(?m)^\s*w:\s*([^\n]+)", text)
+    if props and omegas:
+        pv = [float(x) for x in re.findall(_NUMBER, props.group(1))]
+        wv = [float(x) for x in re.findall(_NUMBER, omegas.group(1))]
+        if len(pv) == len(wv):
+            result["site_classes"] = {str(i): {"proportion": v, "omega": wv[i]}
+                                      for i, v in enumerate(pv)}
+    fg = re.search(r"(?m)^\s*foreground w\s+([^\n]+)", text)
+    bg = re.search(r"(?m)^\s*background w\s+([^\n]+)", text)
+    if fg:
+        result["omega_foreground_classes"] = [float(x) for x in re.findall(_NUMBER, fg.group(1))]
+    if bg:
+        result["omega_background_classes"] = [float(x) for x in re.findall(_NUMBER, bg.group(1))]
+    # Clade models print one omega row per branch type; branch-site models
+    # print background/foreground rows. Preserve the separate site classes.
+    branch_rows = list(re.finditer(r"(?m)^\s*branch type\s+(\d+):\s*([^\n]+)", text))
+    if props and branch_rows:
+        pv = [float(x) for x in re.findall(_NUMBER, props.group(1))]
+        by_type = {row.group(1): [float(x) for x in re.findall(_NUMBER, row.group(2))]
+                   for row in branch_rows}
+        if all(len(values) == len(pv) for values in by_type.values()):
+            result["site_classes"] = {str(i): {"proportion": value,
+                "omega_by_branch_type": {kind: values[i] for kind, values in by_type.items()}}
+                for i, value in enumerate(pv)}
+    elif props and fg and bg:
+        pv = [float(x) for x in re.findall(_NUMBER, props.group(1))]
+        fw, bw = result["omega_foreground_classes"], result["omega_background_classes"]
+        classes = re.search(r"(?m)^\s*site class\s+([^\n]+)", text)
+        names = classes.group(1).split() if classes else []
+        if len(names) == len(pv) == len(fw) == len(bw):
+            result["site_classes"] = {name: {"proportion": pv[i],
+                "omega_foreground": fw[i], "omega_background": bw[i]}
+                for i, name in enumerate(names)}
+    beb = re.search(r"Bayes Empirical Bayes.*?(?:\n|$)", text)
+    if beb:
+        rows = []
+        started = False
+        for line in text[beb.end():].splitlines():
+            match = re.match(r"\s*(\d+)\s+([A-Z*])\s+(" + _NUMBER + r")(\*{0,2})(?:\s|$)", line)
+            if match:
+                started = True
+                probability = float(match.group(3))
+                rows.append({"site": int(match.group(1)), "aa": match.group(2),
+                             "prob": probability, "significant": probability > 0.95})
+            elif started:
+                break
+        result["beb_sites"] = rows
     return result
+
+
+def _parsed_likelihood(result: dict[str, Any] | None) -> bool:
+    return bool(result and isinstance(result.get("lnL"), (int, float))
+                and math.isfinite(result["lnL"]))
+
+
+def _codeml_failed(op: str, parameters: dict[str, Any]) -> OrganelleResult:
+    return _contract.failed(op, summary_text="codeml did not produce a complete, parseable likelihood result.",
+                            anomalies=["codeml_no_output"], parameters=parameters)
+
+
+def _branch_types(treefile: Path) -> set[int]:
+    """Effective PAML branch labels, including inherited $ clade labels."""
+    from ._tree import _parse_newick
+    root = _parse_newick(re.sub(r"^\s*\d+\s+1\s*\n", "", treefile.read_text()))
+    types: set[int] = set()
+    def number(marks: set[str], default: int) -> int:
+        if not marks:
+            return default
+        if len(marks) != 1:
+            raise OrganelleInputError(code="selection.codeml_branch_labels",
+                                      message="each branch must have one effective numeric label")
+        mark = next(iter(marks))
+        return 1 if mark == "Foreground" else int(mark.removeprefix("Group"))
+    def visit(node: Any, inherited: int, is_root: bool = False) -> None:
+        clade = number(node.clade_marks, inherited)
+        if not is_root:
+            types.add(number(node.marks, clade))
+        for child in node.children:
+            visit(child, clade)
+    visit(root, 0, True)
+    return types
 
 
 @validated_public('selection.likelihood_ratio_test')
 def likelihood_ratio_test(lnL_null: float, lnL_alt: float, df: int) -> dict[str, float]:
     """Likelihood ratio test: 2*(lnL_alt - lnL_null) ~ χ²(df).
 
-    Returns the LRT statistic and approximate p-value (Wilson-Hilferty
-    approximation to chi-square survival function).
+    Returns the LRT statistic and scipy's chi-square survival probability.
+    Model-specific boundary mixtures are applied by the calling analysis.
     """
+    if df <= 0 or not all(math.isfinite(value) for value in (lnL_null, lnL_alt)):
+        raise OrganelleInputError(code="selection.invalid_lrt", message="LRT needs finite log likelihoods and positive degrees of freedom")
     lrt_stat = 2.0 * (lnL_alt - lnL_null)
-    lrt_stat = max(0.0, lrt_stat)  # LRT stat should be non-negative
+    if lrt_stat < 0:
+        raise OrganelleInputError(code="selection.lrt_optimization_failed",
+                                  message="alternative likelihood is below its nested null; check optimization before inference")
     p_value = _chi2_sf(lrt_stat, df)
     return {"lrt_stat": lrt_stat, "p_value": p_value, "df": df}
 
@@ -792,6 +859,7 @@ def _prepare_tree(
         if isinstance(tree, (str, Path)) and Path(str(tree)).exists()
         else str(tree)
     )
+    tree_text = re.sub(r"^\s*\d+\s+1\s*\n", "", tree_text)
     if foreground_labels or label_map:
         from ._tree import _label_tips, _parse_newick, _serialize_codeml, _tips
 
@@ -809,7 +877,11 @@ def _prepare_tree(
             if tip.name in annotations:
                 tip.clade_marks.update(annotations[tip.name].clade_marks)
         tree_text = _serialize_codeml(root) + ";"
-    out_path.write_text(tree_text + "\n")
+    # Bare Newick is read as an unspecified tree count by PAML 4.10.9;
+    # it then errors at EOF after fitting the first tree. Declare one tree.
+    from ._tree import _parse_newick, _tips
+    n_taxa = len(_tips(_parse_newick(tree_text)))
+    out_path.write_text(f"{n_taxa} 1\n{tree_text}\n")
     return tree_text
 
 
@@ -838,7 +910,7 @@ def _branch_summary(metrics: dict) -> str:
         return "Branch model .ctl files generated (codeml not run)."
     sig = "significant" if metrics.get("significant") else "not significant"
     w = metrics.get("omega_foreground", "?")
-    return f"Branch model: ω_fg={w}, LRT p={metrics.get('p_value', '?'):.4f} ({sig})."
+    return f"Branch omega heterogeneity: ω_fg={w}, LRT p={metrics.get('p_value', '?'):.4f} ({sig})."
 
 
 def _site_key_findings(metrics: dict) -> tuple[tuple[str, Any], ...]:
@@ -850,7 +922,7 @@ def _site_key_findings(metrics: dict) -> tuple[tuple[str, Any], ...]:
 
 def _site_summary(metrics: dict) -> str:
     n = metrics.get("n_positive_sites", 0)
-    if "lnL" not in metrics:
+    if "model_results" not in metrics:
         return f"Site model .ctl generated (models: {metrics.get('models', '?')})."
     return f"Site model: {n} BEB positive-selection sites."
 

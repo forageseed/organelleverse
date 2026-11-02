@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Plot Collinearity"
-description = "Render a gbdraw linear collinearity/comparison plot (compute-only)."
+description = "Linear collinearity/comparison plot of two or more genomes (compute-only)."
 keywords = ["analyze", "collinearity", "plot", "restored", "result", "visualization"]
 execution_mode = "inline"
 stage = "analyze"
@@ -42,4 +42,8 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "pairwise_match_style"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "method"
 codec = "json"

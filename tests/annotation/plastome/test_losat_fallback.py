@@ -18,9 +18,12 @@ def _tools(**kw):
     return BlastTools(**base)
 
 
-def _fail_with_losat(calls):
-    def fake(target_seq, queries, *, work_dir, tools, min_identity, qcoverage_range, threads=1):
+def _fail_with_losat(calls, retained=None):
+    def fake(target_seq, queries, *, work_dir, tools, min_identity, qcoverage_range, threads=1,
+             retain_exon_hsps=False):
         calls.append(tools.losat)
+        if retained is not None:
+            retained.append(retain_exon_hsps)
         if tools.losat is not None:
             raise OrganelleExecutionError(code="external_command_failed", message="LOSAT failed with exit code -6")
         return {"q1": "hit"}
@@ -29,11 +32,14 @@ def _fail_with_losat(calls):
 
 def test_losat_failure_repeats_with_ncbi(monkeypatch, tmp_path: Path):
     calls = []
-    monkeypatch.setattr(blast, "_run_plastome_blasts", _fail_with_losat(calls))
+    retained = []
+    monkeypatch.setattr(blast, "_run_plastome_blasts", _fail_with_losat(calls, retained))
     hits = blast.run_plastome_blasts("ACGT", (), work_dir=tmp_path, tools=_tools(), min_identity=0.6,
-                                     qcoverage_range=(0.5, 1.0))
+                                     qcoverage_range=(0.5, 1.0), retain_exon_hsps=True)
     assert hits == {"q1": "hit"}
     assert calls == ["/opt/LOSAT", None]
+    # The NCBI repeat keeps the multi-reference exon setting of the first attempt.
+    assert retained == [True, True]
 
 
 def test_losat_failure_without_ncbi_still_raises(monkeypatch, tmp_path: Path):

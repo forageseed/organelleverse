@@ -477,6 +477,10 @@
       "status": "not_applicable",
       "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
     },
+    "phylogeny.phylogenetic_mixed_model": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
     "phylogeny.test_topologies": {
       "status": "not_applicable",
       "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
@@ -817,6 +821,18 @@
       "status": "not_applicable",
       "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
     },
+    "structure.intron_classes": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "structure.dispersed_repeats": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
+    "structure.graph_complexity": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
+    },
     "structure.compute_multiconf": {
       "status": "eligible",
       "reason_code": "optimization.independent_benchmark_required"
@@ -844,6 +860,10 @@
     "trans_splicing.detect_trans_splicing": {
       "status": "eligible",
       "reason_code": "optimization.independent_benchmark_required"
+    },
+    "transfer.grade_mtpt": {
+      "status": "not_applicable",
+      "reason_code": "optimization.fixed_contract_or_explicit_user_policy"
     },
     "transfer.compute_transfer": {
       "status": "eligible",

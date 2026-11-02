@@ -60,6 +60,7 @@ def build_graph(
     segment_length: int = 5000,
     reference_index: int = 0,
     identity: float = 90.0,
+    sparse_mapping: bool = False,
     executor: Callable[[list[str]], Any] | None = None,
 ) -> OrganelleResult:
     """Build a pangenome graph.
@@ -80,7 +81,11 @@ def build_graph(
       from accession-or-species with a unique fallback), the percent identity
       is passed as a numeric ``-p`` (default 90), and the
       ``*.smooth.final.gfa`` deposited under the pggb output tree is
-      discovered and validated afterwards.
+      discovered and validated afterwards. ``sparse_mapping=True`` adds
+      ``-x auto``: wfmash keeps only enough sample pairs to connect every
+      genome, so alignment work no longer grows with all pairs. On 192
+      Poales plastomes it used 4.3x less CPU with the same tree accuracy,
+      but the graph collapsed less (+15% bp, a third fewer core bases).
     The process boundary is private: builds spawn through
     ``_runner.run_command`` (bound into this module's namespace), so tests
     replace ``organelleverse.pangenome.pangenome.run_command`` instead of
@@ -99,9 +104,11 @@ def build_graph(
         "segment_length": segment_length,
         "reference_index": reference_index,
         "identity": identity,
+        **({"sparse_mapping": True} if sparse_mapping else {}),
         "executor_supplied": executor is not None,
     }
-    out = Path(output_dir)
+    # Backends run with their own cwd, so every path handed to them is absolute.
+    out = Path(output_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
     fastas = [str(path) for path in (sequence_path(g) for g in genomes) if path is not None]
     if not fastas:
@@ -259,6 +266,7 @@ def build_graph(
             f"{identity:g}",
             "-t",
             str(threads),
+            *(["-x", "auto"] if sparse_mapping else []),
         ]
         result = _build_pggb_graph(
             genomes,
@@ -873,17 +881,7 @@ def _kmer_clusters(genome_seqs: list[list[tuple[str, str]]], k: int) -> list[set
     Uses fixpoint merge: repeatedly merge overlapping clusters until stable,
     so transitively-connected sequences end up in one cluster.
     """
-    seq_kmers = []
-    for recs in genome_seqs:
-        for _, seq in recs:
-            seq_up = seq.upper()
-            seq_kmers.append(
-                {
-                    seq_up[i : i + k]
-                    for i in range(len(seq_up) - k + 1)
-                    if "N" not in seq_up[i : i + k]
-                }
-            )
+    seq_kmers = [_canonical_kmer_set(seq, k) for recs in genome_seqs for _, seq in recs]
     clusters: list[set[str]] = [set(kms) for kms in seq_kmers]
     changed = True
     while changed:
@@ -905,23 +903,38 @@ def _sequence_presence(
     k: int,
     overlap_threshold: float = 0.5,
 ) -> int:
-    """Count other genomes where this sequence's k-mer overlap >= threshold."""
-    kmers = {
-        seq.upper()[i : i + k] for i in range(len(seq) - k + 1) if "N" not in seq.upper()[i : i + k]
-    }
+    """Count other genomes holding >= threshold of this sequence's k-mers.
+
+    k-mers are canonical, so a sequence present on the other strand counts, and each
+    other genome is taken as a whole: a sequence split over several of its contigs is
+    present, not private.
+    """
+    kmers = _canonical_kmer_set(seq, k)
     presence = 0
     for gi, recs in enumerate(all_seqs):
         if gi == self_idx:
             continue
+        other: set[str] = set()
         for _, s in recs:
-            s_up = s.upper()
-            other = {
-                s_up[i : i + k] for i in range(len(s_up) - k + 1) if "N" not in s_up[i : i + k]
-            }
-            if len(kmers & other) / max(1, len(kmers)) >= overlap_threshold:
-                presence += 1
-                break
+            other |= _canonical_kmer_set(s, k)
+        if len(kmers & other) / max(1, len(kmers)) >= overlap_threshold:
+            presence += 1
     return presence
+
+
+_KMER_COMPLEMENT = str.maketrans("ACGT", "TGCA")
+
+
+def _canonical_kmer_set(sequence: str, k: int) -> set[str]:
+    """Canonical k-mers (k-mer or its reverse complement, whichever is smaller), ACGT only."""
+    seq = sequence.upper()
+    out: set[str] = set()
+    for i in range(len(seq) - k + 1):
+        kmer = seq[i : i + k]
+        if kmer.strip("ACGT"):
+            continue
+        out.add(min(kmer, kmer.translate(_KMER_COMPLEMENT)[::-1]))
+    return out
 
 
 def _gene_pav_metrics(genomes: list[OrganelleGenome]) -> dict[str, Any]:

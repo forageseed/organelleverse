@@ -213,7 +213,7 @@ def test_binding_all_options_fixture_verification_and_writer(tmp_path, monkeypat
 
     fake_tool(monkeypatch)
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "home"))
-    root = Path(__file__).parents[2] / "src/organelleverse/capabilities"
+    root = Path(__file__).parents[2] / "src/capabilities"
     bundle = parse_capability_bundle(root / "phenotype-assess-cms-candidates/capability.toml")
     bound = bind_python_capability(bundle, assess_cms_candidates, None)
     assert set(bound.signature.parameter_model.model_fields) == {

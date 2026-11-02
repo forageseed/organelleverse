@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Parse Codeml Output"
-description = "Parse a codeml output file for lnL, \u03c9, kappa, and BEB sites."
+description = "Parse actual PAML fields, preserving each NSsites model separately."
 keywords = ["analyze", "codeml", "output", "parse", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"

@@ -400,14 +400,20 @@ def _genome_label(g: OrganelleGenome, index: int) -> str:
     return g.metadata.species or g.metadata.accession or f"g{index}"
 
 
+def _adjacencies(order: list[str]) -> set[tuple[str, str]]:
+    """Gene adjacencies of an order, undirected.
+
+    (a, b) and (b, a) are the same adjacency: a genome given on the other strand
+    lists its genes in reverse and must keep every adjacency (it used to share none).
+    """
+    return {(a, b) if a <= b else (b, a) for a, b in zip(order, order[1:], strict=False)}
+
+
 def _shared_blocks(orders: list[list[str]]) -> list[tuple[str, ...]]:
-    """Find contiguous runs shared by all gene-order lists (length ≥2)."""
+    """Gene adjacencies (pairs of neighbouring genes) shared by all gene-order lists."""
     if not orders:
         return []
-    sets_of_pairs = []
-    for order in orders:
-        pairs = {(order[i], order[i + 1]) for i in range(len(order) - 1)}
-        sets_of_pairs.append(pairs)
+    sets_of_pairs = [_adjacencies(order) for order in orders]
     common = set.intersection(*sets_of_pairs) if sets_of_pairs else set()
     return sorted(common)
 
@@ -415,8 +421,8 @@ def _shared_blocks(orders: list[list[str]]) -> list[tuple[str, ...]]:
 def _order_jaccard(orders: list[list[str]]) -> float:
     if len(orders) < 2:
         return 1.0
-    s1 = {(orders[0][i], orders[0][i + 1]) for i in range(len(orders[0]) - 1)}
-    s2 = {(orders[1][i], orders[1][i + 1]) for i in range(len(orders[1]) - 1)}
+    s1 = _adjacencies(orders[0])
+    s2 = _adjacencies(orders[1])
     if not s1 and not s2:
         return 1.0
     return len(s1 & s2) / len(s1 | s2) if (s1 | s2) else 0.0

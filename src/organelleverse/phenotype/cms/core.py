@@ -13,10 +13,13 @@ from .pipeline import _screen_candidates
 
 @validated_public('phenotype.compute_cms_candidates')
 def compute_cms_candidates(
-    fasta_path: str | Path | Sequences, min_orf_aa: int = 50, tm_threshold: float = 0.5
+    fasta_path: str | Path | Sequences, min_orf_aa: int = 50, tm_threshold: float = 1.6
 ) -> dict:
-    """Predict CMS candidate ORFs. Returns dict."""
+    """Predict CMS candidate ORFs. Returns dict.
+
+    Same hydrophobicity hint as ``phenotype.cms``: 19-residue Kyte-Doolittle window.
+    """
     fasta_path = as_path(fasta_path)
     seqs = read_fasta(Path(fasta_path))
-    candidates = _screen_candidates(seqs, min_orf_aa, 21, tm_threshold)
+    candidates = _screen_candidates(seqs, min_orf_aa, 19, tm_threshold)
     return {"candidates": candidates, "count": len(candidates)}

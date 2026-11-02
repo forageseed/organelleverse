@@ -641,9 +641,18 @@ class _ReleaseOperationRegistry(OperationRegistry):
                     message=f"duplicate operation ID: {duplicate_ids[0]}",
                     details={"operation_ids": duplicate_ids},
                 )
+            added = tuple(staging._bindings)
             self._bindings.update(staging._bindings)
-            self._authoritative_operation_ids.update(staging._bindings)
-            self._attach_default_capability_source()
+            self._authoritative_operation_ids.update(added)
+            try:
+                self._attach_default_capability_source()
+            except BaseException:
+                # Undo the half-loaded catalog: otherwise every later call trips the
+                # duplicate-ID check above and the real error is never seen again.
+                for operation_id in added:
+                    self._bindings.pop(operation_id, None)
+                    self._authoritative_operation_ids.discard(operation_id)
+                raise
             self._catalog_loaded = True
 
     def _attach_default_capability_source(self) -> None:
@@ -788,7 +797,9 @@ def _invoke_checked_python(
         result = invocation_strategy.invoke(core_input, parameters)
     if python_result_validator is not None:
         return cast(CoreObject, python_result_validator(result))
-    if type(result) is not signature.output_type:
+    # A subclass (e.g. OrganellePlot for OrganelleResult) is still the declared
+    # core kind; another core type is not.
+    if not isinstance(result, signature.output_type):
         raise OrganelleContractError(
             code="contract.operation_output_type_mismatch",
             message=f"{spec.operation_id} returned {type(result).__name__}",
@@ -878,6 +889,10 @@ def _revalidate_core_output(
     The static AST scan is therefore the STRONGER mechanism for this hole class,
     which is the opposite of what an implementer would assume.
     """
+    # Validate a subclass by its own class: the base class would rebuild it as
+    # the base and drop subclass state (an OrganellePlot's renderer).
+    if isinstance(value, model_type):
+        model_type = type(value)
     try:
         validated = cast(CoreObject, model_type.model_validate(value))
     except ValidationError as error:

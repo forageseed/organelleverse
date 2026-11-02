@@ -207,3 +207,18 @@ def test_resume_rejects_changed_scientific_parameters(tmp_path, monkeypatch):
     resumed = workflow.execute_run(created["run_id"])
     assert resumed["status"] == "failed"
     assert "parameters changed" in resumed["error"]
+
+def test_sparse_mapping_is_pggb_only_and_keeps_earlier_checkpoint_hashes(tmp_path):
+    import pytest
+    from pydantic import ValidationError
+
+    from organelleverse.pangenome._contract import parameters_hash
+
+    with pytest.raises(ValidationError, match="only to PGGB"):
+        WorkflowRequest(dataset_path=str(tmp_path), backend="minigraph", sparse_mapping=True)
+    plain = WorkflowRequest(dataset_path=str(tmp_path))
+    before_option = plain.model_dump(mode="json")
+    del before_option["sparse_mapping"]
+    assert parameters_hash(workflow._hashed_request(plain)) == parameters_hash(before_option)
+    sparse = WorkflowRequest(dataset_path=str(tmp_path), sparse_mapping=True)
+    assert workflow._hashed_request(sparse)["sparse_mapping"] is True

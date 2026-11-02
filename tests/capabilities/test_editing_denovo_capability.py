@@ -18,7 +18,7 @@ pysam = pytest.importorskip("pysam")
 ID = "rna_editing.detect_editing_sites"
 BUNDLE = (
     Path(__file__).resolve().parents[2]
-    / "src/organelleverse/capabilities/rna-editing-detect-editing-sites"
+    / "src/capabilities/rna-editing-detect-editing-sites"
 )
 
 

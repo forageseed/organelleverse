@@ -1,7 +1,7 @@
 """Capability Plan 03/05: the restored ``coevolution`` bundles, for real.
 
 ``scripts/capabilities/build_restored_bundles.py`` generated 19 bundles
-under ``src/organelleverse/capabilities/coevolution-*`` from
+under ``src/capabilities/coevolution-*`` from
 ``docs/operations/restored-capabilities.toml`` - see
 ``organelleverse.capabilities.adapters.coevolution``'s module docstring for
 the full per-capability reasoning, including a NaN caveat carried across
@@ -94,7 +94,7 @@ _EXCLUDED_IDS = (
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 _EXPECTED_BUNDLE_DIRS = {
     "coevolution-bxb-lengths-dlcpar",
@@ -213,7 +213,11 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
 
     discovered = discover_capabilities()
     for capability_id in _RESTORED_IDS:
-        assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+        unverified = discovered.describe(capability_id)
+        # Verification is advisory for first-party code: admitted, with a diagnostic.
+        assert unverified.status is CapabilityStatus.ADMITTED
+        assert unverified.diagnostic is not None
+        assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     for capability_id in _RESTORED_IDS:
@@ -228,7 +232,8 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
         entry = admitted.describe(capability_id)
         assert entry.status is CapabilityStatus.ADMITTED, entry.diagnostic
     admitted_ids = {item.capability_id for item in admitted.list()}
-    assert admitted_ids == set(_RESTORED_IDS)
+    # Other first-party capabilities are admitted without a record too.
+    assert set(_RESTORED_IDS) <= admitted_ids
 
 
 def test_a_capability_the_generator_refused_to_produce_is_simply_absent(
@@ -351,7 +356,10 @@ def test_fisher_and_perm_test_resolve_and_invoke_real_nested_json_dicts(
     fisher_result = fisher_binding.invoke(None, {"cor": cor, "count": count})
     assert isinstance(fisher_result, OrganelleResult)
     assert fisher_result.status == "ok"
-    assert fisher_result.metrics["fisher_z"]["g1"]["g2"] != 0.0
+    estimate = fisher_result.metrics["fisher_z"]["g1"]["g2"]
+    assert estimate['status'] == 'finite'
+    assert estimate['z'] > 0
+    assert 0 < estimate['p_value'] < 1
 
     perm_binding = admitted.binding_source().resolve(_PERM_TEST_ID)
     assert perm_binding is not None
@@ -429,14 +437,7 @@ def test_bxb_lengths_lca_resolves_and_invokes_a_real_lca_reconciliation(
 def test_bxb_lengths_dlcpar_resolves_and_invokes_reading_real_recon_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Real (empty) recon files: an honest degenerate case, not a fabricated success.
-
-    Empty ``.locus.recon``/``.coal.recon`` files map nothing, so every
-    species-tree edge is genuinely unresolved - the implementation's own
-    documented NaN-for-missing-data behavior (see the adapter module's NaN
-    caveat), not a binding defect. This asserts that real, documented
-    failure mode rather than forcing a fabricated non-NaN result.
-    """
+    """Unresolved DLCpar edges remain missing and transport as JSON null."""
     admitted = _admit_all(tmp_path, monkeypatch)
     edges_binding = admitted.binding_source().resolve(_SPECIES_TREE_EDGES_ID)
     assert edges_binding is not None
@@ -451,18 +452,21 @@ def test_bxb_lengths_dlcpar_resolves_and_invokes_reading_real_recon_files(
     locus_recon.write_text("")
     coal_recon.write_text("")
 
-    from organelleverse.core.errors import OrganelleContractError
-
-    with pytest.raises(OrganelleContractError, match="finite JSON"):
-        dlcpar_binding.invoke(
-            None,
-            {
-                "gene_tree_newick": _GENE_TREE_1,
-                "locus_recon_path": str(locus_recon),
-                "coal_recon_path": str(coal_recon),
-                "edges": edges,
-            },
-        )
+    result = dlcpar_binding.invoke(
+        None,
+        {
+            "gene_tree_newick": _GENE_TREE_1,
+            "locus_recon_path": str(locus_recon),
+            "coal_recon_path": str(coal_recon),
+            "edges": edges,
+        },
+    )
+    assert result.status == "ok"
+    observed = dict(result.metrics["edge_lengths"])
+    assert set(observed) == set(edges)
+    assert all(value is None for value in observed.values())
+    import json
+    json.dumps(observed, allow_nan=False)
 
 
 def test_phylogenomics_resolves_and_invokes_a_real_input_directory(

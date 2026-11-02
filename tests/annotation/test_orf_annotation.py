@@ -240,3 +240,79 @@ def test_real_genbank_orfs_preserve_annotation_and_recover_target(tmp_path):
         assert tuple((p.start, p.end, p.strand) for p in candidate.parts) == tuple(
             (p.start, p.end, p.strand) for p in metadata.parts
         )
+
+
+def _public_genome(tmp_path, monkeypatch, doc):
+    fasta = tmp_path / "genome.fasta"
+    fasta.write_text(f">r1\n{doc.records[0].sequence}\n")
+    monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(
+        api,
+        "run_annotation",
+        lambda g, req: run_annotation(g, req, adapters={"mitochondrion": Backend(doc)}),
+    )
+    return OrganelleGenome(
+        organelle="mitochondrion",
+        sequence=ArtifactRef.from_path(fasta, kind="sequence", format="fasta"),
+        metadata=OrganelleMetadata(species="Arabidopsis thaliana"),
+    )
+
+
+def test_orfs_are_on_by_default_at_100_codons(tmp_path, monkeypatch):
+    import inspect
+
+    parameters = inspect.signature(api.annotate).parameters
+    assert parameters["call_orfs"].default is True
+    assert parameters["orf_min_aa"].default == 100
+    genome = _public_genome(tmp_path, monkeypatch, document())
+    result = api.annotate(genome, call_trna=False, call_rrna=False)
+    assert result.status == "ok"
+    assert result.metrics["requested_stages"] == ("pcg", "orf")
+    assert result.metrics["orf_candidates"]["parameters"]["min_aa"] == 100
+    off = api.annotate(genome, call_trna=False, call_rrna=False, call_orfs=False)
+    assert off.metrics["requested_stages"] == ("pcg",)
+    assert "orf_candidates" not in off.metrics
+
+
+def test_missing_orfipy_keeps_known_genes_with_a_warning(tmp_path, monkeypatch):
+    from organelleverse.annotation import orf_annotation
+    from organelleverse.core.errors import OrganelleDependencyError
+
+    def missing(*args, **kwargs):
+        raise OrganelleDependencyError(
+            code="dependency.orfipy_missing", message="ORF discovery requires orfipy"
+        )
+
+    monkeypatch.setattr(orf_annotation, "find_orfs", missing)
+    genome = _public_genome(tmp_path, monkeypatch, document())
+    result = api.annotate(genome, call_trna=False, call_rrna=False)
+    assert result.status == "warning"
+    assert "orf_candidates_skipped" in result.flags
+    assert "sequence_only_orf_candidates" not in result.flags
+    assert result.metrics["orf_candidates_skipped"] == "dependency.orfipy_missing"
+    assert result.metrics["feature_counts"]["CDS"] == 1
+    exported = api.write(result, output=tmp_path / "published")
+    assert exported.status == "warning"
+    assert (tmp_path / "published/annotation.gb").is_file()
+
+
+def test_reverse_complement_follows_iupac_like_biopython():
+    from organelleverse._sequtil import reverse_complement
+
+    codes = "ACGTRYSWKMBDHVNacgtryswkmbdhvn"
+    assert reverse_complement(codes) == str(Seq(codes).reverse_complement())
+    assert reverse_complement("AC-G*") == "*C-GT"
+
+
+def test_minus_strand_orf_over_an_ambiguity_code_is_added(tmp_path):
+    # Malus NC_018554.1: a minus-strand ORF crossing a plus-strand M failed the whole annotation
+    # (annotation.orf_location_mismatch) because extract() left M uncomplemented.
+    orf = "ATG" + "AAA" * 4 + "GCK" + "GCC" * 3 + "TAA"  # K on the ORF strand = M on the plus strand
+    sequence = "CCCC" + str(Seq(orf).reverse_complement()) + "CCCC"
+    doc = add(document(sequence, known=False), tmp_path, min_aa=5)
+    added = thaw_json(doc.source_metadata)["orf_candidates"]["added_features"]
+    assert len(added) == 1
+    record = doc.records[0]
+    feature = next(f for f in record.features if f.feature_id == added[0]["feature_id"])
+    assert feature.parts[0].strand == -1
+    assert feature.extract(record.sequence) == orf

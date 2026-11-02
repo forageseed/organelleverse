@@ -58,7 +58,7 @@ __all__ = [
     "run_image_morphology",
 ]
 
-ENGINES = ("classical", "micro_sam", "fusion3", "lab_mito")
+ENGINES = ("classical", "micro_sam", "fusion3", "lab_mito", "sam3_boxes")
 FUSION3_ORGANELLES = {"chloroplast": 1, "mitochondria": 2}
 #: Interpreters the delivery needs, relative to its project root.
 _FUSION3_PYTHON_REL = "data/orgsegnet/training-venv/bin/python"
@@ -437,8 +437,12 @@ def _fusion3_instances(image_path: Path, work: Path, *, organelle: str, min_area
 
 
 def _lab_mito_instances(image_path: Path, work: Path, *, shape: tuple[int, int], pixel_size_um: float,
-                       min_area: int, log: Callable[[str], None]) -> tuple[np.ndarray, dict[str, Any]]:
-    """Run the lab fine-tuned mitochondria U-Net locally and turn its mask into instance labels."""
+                       min_area: int, log: Callable[[str], None],
+                       sam3_recover: bool = False) -> tuple[np.ndarray, dict[str, Any]]:
+    """Run the lab fine-tuned mitochondria U-Net locally and turn its mask into instance labels.
+
+    With ``sam3_recover`` SAM 3 adds missed objects on the model grid (see lab_mito_sam3.py).
+    """
     import math
 
     from skimage.measure import label
@@ -461,7 +465,8 @@ def _lab_mito_instances(image_path: Path, work: Path, *, shape: tuple[int, int],
     mask_path.parent.mkdir(parents=True, exist_ok=True)
     script = Path(__file__).with_name("lab_mito_infer.py")
     cmd = [str(Path(root) / _FUSION3_PYTHON_REL), str(script), "--root", root, "--checkpoint", str(checkpoint),
-           "--image", str(staged), "--nm", repr(nm), "--out", str(mask_path)]
+           "--image", str(staged), "--nm", repr(nm), "--out", str(mask_path),
+           *(["--save-image"] if sam3_recover else [])]
     log(f"lab mitochondria model at {nm:g} nm/px (resample x{nm / _LAB_MITO_NM_PER_PX:.4g} to 6 nm/px)")
     try:
         run = _run_lab_mito(cmd, root, _LAB_MITO_TIMEOUT_S)
@@ -499,9 +504,25 @@ def _lab_mito_instances(image_path: Path, work: Path, *, shape: tuple[int, int],
             raise OrganelleInputError(
                 code="image_job.lab_mito_failed", message="lab mitochondria probability and mask differ in size",
                 details={"root": root, "mask_shape": list(mask6.shape), "prob_shape": list(prob6.shape)})
-    if prob6 is not None and _LAB_MITO_THRESHOLD is not None:
+    labels6: np.ndarray | None = None
+    conf6: dict[int, float] = {}
+    sam3_detail: dict[str, Any] | None = None
+    if sam3_recover:
+        from .lab_mito_sam3 import assist_with_sam3
+
+        image6_path = mask_path.with_name(mask_path.stem + ".img.npy")
+        if prob6 is None or not image6_path.is_file():
+            raise OrganelleInputError(
+                code="image_job.lab_mito_failed",
+                message="SAM 3 refinement needs the lab model's probability map and model-grid image",
+                details={"root": root, "probability": prob6 is not None, "image": image6_path.is_file()})
+        min_area6 = math.ceil(round(_LAB_MITO_MIN_AREA_UM2 / ((_LAB_MITO_NM_PER_PX / 1000.0) ** 2), 6))
+        labels6, conf6, sam3_detail = assist_with_sam3(work / "sam3", root, image6_path, prob6,
+                                                       min_area6=min_area6, log=log)
+        mask6 = labels6 > 0
+    if prob6 is not None and _LAB_MITO_THRESHOLD is not None and labels6 is None:
         mask6 = prob6 >= round(_LAB_MITO_THRESHOLD * 255)
-    if prob6 is not None and _LAB_MITO_OPENING_PX > 0:
+    if prob6 is not None and _LAB_MITO_OPENING_PX > 0 and labels6 is None:
         from scipy import ndimage as ndi
 
         radius = _LAB_MITO_OPENING_PX
@@ -512,13 +533,16 @@ def _lab_mito_instances(image_path: Path, work: Path, *, shape: tuple[int, int],
                       mask6.shape[0] - 1)
     cols = np.minimum(((np.arange(shape[1]) + 0.5) * mask6.shape[1] / shape[1]).astype(np.int64),
                       mask6.shape[1] - 1)
-    mask = mask6[np.ix_(rows, cols)]
-    components = label(mask, connectivity=2)
+    if labels6 is not None:
+        # SAM 3 instances are already separated (and gated on the U-Net probability on the model grid).
+        components = labels6[np.ix_(rows, cols)].astype(np.int64)
+    else:
+        components = label(mask6[np.ix_(rows, cols)], connectivity=2)
     floor = max(min_area, math.ceil(round(_LAB_MITO_MIN_AREA_UM2 / (pixel_size_um ** 2), 6)))
     areas = np.bincount(components.ravel())
     keep = areas >= floor
     keep[0] = False
-    prob = prob6[np.ix_(rows, cols)].astype(np.float32) / 255.0 if prob6 is not None else None
+    prob = prob6[np.ix_(rows, cols)].astype(np.float32) / 255.0 if prob6 is not None and labels6 is None else None
     if prob is not None and components.max():
         from scipy import ndimage as ndi
 
@@ -528,7 +552,10 @@ def _lab_mito_instances(image_path: Path, work: Path, *, shape: tuple[int, int],
     labels, forward, _ = relabel_sequential(np.where(keep[components], components, 0))
     # Mean mitochondrion probability of every kept object, keyed by its final label.
     confidence: dict[int, float] = {}
-    if prob is not None and components.max():
+    if labels6 is not None:
+        for old in np.flatnonzero(keep):
+            confidence[int(forward[old])] = conf6.get(int(old), 0.0)
+    elif prob is not None and components.max():
         for old in np.flatnonzero(keep):
             confidence[int(forward[old])] = round(float(means[old]), 4)
     if int(labels.max()) > np.iinfo(np.uint16).max:
@@ -562,6 +589,9 @@ def _lab_mito_instances(image_path: Path, work: Path, *, shape: tuple[int, int],
         "command": [Path(cmd[0]).name, Path(cmd[1]).name, *cmd[2:]], "inference": inference,
         "scope": _LAB_MITO_SCOPE,
     }
+    if sam3_detail is not None:
+        detail["method"] = "lab_finetuned_unet_mitochondria+sam3_recovery"
+        detail["sam3"] = sam3_detail
     return labels.astype(np.uint16), detail
 
 
@@ -604,6 +634,11 @@ def run_image_morphology(params: dict[str, Any], *, output_dir: Path, log: Calla
             code="image_job.calibration_required",
             message="the lab mitochondria model only works at 6 nm/px: a calibrated pixel size is required",
             details={"engine": "lab_mito", "model_nm_per_px": _LAB_MITO_NM_PER_PX})
+    sam3_recover = bool(params.get("sam3_recover"))
+    if sam3_recover and engine != "lab_mito":
+        raise OrganelleInputError(code="image_job.sam3_needs_lab_mito",
+                                  message="SAM 3 refinement is only available for the lab mitochondria model",
+                                  details={"engine": engine})
 
     output_dir.mkdir(parents=True, exist_ok=True)
     started = datetime.now(UTC)
@@ -625,9 +660,19 @@ def run_image_morphology(params: dict[str, Any], *, output_dir: Path, log: Calla
         assert pixel_size_um is not None
         labels, lab_detail = _lab_mito_instances(
             image_path, output_dir / "lab_mito", shape=(int(array.shape[0]), int(array.shape[1])),
-            pixel_size_um=pixel_size_um, min_area=min_area, log=log)
+            pixel_size_um=pixel_size_um, min_area=min_area, log=log, sam3_recover=sam3_recover)
         object_confidence = lab_detail.pop("object_confidence", {})
         engine_detail.update(lab_detail)
+    elif engine == "sam3_boxes":
+        # Candidate boxes from a vision model (or a person) become SAM 3 masks; see sam3_boxes.py.
+        from .sam3_boxes import boxes_instances
+        labels, boxes_detail, object_confidence = boxes_instances(
+            array, output_dir / "sam3_boxes", params.get("boxes"), root=lab_mito_availability()["root"],
+            min_area=min_area, log=log, text_target=params.get("text_target") or None,
+            modality=str(params.get("modality") or "em"),
+            width_px=tuple(params["width_px"]) if params.get("width_px") else None)
+        boxes_detail["box_source"] = str(params.get("box_source") or "unspecified")[:300]
+        engine_detail.update(boxes_detail)
     else:
         model_type = str(params.get("micro_sam_model_type") or "vit_l_lm")
         device = str(params.get("device") or "auto")
@@ -690,6 +735,7 @@ def run_image_morphology(params: dict[str, Any], *, output_dir: Path, log: Calla
                   "width": int(array.shape[1]), "height": int(array.shape[0]), **input_notes},
         "parameters": {"engine": engine, "min_area": min_area, "pixel_size_um": pixel_size_um,
                        **({"organelle": organelle} if engine == "fusion3" else {}),
+                       **({"sam3_recover": True} if sam3_recover else {}),
                        **({"stromules": True} if stromule_result is not None else {})},
         "engine": engine_detail,
         "outputs": {"labels_sha256": _sha256(labels_path), "objects_sha256": _sha256(objects_path),
@@ -755,6 +801,22 @@ def run_image_engine_probe(params: dict[str, Any], *, output_dir: Path, log: Cal
         "reason": None if lab["available"] else
         f"lab mitochondria model is not installed at {lab['root']} (missing: {', '.join(lab['missing'])})",
         "root": lab["root"],
+    }
+    from .lab_mito_sam3 import sam3_availability
+
+    sam3 = sam3_availability(lab["root"])
+    engines["sam3_recover"] = {
+        "available": sam3["available"] and lab["available"],
+        "reason": None if sam3["available"] and lab["available"] else
+        ("needs the lab mitochondria model" if sam3["available"] else
+         f"SAM 3 is not installed at {sam3['root']} (missing: {', '.join(sam3['missing'])})"),
+        "root": sam3["root"], "engine": "lab_mito",
+    }
+    engines["sam3_boxes"] = {
+        "available": sam3["available"],
+        "reason": None if sam3["available"] else
+        f"SAM 3 is not installed at {sam3['root']} (missing: {', '.join(sam3['missing'])})",
+        "root": sam3["root"], "engine": "sam3_boxes",
     }
     report = {"schema": "organelleverse.image-engines.v1", "checked_at": datetime.now(UTC).isoformat(),
               "host": _host_facts() | {"packages": _package_versions(_PACKAGES + ("micro_sam", "torch"))},

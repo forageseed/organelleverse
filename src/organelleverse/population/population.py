@@ -343,18 +343,26 @@ def fst_scan(
     for calls in snps.values():
         vcf_samples.update(calls)
     missing_samples = sorted(s for s in pop_assignments if s not in vcf_samples)
-    positions = sorted(snps)
     windows = []
-    for start in range(positions[0], positions[-1], step):
-        end = start + window_size
-        win_snps = [p for p in positions if start <= p < end]
-        if len(win_snps) < 3:
-            continue
-        fst_vals = [site_fst(snps[p], pop1, pop2) for p in win_snps]
-        mean_fst = sum(fst_vals) / len(fst_vals)
-        windows.append(
-            {"start": start, "end": end, "fst": round(mean_fst, 4), "n_snps": len(win_snps)}
-        )
+    for chrom in sorted({c for c, _ in snps}):
+        # windows never mix sites of different contigs
+        positions = sorted(p for c, p in snps if c == chrom)
+        for start in range(positions[0], positions[-1], step):
+            end = start + window_size
+            win_snps = [p for p in positions if start <= p < end]
+            if len(win_snps) < 3:
+                continue
+            fst_vals = [site_fst(snps[(chrom, p)], pop1, pop2) for p in win_snps]
+            mean_fst = sum(fst_vals) / len(fst_vals)
+            windows.append(
+                {
+                    "chrom": chrom,
+                    "start": start,
+                    "end": end,
+                    "fst": round(mean_fst, 4),
+                    "n_snps": len(win_snps),
+                }
+            )
     windows.sort(key=lambda w: w["fst"], reverse=True)
     top_n = max(1, int(len(windows) * top_fraction)) if windows else 0
     top_windows = windows[:top_n]
@@ -952,8 +960,12 @@ def _bimbam_to_gemma(src: str | Path, dst: str | Path) -> Path:
     return dst_path
 
 
-def _parse_vcf_biallelic(vcf_path: str | Path) -> dict[int, dict[str, str]]:
-    """Parse a VCF and return {pos: {sample: genotype}} for biallelic SNPs.
+def _parse_vcf_biallelic(vcf_path: str | Path) -> dict[tuple[str, int], dict[str, str]]:
+    """Parse a VCF and return {(chrom, pos): {sample: genotype}} for biallelic SNPs.
+
+    Keyed by contig and position: a VCF over mitochondrion and plastid (or several
+    contigs) has sites at the same coordinate on different molecules, and keying by
+    position alone let the later one silently replace the earlier.
 
     Uses vcfpy (the standard Python VCF parser; already a project dependency),
     so every VCF spec quirk (multi-allelic records, indels, phased/unphased GT,
@@ -967,7 +979,7 @@ def _parse_vcf_biallelic(vcf_path: str | Path) -> dict[int, dict[str, str]]:
 
     reader = vcfpy.Reader.from_path(str(vcf_path))
     try:
-        snps: dict[int, dict[str, str]] = {}
+        snps: dict[tuple[str, int], dict[str, str]] = {}
         for record in reader:
             ref = str(record.REF).upper()
             if len(ref) != 1 or ref not in "ACGT":
@@ -978,7 +990,7 @@ def _parse_vcf_biallelic(vcf_path: str | Path) -> dict[int, dict[str, str]]:
             alt_value = str(alt[0].value).upper()
             if len(alt_value) != 1 or alt_value not in "ACGT":
                 continue
-            snps[int(record.POS)] = {
+            snps[(str(record.CHROM), int(record.POS))] = {
                 str(call.sample): str(call.data.get("GT", "./.")) for call in record.calls
             }
     finally:

@@ -1,4 +1,4 @@
-"""Structure suite: multiconf(), introns(), repeats(), resolve_configs(). Self-contained."""
+"""Structure suite: multiconf(), introns(), repeats(), dispersed_repeats(), graph_complexity(), resolve_configs()."""
 
 from __future__ import annotations
 
@@ -18,6 +18,9 @@ from .structure import (
     write_resolve_configs,
 )
 from .structure_core import compute_multiconf, compute_repeats
+from .dispersed import dispersed_repeats
+from .graph_complexity import graph_complexity
+from .intron_classes import intron_classes
 
 # Canonical write boundary for this suite. ``organelleverse.writer.write`` only
 # dispatches released operations (assembly. / annotation. / qc.); until it grows
@@ -32,6 +35,9 @@ __all__ = [
     "read",
     "compute_multiconf",
     "compute_repeats",
+    "dispersed_repeats",
+    "graph_complexity",
+    "intron_classes",
     "introns",
     "materialize_result",
     "multiconf",

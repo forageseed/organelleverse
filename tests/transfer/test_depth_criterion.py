@@ -6,9 +6,11 @@ from pathlib import Path
 
 import pytest
 
-pysam = pytest.importorskip("pysam")
+# The depth layer reads BAMs with rubam, so the fixture is written with it too (no pysam on Windows).
+rubam = pytest.importorskip("rubam")
 
 from organelleverse.transfer.transfer import validate_transfers_depth  # noqa: E402
+from tests.bam_fixtures import bam_header  # noqa: E402
 
 READ = 50
 
@@ -17,12 +19,12 @@ def _make_bam(path: Path, tiles: list[tuple[int, int, int]]) -> Path:
     """Reads tiled so the depth is exactly ``d`` on [start, end): ``d`` reads at every 50 bp."""
     header = {"HD": {"VN": "1.6", "SO": "unsorted"}, "SQ": [{"SN": "chr1", "LN": 3000}]}
     unsorted = path.with_suffix(".unsorted.bam")
-    with pysam.AlignmentFile(str(unsorted), "wb", header=header) as out:
+    with rubam.AlignmentFile(str(unsorted), "wb", header=bam_header(header, path.parent)) as out:
         n = 0
         for start, end, depth in tiles:
             for copy in range(depth):
                 for pos in range(start, end - READ + 1, READ):
-                    a = pysam.AlignedSegment()
+                    a = rubam.AlignedSegment()
                     a.query_name = f"r{n}"
                     n += 1
                     a.query_sequence = "A" * READ
@@ -30,11 +32,11 @@ def _make_bam(path: Path, tiles: list[tuple[int, int, int]]) -> Path:
                     a.reference_id = 0
                     a.reference_start = pos
                     a.mapping_quality = 60
-                    a.cigar = [(0, READ)]
-                    a.query_qualities = pysam.qualitystring_to_array("I" * READ)
+                    a.cigartuples = [(0, READ)]
+                    a.query_qualities = rubam.qualitystring_to_array("I" * READ)
                     out.write(a)
-    pysam.sort("-o", str(path), str(unsorted))
-    pysam.index(str(path))
+    rubam.sort(str(unsorted), str(path))
+    rubam.index(str(path))
     return path
 
 

@@ -15,7 +15,8 @@ The preprocessing and inference reproduce the lab fine-tune exactly:
 
 Output: a boolean mask on the 6 nm/px grid (``--out``, .npy), the mitochondrion
 probability averaged over relative scales 1 and 2 as uint8 (round(p * 255)) next
-to it (``<out stem>.prob.npy``) and a JSON (``--out`` with the suffix ``.json``). torch is imported inside
+to it (``<out stem>.prob.npy``), with ``--save-image`` the uint8 plane the model saw (``<out stem>.img.npy``,
+the input of the SAM 3 refinement) and a JSON (``--out`` with the suffix ``.json``). torch is imported inside
 :func:`main` so the preprocessing helpers are importable (and testable) on a
 machine without it.
 """
@@ -118,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--image", required=True)
     parser.add_argument("--nm", required=True, type=float)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--save-image", action="store_true",
+                        help="also write the uint8 6 nm/px plane the model saw (<out stem>.img.npy)")
     args = parser.parse_args(argv)
     if not args.nm > 0:
         raise SystemExit(f"--nm must be positive, got {args.nm}")
@@ -163,6 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     np.save(out, mask)
     prob_path = out.with_name(out.stem + ".prob.npy")
     np.save(prob_path, prob8)
+    if args.save_image:
+        np.save(out.with_name(out.stem + ".img.npy"), img8)
     summary = {
         "checkpoint": str(checkpoint), "checkpoint_sha256": sha256_of(checkpoint),
         "encoder": cargs.get("encoder"), "psp": bool(cargs.get("psp", False)),

@@ -29,6 +29,7 @@ def test_run_pipeline_passes_every_option_to_the_binary(
         seeds={"mitochondrion": ["mt.fa"], "plastid": ["pt.fa"]},
         recruit="both",
         recruit_depth=150,
+        recruit_cache=tmp_path / "cache",
         mode="standard",
         replicates=4,
         max_replicates=5,
@@ -39,7 +40,7 @@ def test_run_pipeline_passes_every_option_to_the_binary(
     )
     assert summary == {"k": 701}
     argv = seen[0]
-    assert argv[:2] == ["ovasm", "run"]
+    assert argv[:3] == ["ovasm", "run", "hifi"]
 
     def value(flag: str) -> list[str]:
         return [argv[i + 1] for i, a in enumerate(argv) if a == flag]
@@ -47,10 +48,11 @@ def test_run_pipeline_passes_every_option_to_the_binary(
     assert value("--reads") == ["a.fq.gz", "b.fq.gz"]
     assert value("--seeds") == ["mitochondrion=mt.fa", "plastid=pt.fa"]
     assert value("--organelle") == ["mitochondrion"]
-    assert value("--read-type") == ["hifi"]
+    assert "--read-type" not in argv
     assert value("--read-set") == ["whole-genome"]
     assert value("--recruit") == ["both"]
     assert value("--recruit-depth") == ["150"]
+    assert value("--recruit-cache") == [str(tmp_path / "cache")]
     assert value("--mode") == ["standard"]
     assert value("--replicates") == ["4"]
     assert value("--max-replicates") == ["5"]
@@ -61,7 +63,10 @@ def test_run_pipeline_passes_every_option_to_the_binary(
     assert "--single-seed" not in argv
 
 
-def test_run_pipeline_needs_reads_and_seed_files() -> None:
+def test_run_pipeline_needs_reads_and_seed_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    def require_must_not_run() -> str:
+        raise RuntimeError("binary resolution must follow input validation")
+    monkeypatch.setattr(_ovasm, "_require", require_must_not_run)
     with pytest.raises(ValueError, match="at least one read file"):
         run_pipeline([], organelle="plastid", out_dir="out")
     with pytest.raises(ValueError, match="has no files"):

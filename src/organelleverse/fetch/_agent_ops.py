@@ -26,7 +26,6 @@ from annotated_types import Ge, Le
 
 from ..core.data import OrganelleData
 from .dedup import dedup_genomes, unlinked_refseq_records
-from .filters import FetchFilters
 from .genes import fetch_genes
 from .genome_size import genome_size_candidates
 from .ncbi import entrez_query, fetch_accessions, refseq_snapshot
@@ -73,19 +72,16 @@ def op_entrez_query(
     baseline: str | None = None,
 ) -> OrganelleData:
     """Search live nuccore for organelle genomes, filtering before download."""
-    filters = FetchFilters(
-        min_length=min_length,
-        max_length=max_length,
-        refseq_only=refseq_only,
-        min_gene_count=min_gene_count,
-        max_ambiguous=max_ambiguous,
-    )
     return entrez_query(
         organelle=organelle,
         dest=dest,
         taxon=taxon,
         complete_only=complete_only,
-        filters=filters,
+        min_length=min_length,
+        max_length=max_length,
+        refseq_only=refseq_only,
+        min_gene_count=min_gene_count,
+        max_ambiguous=max_ambiguous,
         max_records=max_records,
         genbank_metadata=genbank_metadata,
         group_genomes=group_genomes,

@@ -101,7 +101,7 @@ from tests.capabilities._bundle_regeneration_check import (
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 
 
@@ -249,7 +249,7 @@ def test_no_domains_generated_or_skipped_sets_change(tmp_path: Path) -> None:
         "capability.excluded_by_domain_adapter",
     }
 
-    # What is committed under src/organelleverse/capabilities is exactly
+    # What is committed under src/capabilities is exactly
     # what today's generator produces, across every domain at once - proved
     # by real, byte-for-byte comparison against a fresh, isolated
     # regeneration of the entire tree, never by writing into the committed

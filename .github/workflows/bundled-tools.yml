@@ -1,0 +1,147 @@
+# Build LOSAT and ovasm for every supported platform and commit the binaries
+# to src/organelleverse/_bin/<system>-<machine>/, where
+# organelleverse._bundled finds them before PATH.
+name: bundled-tools
+
+on:
+  workflow_dispatch:
+    inputs:
+      losat_ref:
+        description: "satoshikawato/LOSAT commit, tag or branch"
+        default: "2d5b3877aab73e1721b60de5e9a5f88bf8b79a91"
+      ovasm_ref:
+        description: "forageseed/ovasm commit, tag or branch"
+        default: "8040b2a1b28ad8eda8ed2a21c322b7ca9688b042"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { tag: linux-x86_64, os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, run: true }
+          - { tag: linux-arm64, os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, run: true }
+          - { tag: windows-x86_64, os: windows-2022, target: x86_64-pc-windows-msvc, run: true }
+          - { tag: macos-arm64, os: macos-14, target: aarch64-apple-darwin, run: true }
+          - { tag: macos-x86_64, os: macos-14, target: x86_64-apple-darwin, run: false }
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_PROFILE_RELEASE_STRIP: symbols
+      # macOS builds run on 11.0 and later.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: satoshikawato/LOSAT
+          ref: ${{ inputs.losat_ref }}
+          path: losat-src
+      - uses: actions/checkout@v4
+        with:
+          repository: forageseed/ovasm
+          ref: ${{ inputs.ovasm_ref }}
+          path: ovasm-src
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          rustup default stable
+      - name: Build LOSAT
+        working-directory: losat-src/LOSAT
+        run: cargo build --release --locked --bin LOSAT --target ${{ matrix.target }}
+      - name: Build ovasm
+        working-directory: ovasm-src
+        run: cargo build --release --locked --bin ovasm --target ${{ matrix.target }}
+      - name: Stage
+        run: |
+          exe=""; [[ "${{ matrix.target }}" == *windows* ]] && exe=".exe"
+          out="out/${{ matrix.tag }}"; mkdir -p "$out"
+          cp "losat-src/LOSAT/target/${{ matrix.target }}/release/LOSAT$exe" "$out/"
+          cp "ovasm-src/target/${{ matrix.target }}/release/ovasm$exe" "$out/"
+          {
+            echo "losat_commit=$(git -C losat-src rev-parse HEAD)"
+            echo "ovasm_commit=$(git -C ovasm-src rev-parse HEAD)"
+          } > "$out/SOURCES"
+          if [[ "${{ matrix.run }}" == "true" ]]; then
+            "$out/ovasm$exe" --version | tee -a "$out/SOURCES"
+            "$out/LOSAT$exe" --version | head -1 | tee -a "$out/SOURCES"
+            "$out/LOSAT$exe" blastn --help > /dev/null
+          fi
+          ls -l "$out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.tag }}
+          path: out/
+          if-no-files-found: error
+
+  commit:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: satoshikawato/LOSAT
+          ref: ${{ inputs.losat_ref }}
+          path: .losat-src
+          sparse-checkout: LICENSE
+      - uses: actions/checkout@v4
+        with:
+          repository: forageseed/ovasm
+          ref: ${{ inputs.ovasm_ref }}
+          path: .ovasm-src
+          sparse-checkout: LICENSE
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          path: .artifacts
+          merge-multiple: true
+      - name: Place binaries and write the manifest
+        run: |
+          bin=src/organelleverse/_bin
+          rm -rf "$bin"; mkdir -p "$bin/licenses"
+          cp .losat-src/LICENSE "$bin/licenses/LOSAT-LICENSE"
+          cp .ovasm-src/LICENSE "$bin/licenses/ovasm-LICENSE"
+          for dir in .artifacts/*/; do
+            tag=$(basename "$dir"); mkdir -p "$bin/$tag"
+            cp "$dir"LOSAT* "$dir"ovasm* "$bin/$tag/"
+            cp "$dir/SOURCES" "$bin/$tag/SOURCES.txt"
+          done
+          chmod 755 "$bin"/*/LOSAT "$bin"/*/ovasm
+          python3 - "$bin" <<'EOF'
+          import hashlib, json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          files = []
+          for path in sorted(root.glob("*-*/*")):
+              if path.name == "SOURCES.txt":
+                  continue
+              data = path.read_bytes()
+              files.append({"platform": path.parent.name, "file": path.name, "bytes": len(data),
+                            "sha256": hashlib.sha256(data).hexdigest()})
+          sources = dict(line.split("=", 1) for line in
+                         (root / "linux-x86_64" / "SOURCES.txt").read_text().splitlines() if "=" in line)
+          manifest = {
+              "tools": {
+                  "LOSAT": {"repository": "https://github.com/satoshikawato/LOSAT",
+                            "commit": sources["losat_commit"], "license": "MIT (licenses/LOSAT-LICENSE)"},
+                  "ovasm": {"repository": "https://github.com/forageseed/ovasm",
+                            "commit": sources["ovasm_commit"], "license": "MIT (licenses/ovasm-LICENSE)"},
+              },
+              "files": files,
+          }
+          (root / "MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n")
+          EOF
+          cat "$bin/MANIFEST.json"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src/organelleverse/_bin
+          git update-index --chmod=+x src/organelleverse/_bin/*/LOSAT src/organelleverse/_bin/*/ovasm
+          if git diff --cached --quiet; then echo "binaries unchanged"; exit 0; fi
+          git commit -m "build(bin): LOSAT ${{ inputs.losat_ref }} and ovasm ${{ inputs.ovasm_ref }} for all platforms"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

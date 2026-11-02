@@ -297,3 +297,56 @@ def test_a_tiny_real_chromosome_is_never_mistaken_for_a_fragment(title: str) -> 
     from organelleverse.fetch.filters import looks_like_gene_record
 
     assert looks_like_gene_record(title) is False
+
+
+# ─────────────────────────────────────────────────────────────
+# The mitochondrion fragment vocabulary (Viridiplantae esummary, 2026-10-16)
+#
+# These passed the old completeness clause because they say "complete sequence"
+# about a gene, a pseudogene or a spacer. Every title is verbatim from nuccore.
+# ─────────────────────────────────────────────────────────────
+
+MITO_FRAGMENTS_2026_10 = [
+    # EU497799.1, 255 bp
+    "Abies bracteata NADH dehydrogenase subunit 3 (nad3) gene, partial cds; nad3-rps12 "
+    "intergenic spacer, complete sequence; and ribosomal protein S12 (rps12) gene, "
+    "partial cds; mitochondrial",
+    # MN261360.1, 402 bp — one of ~700 Daucus pseudogene records
+    "Daucus guttatus voucher PI 286611 orf42 pseudogene, complete sequence; mitochondrial",
+    # MH029713.1, 1,393 bp
+    "Gossypium hirsutum ribosomal protein S10-like (rps10) mRNA, complete sequence; "
+    "mitochondrial",
+    # AB304141.1, 873 bp — "space" is the submitter's word for spacer
+    "Beta trigyna mitochondrial DNA, cox2-cox1 space, complete sequence, ecotype: WB47",
+    # D13097.1, 2,177 bp — one of the rice clones that inflated rice to nine pieces
+    "Oryza sativa Japonica Group mitochondrial gene for tRNA-Cys, complete sequence, "
+    "clone: pMTVSCT1",
+]
+MITO_MOLECULES_2026_10 = [
+    # PV247660.1, 1,978 bp
+    "Lophophytum mirabile subsp. bolivianum isolate Bolivia chromosome 82 mitochondrion, "
+    "complete sequence",
+    # PZ554873.1, 21,827 bp — a chromosome titled by its gene content
+    "Cymbidium kanran cultivar Jing Zi chromosome 23 tRNA-His (trnH-GUG) gene, complete "
+    "sequence; and cytochrome c biogenesis FC (ccmFC) gene, complete cds; mitochondrial",
+    # NC_001638.1, 15,758 bp — why no length floor is possible
+    "Chlamydomonas reinhardtii mitochondrion, complete genome",
+    # JF750534.1
+    "Silene conica chromosome 1 mitochondrion, complete sequence",
+    # NC_011033.1
+    "Oryza sativa Japonica Group mitochondrion, complete genome",
+]
+
+
+@pytest.mark.parametrize("title", MITO_FRAGMENTS_2026_10)
+def test_mitochondrial_pseudogene_mrna_and_spacer_records_are_fragments(title: str) -> None:
+    from organelleverse.fetch.filters import looks_like_gene_record
+
+    assert looks_like_gene_record(title) is True
+
+
+@pytest.mark.parametrize("title", MITO_MOLECULES_2026_10)
+def test_mitochondrial_genomes_and_chromosomes_are_not_fragments(title: str) -> None:
+    from organelleverse.fetch.filters import looks_like_gene_record
+
+    assert looks_like_gene_record(title) is False

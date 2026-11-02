@@ -31,3 +31,7 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "method"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "alphabet"
+codec = "json"

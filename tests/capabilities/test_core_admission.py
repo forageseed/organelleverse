@@ -156,14 +156,14 @@ def _isolate_standard_roots(
     return home
 
 
-def test_a_core_origin_bundle_is_rejected_before_any_verification_record_exists(
+def test_a_core_origin_bundle_is_admitted_with_an_advisory_before_any_verification_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Locks in the pre-verification state.
+    """Verification is an aid for first-party code, not a gate.
 
-    Discovery correctly labels this bundle's origin ``"core"``, but with no
-    verification record on file yet, admission rejects it - exactly like
-    every other channel before its first ``verify_capability`` call.
+    A bundle in the ``core`` channel is runnable as soon as it is written. With
+    no verification record on file it is admitted, and the missing record is
+    reported as an advisory diagnostic on the admitted entry.
     """
     _isolate_standard_roots(tmp_path, monkeypatch)
 
@@ -172,9 +172,30 @@ def test_a_core_origin_bundle_is_rejected_before_any_verification_record_exists(
     entry = index.describe(_CAPABILITY_ID)
     assert entry.origins[0].channel == "core"
     assert entry.execution_identity is None
-    assert entry.status is CapabilityStatus.REJECTED
+    assert entry.status is CapabilityStatus.ADMITTED
     assert entry.diagnostic is not None
     assert entry.diagnostic.code == "capability.verification_missing"
+    assert entry.parameter_schema is None
+    assert tuple(item.capability_id for item in index.list()) == (_CAPABILITY_ID,)
+
+
+def test_an_unverified_core_origin_bundle_can_be_invoked_with_a_live_schema(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No record, no frozen schema: binding derives both from the implementation."""
+    _isolate_standard_roots(tmp_path, monkeypatch)
+
+    source = discover_capabilities().binding_source()
+
+    schema = source.parameter_schema(_CAPABILITY_ID)
+    assert schema is not None
+    properties = schema["properties"]
+    assert isinstance(properties, dict)
+    assert set(properties) == {"value"}
+
+    binding = source.resolve(_CAPABILITY_ID)
+    assert binding is not None
+    assert binding.invoke(None, {"value": 3}).metrics["value"] == 3
 
 
 def test_a_core_origin_bundle_reaches_admitted_through_the_real_pipeline(
@@ -192,7 +213,10 @@ def test_a_core_origin_bundle_reaches_admitted_through_the_real_pipeline(
     home = _isolate_standard_roots(tmp_path, monkeypatch)
 
     discovered = discover_capabilities()
-    assert discovered.describe(_CAPABILITY_ID).status is CapabilityStatus.REJECTED
+    unverified = discovered.describe(_CAPABILITY_ID)
+    assert unverified.status is CapabilityStatus.ADMITTED
+    assert unverified.diagnostic is not None
+    assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     record = verify_capability(
@@ -213,6 +237,8 @@ def test_a_core_origin_bundle_reaches_admitted_through_the_real_pipeline(
     admitted = discover_capabilities()
     entry = admitted.describe(_CAPABILITY_ID)
     assert entry.status is CapabilityStatus.ADMITTED
+    assert entry.diagnostic is None
+    assert entry.parameter_schema is not None
     assert tuple(item.capability_id for item in admitted.list()) == (_CAPABILITY_ID,)
 
     binding = admitted.binding_source().resolve(_CAPABILITY_ID)

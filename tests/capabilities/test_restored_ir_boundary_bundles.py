@@ -75,7 +75,7 @@ _EXCLUDED_IDS = (
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 
 

@@ -58,6 +58,7 @@ def build_graph(
     recommendation: Recommendation | None = None,
     auto_adopt_recommendation: bool = False,
     reference_index: int = 0,
+    sparse_mapping: bool = False,
 ) -> OrganelleResult:
     """Build a graph in a deterministic managed workspace.
 
@@ -68,6 +69,8 @@ def build_graph(
     from a supplied, verified ``recommend_parameters`` payload. By default
     parameters remain explicit and any supplied recommendation must match.
     Plastid PGGB segment lengths have an empirical 5000 bp minimum.
+    ``sparse_mapping`` (PGGB only) maps a connecting subset of sample pairs
+    instead of all pairs: several times faster, a less collapsed graph.
     """
 
     if method not in {"minigraph", "pggb", "pantools"}:
@@ -100,6 +103,7 @@ def build_graph(
         "identity": not 0 < identity <= 100,
         "reference_index": not 0 <= reference_index < len(project.samples),
         "n_haplotypes": n_haplotypes is not None and n_haplotypes <= 0,
+        "sparse_mapping": sparse_mapping and method != "pggb",
     }
     rejected = sorted(name for name, failed in invalid.items() if failed)
     if rejected:
@@ -138,6 +142,8 @@ def build_graph(
         "reference_index": reference_index,
         "requested_segment_length": requested_segment_length,
         "auto_adopt_recommendation": auto_adopt_recommendation,
+        # Absent when off, so digests of earlier runs stay reusable.
+        **({"sparse_mapping": True} if sparse_mapping else {}),
     }
     if adopted_recommendation is not None:
         parameters["recommendation_digest"] = adopted_recommendation["recommendation_digest"]
@@ -168,6 +174,7 @@ def build_graph(
             segment_length=segment_length,
             identity=identity,
             reference_index=reference_index,
+            sparse_mapping=sparse_mapping,
         )
         if result.status == "failed":
             return result.model_copy(

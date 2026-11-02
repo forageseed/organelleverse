@@ -74,7 +74,7 @@ def test_integrated_gpu_training_is_rejected_before_running() -> None:
 
 def test_no_silent_cpu_fallback_branch_exists() -> None:
     """Static: no 'device unavailable -> use cpu' logic anywhere in the suite."""
-    suite = Path(__file__).resolve().parents[2] / "src" / "organelleverse" / "morphology"
+    suite = Path(__file__).resolve().parents[2] / "src" / "morphology"
     offenders: list[str] = []
     for path in suite.glob("*.py"):
         if path.name == "device.py":

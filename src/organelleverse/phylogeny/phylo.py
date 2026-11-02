@@ -8,14 +8,15 @@ build_tree(): plan a publication-grade ML tree search with each backend's
   real CLI — IQ-TREE 3/2 (default; -m MFP model selection + ultrafast bootstrap
   + SH-aLRT), RAxML-NG (--all bootstrap), or FastTree (-nt -gtr). The argv
   follows each tool's documented interface and includes reproducibility
-  seeds, bootstrap support, and proper output redirection.
+  seeds, bootstrap support, and captured FastTree output.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+import math
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from organelleverse._public_validation import validated_public
 
@@ -39,14 +40,20 @@ def align(
     input_fasta: str | Path | Sequences,
     *,
     method: str = "auto",
+    alphabet: Literal["auto", "dna", "protein"] = "auto",
 ) -> OrganelleResult:
     """Align orthologous sequences using one available, real backend.
 
-    ``auto`` selects the Rust MAFFT kernel when available, otherwise the MAFFT
-    CLI. ``rust`` and ``mafft`` require that specific backend. Backend failure
-    is reported with its cause; raw input is never returned as an alignment.
+    With ``alphabet="auto"``, ``method="auto"`` selects the Rust MAFFT kernel
+    when available, otherwise the MAFFT CLI; sequence type is inferred by that
+    backend. Declare ``alphabet="dna"`` or ``"protein"`` whenever the type is
+    known: these modes require MAFFT CLI's ``--nuc`` or ``--amino`` so an
+    overlapping alphabet cannot be misclassified. The current Rust binding
+    cannot force sequence type, so explicit alphabets with ``method="rust"``
+    fail clearly. Backend failure is reported with its cause; raw input is
+    never returned as an alignment.
     """
-    params = {"method": method, "input_fasta": str(as_path(input_fasta))}
+    params = {"method": method, "alphabet": alphabet, "input_fasta": str(as_path(input_fasta))}
     if method not in {"auto", "rust", "mafft"}:
         return failed_result(
             "align",
@@ -70,17 +77,28 @@ def align(
 
     from .. import accel
 
-    use_rust = method in {"auto", "rust"} and accel.mafft_align is not None
+    if method == "rust" and alphabet != "auto":
+        return failed_result(
+            "align",
+            summary_text="The current Rust MAFFT binding cannot force an alphabet; use method='mafft' with the explicit alphabet.",
+            code="phylogeny.align.unsupported_alphabet",
+            result_provenance=provenance("align", parameters=params),
+        )
+    use_rust = alphabet == "auto" and method in {"auto", "rust"} and accel.mafft_align is not None
     mafft_bin = _which("mafft") if not use_rust and method != "rust" else None
     chosen = "rust_mafft" if use_rust else "mafft_cli"
     if not use_rust and mafft_bin is None:
         return failed_result(
             "align",
-            summary_text=f"No alignment backend available for method={method!r}; install MAFFT or the Rust MAFFT kernel.",
+            summary_text=(
+                f"No alignment backend available for method={method!r}, alphabet={alphabet!r}; "
+                + ("install MAFFT or the Rust MAFFT kernel." if alphabet == "auto" else "install MAFFT CLI to force the requested alphabet.")
+            ),
             code="phylogeny.align.backend_missing",
             result_provenance=provenance("align", parameters=params),
         )
-    argv = [] if use_rust else [mafft_bin, "--auto", "-"]
+    alphabet_flags = {"auto": [], "dna": ["--nuc"], "protein": ["--amino"]}[alphabet]
+    argv = [] if use_rust else [mafft_bin, *alphabet_flags, "--auto", "-"]
     prov = provenance("align", method=chosen, argv=argv, parameters=params)
     try:
         if use_rust:
@@ -129,6 +147,7 @@ def align(
         metrics={
             "n_sequences": len(aligned),
             "method": chosen,
+            "alphabet": alphabet,
             "aligned_length": (len(aligned[0][1]) if aligned else 0),
             "alignment": aligned,
         },
@@ -371,7 +390,7 @@ def _build_raxml_argv(
         str(seed),
         "--threads",
         str(threads),
-        "--bootstrap",
+        "--bs-trees",
         str(bootstrap),
     ]
 
@@ -383,16 +402,16 @@ def _build_fasttree_argv(
     *,
     gtr: bool = True,
 ) -> list[str]:
-    """FastTree command. Input on stdin, Newick tree on stdout (shell redirect).
+    """FastTree command with positional alignment input and Newick on stdout.
 
     ``-nt`` nucleotide mode; ``-gtr`` generalised time-reversible (recommended
-    for DNA, replaces default JC); FastTree reads the alignment from stdin and
-    writes the tree to stdout, so a shell ``>`` redirect captures the Newick.
+    for DNA, replaces default JC). The executor must capture stdout; shell
+    redirection tokens are not executable arguments.
     """
     flags = ["-nt"]
     if gtr:
         flags.append("-gtr")
-    return [bin_path, *flags, "<", alignment, ">", out_newick]
+    return [bin_path, *flags, alignment]
 
 
 @validated_public('phylogeny.extract_shared_genes')
@@ -407,6 +426,11 @@ def extract_shared_genes(
     (default ``CDS``). The shared set is the intersection across all genomes.
     Used to build a common-PCG matrix for phylogenomics (e.g. the 22 conserved
     mito PCGs in Rosaceae comparisons).
+
+    CDS output is always amino-acid sequence. An annotated ``translation``
+    is retained; otherwise CDS is translated using ``codon_start`` and
+    ``transl_table`` (NCBI default 1), with a terminal stop removed.
+    Other feature types return nucleotides.
 
     Writes one FASTA per shared gene (concatenating one sequence per genome)
     via :func:`write_shared_genes`.
@@ -434,11 +458,31 @@ def extract_shared_genes(
             gene = (feat.qualifiers.get("gene") or feat.qualifiers.get("product", ["unknown"]))[0]
             if not gene or gene == "unknown":
                 continue
-            seq = (
-                feat.qualifiers.get("translation", [str(feat.extract(rec.seq))])[0]
-                if feature_type == "CDS"
-                else str(feat.extract(rec.seq))
-            )
+            if feature_type == "CDS":
+                translation = feat.qualifiers.get("translation")
+                if translation:
+                    seq = str(translation[0]).replace(" ", "").rstrip("*")
+                else:
+                    from Bio.Data import CodonTable
+                    from Bio.Seq import Seq
+                    from Bio.SeqFeature import ExactPosition
+
+                    from .partition import _codon_clean, _feature_cds
+
+                    code = int(feat.qualifiers.get("transl_table", ["1"])[0])
+                    cds = _codon_clean(_feature_cds(feat, rec), code)
+                    seq = str(Seq(cds).translate(table=code))
+                    # Initiators in complete CDS translate as methionine,
+                    # including alternative starts such as GTG under table 11.
+                    start = feat.location.end if feat.location.strand == -1 else feat.location.start
+                    if (
+                        isinstance(start, ExactPosition)
+                        and int(feat.qualifiers.get("codon_start", ["1"])[0]) == 1
+                        and cds[:3] in CodonTable.unambiguous_dna_by_id[code].start_codons
+                    ):
+                        seq = "M" + seq[1:]
+            else:
+                seq = str(feat.extract(rec.seq))
             genes.add(gene)
             rec_map[gene] = (rec.id, seq)
         per_genome.append(genes)
@@ -523,20 +567,27 @@ def build_tree(
     Without an ``executor`` this returns the planned argv (status ok,
     ``backend_found`` tells whether the CLI was located) without running
     anything; pass a subprocess-style ``executor`` to build for real. The
-    fasttree plan uses shell redirection and resolves ``tree.newick``
-    against the process CWD, not the caller's intent.
+    executor must raise on failure or return a process result carrying its
+    returncode; FastTree executors must also capture stdout. The output tree
+    must contain exactly the input alignment's unique taxa.
 
     Per-method CLI (each backend's real interface):
 
     - **iqtree** (default): ``iqtree2 -s fa -pre out -m MFP -B 1000 -alrt 1000
       -seed 42 -T 1``. ModelFinder Plus + ultrafast bootstrap + SH-aLRT.
     - **raxml**: ``raxml-ng --all --msa fa --model GTR+G --prefix out --seed 42
-      --threads 1 --bootstrap 1000``.
-    - **fasttree**: ``FastTree -nt -gtr < fa > out.newick`` (stdin→stdout).
+      --threads 1 --bs-trees 1000``.
+    - **fasttree**: ``FastTree -nt -gtr fa`` (Newick on captured stdout).
 
     ``model=None`` lets each tool pick its default (MFP for IQ-TREE, GTR+G for
     RAxML-NG). Auto-locates the backend; if not found, returns the plan with an
     install hint.
+
+    ``extract_shared_genes(feature_type="CDS")`` returns amino-acid sequences.
+    IQ-TREE's MFP can infer their alphabet. RAxML-NG's default GTR+G is for
+    nucleotides; protein alignments require a suitable explicit ``model``.
+    This FastTree wrapper fixes ``-nt -gtr`` and accepts nucleotide alignments
+    only; it does not implement a protein mode.
 
     ``method`` accepts ``iqtree3`` (preferred when installed, IQ-TREE 3 with
     ModelFinder Plus + ultrafast bootstrap + SH-aLRT) or ``iqtree``/``iqtree2``
@@ -626,7 +677,7 @@ def _build_tree_impl(
             threads=threads,
             model=model or "GTR+G",
         )
-        out_tree = stem + ".raxml.bestTree"
+        out_tree = stem + ".raxml.support"
     elif method == "fasttree":
         argv = _build_fasttree_argv(bin_path, str(alignment_fasta), stem + ".newick")
         out_tree = stem + ".newick"
@@ -655,7 +706,31 @@ def _build_tree_impl(
     ran = False
     if executor is not None and found:
         try:
-            executor(list(argv))
+            if Path(out_tree).exists():
+                raise ValueError("output tree already exists; choose a fresh output directory")
+            completed = executor(list(argv))
+            returncode = completed if isinstance(completed, int) else getattr(completed, "returncode", 0)
+            if returncode != 0:
+                raise RuntimeError(f"tree builder exited with return code {returncode}")
+            if method == "fasttree":
+                stdout = getattr(completed, "stdout", None)
+                if stdout:
+                    Path(out_tree).write_text(
+                        stdout.decode() if isinstance(stdout, bytes) else stdout
+                    )
+            from Bio import Phylo
+
+            inferred = Phylo.read(out_tree, "newick")
+            actual = [tip.name for tip in inferred.get_terminals()]
+            expected = [name for name, _ in as_records(alignment_fasta)]
+            if len(actual) != len(set(actual)) or sorted(actual) != sorted(expected):
+                raise ValueError("output tree must contain exactly the alignment's unique taxa")
+            if any(
+                node.branch_length is not None
+                and (not math.isfinite(node.branch_length) or node.branch_length < 0)
+                for node in inferred.find_clades()
+            ):
+                raise ValueError("output tree has nonfinite or negative branch lengths")
             ran = True
         except Exception as exc:
             return failed_result(
@@ -692,7 +767,7 @@ def _build_tree_impl(
         metrics={
             "method": method,
             "backend_found": found,
-            "model": model or ("MFP" if method == "iqtree" else "GTR+G"),
+            "model": model or ("GTR+G" if method == "raxml" else "GTR+CAT" if method == "fasttree" else "MFP"),
             "bootstrap": bootstrap,
             "seed": seed,
             "threads": threads,

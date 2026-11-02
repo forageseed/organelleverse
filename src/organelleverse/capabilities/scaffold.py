@@ -359,16 +359,6 @@ parameters = ["threshold"]
 max_trials = 1
 parallelism = 1
 
-[plugin]
-name = {json.dumps(plugin_name)}
-version = "0.1.0"
-author = {json.dumps(author)}
-summary = {json.dumps(summary)}
-tags = ["generated", "plugin", "scientific"]
-
-[agent]
-task_description = {json.dumps(summary)}
-examples = [{json.dumps(f"Run {plugin_name} on this input directory.")}]
 '''
 
 

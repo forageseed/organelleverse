@@ -1,6 +1,6 @@
 """Native ovasm assembly adapter.
 
-ovasm (rust/ovasm) is one self-contained binary, found by ``_ovasm.resolve_ovasm``: there is
+ovasm (forageseed/ovasm) is one self-contained binary, found by ``_ovasm.resolve_ovasm``: there is
 no conda environment to create, lock or resolve. :class:`NativeOvasmEnvironment` stands in
 for the environment manager and gives the service the binary and its identity (content hash
 and reported version).
@@ -115,8 +115,8 @@ class NativeOvasmEnvironment:
         if binary is None:
             raise OrganelleDependencyError(
                 code="assembly.environment_unavailable",
-                message="ovasm is not available; build it with `cargo build --release` in "
-                "rust/ovasm or set ORG_VERSE_OVASM_BIN",
+                message="ovasm is not available; put ovasm 0.6.0 or later (forageseed/ovasm) "
+                "on PATH or set ORG_VERSE_OVASM_BIN",
                 details={"missing": ["ovasm"]},
             )
         return Path(binary).resolve()

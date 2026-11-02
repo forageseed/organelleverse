@@ -19,8 +19,11 @@ encoded is still the one worth keeping; only its polarity changed:
 - no production source may import the legacy shim, which is what finally lets
   ``core/legacy.py`` be removed.
 
-``CONTRACTED_SUITES`` grows one entry at a time as contracts land. It is a
-ledger, not a target: nothing here is expected to fail while it is incomplete.
+``CONTRACTED_SUITES`` grew one entry at a time as contracts landed. Since
+first-party verification became advisory (af9b1c73) every admitted core bundle
+is registered, so the ledger now names every restored suite, plus the restored
+operations inside core suites (``CONTRACTED_CORE_SUITE_EXTENSIONS``). It stays
+an explicit list so the catalog cannot grow by accident.
 """
 
 from __future__ import annotations
@@ -34,7 +37,7 @@ import pytest
 import organelleverse as ov
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SRC_ROOT = REPO_ROOT / "src" / "organelleverse"
+SRC_ROOT = REPO_ROOT / "src"
 
 # Scientific suites restored on 2026-07-29. Each must import.
 RESTORED_SUITES = [
@@ -76,7 +79,54 @@ MATERIALIZING_SUITES = [
 # Suites whose operations are registered in the released catalog.
 # EMPTY BY DESIGN: restoration and contracting are separate steps, and a suite
 # is only listed here once its OperationSpec is registered and verified.
-CONTRACTED_SUITES: list[str] = []
+#: Every restored suite whose operations the default registry serves. Since
+#: first-party verification became advisory (af9b1c73) all admitted core
+#: bundles are registered, so the ledger lists them all; a new suite must
+#: still be added here explicitly. ``tools`` is the tools.adapter plugin.
+CONTRACTED_SUITES: list[str] = [
+    "barcode",
+    "codon_composition",
+    "coevolution",
+    "comparative",
+    "composition",
+    "diversity",
+    "format_conversion",
+    "heteroplasmy",
+    "hgt",
+    "ir_boundary",
+    "localization",
+    "morphology",
+    "optimization",
+    "pangenome",
+    "phenotype",
+    "phylogeny",
+    "population",
+    "ppr",
+    "rna_editing",
+    "rna_seq",
+    "selection",
+    "structure",
+    "tools",
+    "trans_splicing",
+    "transfer",
+    "variation",
+    "visualization",
+]
+
+#: Restored operations that live in a core suite and therefore cannot be
+#: claimed by suite prefix without also claiming the core operations.
+CONTRACTED_CORE_SUITE_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        "annotation.find_orfs",
+        "annotation.translate_edited_cds",
+        "annotation.write_edited_cds",
+        "annotation.write_orfs",
+        "qc.compare_assembly_to_reference",
+        "qc.filter_long_reads",
+        "qc.filter_short_reads",
+        "qc.read_statistics",
+    }
+)
 
 # The released catalog before any restored suite is contracted.
 CORE_OPERATIONS = {
@@ -277,7 +327,8 @@ def test_operations_catalog_matches_the_contracted_inventory() -> None:
     registered = {spec.operation_id for spec in ov.operations.list()}
     contracted_prefixes = tuple(f"{suite}." for suite in CONTRACTED_SUITES)
     from_contracted = {op for op in registered if op.startswith(contracted_prefixes)}
-    assert registered - from_contracted == CORE_OPERATIONS
+    assert CONTRACTED_CORE_SUITE_EXTENSIONS <= registered
+    assert registered - from_contracted - CONTRACTED_CORE_SUITE_EXTENSIONS == CORE_OPERATIONS
     for suite in CONTRACTED_SUITES:
         assert any(op.startswith(f"{suite}.") for op in registered), (
             f"{suite} is listed as contracted but registers no operation"

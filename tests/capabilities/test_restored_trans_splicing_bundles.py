@@ -1,7 +1,7 @@
 """Capability Plan 03, Task 3: the restored ``trans_splicing`` bundles, for real.
 
 ``scripts/capabilities/build_restored_bundles.py`` generated one bundle
-under ``src/organelleverse/capabilities/trans-splicing-detect-trans-splicing``
+under ``src/capabilities/trans-splicing-detect-trans-splicing``
 from ``docs/operations/restored-capabilities.toml``.
 ``trans_splicing.detect_trans_splicing`` matches the generator's generic
 ``canonical_core`` shape on its own (``genome: OrganelleGenome`` first
@@ -51,7 +51,7 @@ _CP_GBK = PROJECT_ROOT / "tests" / "data" / "cp.gbk"
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 _EXPECTED_BUNDLE_DIRS = {"trans-splicing-detect-trans-splicing"}
 
@@ -130,7 +130,11 @@ def test_detect_trans_splicing_reaches_admitted_through_the_real_pipeline(
     home = _isolate_non_core_roots(tmp_path, monkeypatch)
 
     discovered = discover_capabilities()
-    assert discovered.describe(_DETECT_ID).status is CapabilityStatus.REJECTED
+    unverified = discovered.describe(_DETECT_ID)
+    # Verification is advisory for first-party code: admitted, with a diagnostic.
+    assert unverified.status is CapabilityStatus.ADMITTED
+    assert unverified.diagnostic is not None
+    assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     record = verify_capability(

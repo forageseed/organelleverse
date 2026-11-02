@@ -9,7 +9,7 @@ from organelleverse.annotation.cmsearch.cyk import cyk_align
 from organelleverse.annotation.cmsearch.model import parse_cm
 from tests._paths import PROJECT_ROOT
 
-_PACKAGED_CM = PROJECT_ROOT / "src/organelleverse/annotation/data/models/trna/trna.cm"
+_PACKAGED_CM = PROJECT_ROOT / "src/annotation/data/models/trna/trna.cm"
 
 pytestmark = pytest.mark.skipif(
     search_mod._rust_cm_cyk is None or not _PACKAGED_CM.exists(),

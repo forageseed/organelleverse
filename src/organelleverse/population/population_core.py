@@ -58,11 +58,10 @@ VCF: a typo there silently shrinks a population instead of raising. Returns dict
             "n_snps": len(snps),
             "samples_missing_from_vcf": missing_samples,
         }
-    positions = sorted(snps)
     fst_values = []
-    for pos in positions:
-        fst = site_fst(snps[pos], pop1, pop2)
-        fst_values.append({"pos": pos, "fst": round(fst, 4)})
+    for chrom, pos in sorted(snps):
+        fst = site_fst(snps[(chrom, pos)], pop1, pop2)
+        fst_values.append({"chrom": chrom, "pos": pos, "fst": round(fst, 4)})
     return {
         "windows": fst_values,
         "n_snps": len(snps),

@@ -299,6 +299,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="input_fasta", codec=ParameterCodec.PATH),
             ParameterOverride(name='method', codec=ParameterCodec.JSON),
+            ParameterOverride(name='alphabet', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.CANONICAL,
         result_key=None,

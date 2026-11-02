@@ -11,17 +11,17 @@ Bio.Phylo. No hand-rolled SVG/raster code.
 
 from __future__ import annotations
 
-from organelleverse._public_validation import validated_public
-
 from collections.abc import Sequence
 from pathlib import Path
 
-from .ogdraw import _genbank_display_name
+from organelleverse._public_validation import validated_public
+
+from ..inputs import Tree
+from ..sequences import as_path
+from .ogdraw import _genbank_display_name, genbank_scope
 from .panel_capture import finish, journal_figsize, new_axes, renderer_panel
 from .plot_object import OrganellePlot, plot_result
 from .style import FONT_PT, publication_rc
-from ..sequences import as_path
-from ..inputs import Tree
 
 
 @validated_public('visualization.plot_genome_map')
@@ -90,7 +90,7 @@ def plot_genome_map(
     plot = plot_result(
         "plot_genome_map",
         _render,
-        organelle="mito",
+        organelle=genbank_scope(genbank_path),
         metrics={"method": resolved, "render_method": resolved, "regions": regions},
         flags=(f"{resolved}_map",),
         summary=f"{resolved} organelle map prepared.",

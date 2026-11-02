@@ -37,7 +37,7 @@ def test_records_do_not_join_across_fasta_boundaries(tmp_path: Path) -> None:
 def test_nc_000932_matches_misa_reference_count(tmp_path: Path) -> None:
     reference = (
         Path(__file__).resolve().parents[2]
-        / "src/organelleverse/annotation/data/plastome/references/Arabidopsis_thaliana_chloroplast.gb"
+        / "src/annotation/data/plastome/references/Arabidopsis_thaliana_chloroplast.gb"
     )
     record = SeqIO.read(reference, "genbank")
     assert record.id == "NC_000932.1"

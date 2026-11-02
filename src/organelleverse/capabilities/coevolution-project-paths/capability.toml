@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Project Paths"
-description = "Project gene-tree branch lengths onto master-tree edge space (rooted trees)."
+description = "Map every ancestor-to-descendant node-pair path onto the master tree."
 keywords = ["analyze", "coevolution", "paths", "project", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"

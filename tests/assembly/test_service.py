@@ -396,6 +396,12 @@ def test_success_publishes_a_loadable_acyclic_evidence_chain(tmp_path: Path) -> 
     )
 
     assert result.status == "ok"
+    assert result.metrics["backend"] == "oatk"
+    assert result.metrics["record_count"] == 1
+    assert result.metrics["total_bases"] == 4
+    assert result.flags == ("assembly_completed",)
+    assert "1 sequences totaling 4 bp with oatk" in result.summary_text
+    assert "quality require separate assessment" in result.summary_text
     assert result.provenance is not None
     assert result.provenance.requested_backend == "oatk"
     assert result.provenance.actual_backend == "oatk"

@@ -47,7 +47,7 @@ def test_recover_from_exon_pair_splices_two_anchored_exons():
 
 _NIC_CP = (
     PROJECT_ROOT
-    / "src/organelleverse/annotation/data/plastome/references/Nicotiana_tabacum_chloroplast.gb"
+    / "src/annotation/data/plastome/references/Nicotiana_tabacum_chloroplast.gb"
 )
 
 

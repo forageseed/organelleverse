@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -672,12 +673,21 @@ def test_plugin_directory_inputs_are_snapshotted_before_worker_execution(
     assert entry.execution_identity is not None
     trust(entry.capability_id, entry.execution_identity, store=TrustStore(tmp_path / "trust.json"))
 
-    WorkerInvocationStrategy(
+    strategy = WorkerInvocationStrategy(
         entry,
         OneShotBundleWorkerExecutor(),
         TrustStore(tmp_path / "trust.json"),
-    ).invoke(None, {"images": str(images), "threshold": 0.75})
+    )
+    if os.name == "nt":
+        # Windows permits writes to a copied directory despite chmod; the
+        # integrity check must reject the altered snapshot before publication.
+        with pytest.raises(OrganelleContractError) as raised:
+            strategy.invoke(None, {"images": str(images), "threshold": 0.75})
+        assert raised.value.code == "capability.input_snapshot_modified"
+    else:
+        strategy.invoke(None, {"images": str(images), "threshold": 0.75})
 
+    assert (images / "one.tif").read_bytes() == b"image"
     assert not (images / "worker-only.txt").exists()
 
 

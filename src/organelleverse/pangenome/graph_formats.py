@@ -23,7 +23,7 @@ from ..runtime import create_staged_run, managed_run_path, publish_staged_result
 from ._contract import make_provenance, utc_now
 from ._gfa import _exact_overlap, _flip
 from ._runner import CommandRecord, run_command
-from .graph import graph_statistics, load_gfa, path_sequences
+from .graph import _path_sequences, graph_statistics, load_gfa, path_sequences
 from .odgi_names import numeric_gfa
 
 _OPERATION = "pangenome.convert_graph"
@@ -67,7 +67,7 @@ def _fingerprint(path: Path, circularity: bool = True) -> tuple:
         min((link.source, link.target), (_flip(link.target), _flip(link.source)))
         for link in graph.links
     }
-    sequences = path_sequences(path) if graph.paths else {}
+    sequences = _path_sequences(graph) if graph.paths else {}
     identities = _path_identities(graph, sequences)
     return (
         {name: segment.sequence.upper() for name, segment in graph.segments.items()},

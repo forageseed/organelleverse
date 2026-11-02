@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Run Erc"
-description = "Full ERC 2.0 pipeline: project \u2192 residual \u2192 correlate \u2192 Fisher \u2192 permute (rooted trees in)."
+description = "ERC 2.0 with node-pair paths, weighted residuals and independent edges."
 keywords = ["analyze", "coevolution", "erc", "restored", "result", "run"]
 execution_mode = "inline"
 stage = "analyze"
@@ -49,4 +49,12 @@ codec = "json"
 
 [[contract.binding.parameters]]
 name = "n_perms"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "fdr_threshold"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "seed"
 codec = "json"

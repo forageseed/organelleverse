@@ -3,7 +3,8 @@
 ``docs/operations/restored-capabilities.toml`` is a migration ledger, not a
 runtime contract: it must never register an ``OperationSpec`` or enter the
 Registry (see ``tests/contracts/test_legacy_removed.py`` for the Registry's
-own 20-operation and empty-``CONTRACTED_SUITES`` guarantees). This file only
+own catalog guarantee: the 20 core operations plus the ``CONTRACTED_SUITES``
+ledger). This file only
 checks that the ledger itself is exact, portable, and was produced by a
 generator that fails closed on a bad count and is reproducible byte-for-byte.
 
@@ -142,7 +143,7 @@ def test_inventory_records_have_the_minimum_required_fields() -> None:
 
 
 def test_source_relpath_is_portable() -> None:
-    """No absolute path, no traversal: relative to ``src/organelleverse`` only.
+    """No absolute path, no traversal: relative to ``src`` only.
 
     This does not also forbid specific local-machine path fragments (a
     developer username, a disk-label directory) the way
@@ -169,13 +170,19 @@ def test_python_locator_matches_domain_and_source_relpath() -> None:
 
 
 def test_inventory_is_a_ledger_not_a_runtime_contract() -> None:
-    """Task 1 freezes a migration ledger; it must not register operations."""
+    """Task 1 freezes a migration ledger; it must not register operations.
+
+    Reading the ledger must leave the registry exactly as it was. (The registry
+    itself is no longer 20 operations: advisory first-party verification admits
+    the restored core bundles, which register through discovery, not here.)
+    """
     import organelleverse as ov
 
-    registered_ids = {spec.operation_id for spec in ov.operations.list()}
+    before = {spec.operation_id for spec in ov.operations.list()}
     ledger_locators = {record["python_locator"] for record in _load_records()}
-    assert registered_ids.isdisjoint(ledger_locators)
-    assert len(registered_ids) == 20
+    after = {spec.operation_id for spec in ov.operations.list()}
+    assert ledger_locators
+    assert after == before
 
 
 # --- the generator itself (synthetic fixtures only; no external archive) ---

@@ -1,3 +1,5 @@
+from tests.bam_fixtures import bam_header
+
 """Scientific contracts for de novo discovery (no supplied editing-site list)."""
 
 import builtins
@@ -8,7 +10,6 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation, SeqFeature, SimpleLocation
 from Bio.SeqRecord import SeqRecord
-
 from organelleverse.core.errors import (
     OrganelleDependencyError,
     OrganelleInputError,
@@ -16,14 +17,14 @@ from organelleverse.core.errors import (
 )
 from organelleverse.rna_editing import detect_editing_sites
 
-pysam = pytest.importorskip("pysam")
+rubam = pytest.importorskip("rubam")
 
 
 def write_bam(path, sequence, observations):
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": "cp", "LN": len(sequence)}]}
-    with pysam.AlignmentFile(str(path), "wb", header=header) as bam:
+    with rubam.AlignmentFile(str(path), "wb", header=bam_header(header, Path(path).parent)) as bam:
         for i, values in enumerate(observations):
-            read = pysam.AlignedSegment()
+            read = rubam.AlignedSegment()
             read.query_name = f"read{i}"
             read.query_sequence = values.get("seq", sequence)
             read.flag = values.get("flag", 0)
@@ -31,9 +32,11 @@ def write_bam(path, sequence, observations):
             read.reference_start = 0
             read.mapping_quality = values.get("mapq", 60)
             read.cigarstring = values.get("cigar", f"{len(read.query_sequence)}M")
-            read.query_qualities = values.get("qual", [40] * len(read.query_sequence))
+            qualities = values.get("qual", [40] * len(read.query_sequence))
+            if qualities is not None:
+                read.query_qualities = qualities
             bam.write(read)
-    pysam.index(str(path))
+    rubam.index(str(path))
     return path
 
 
@@ -217,12 +220,12 @@ def test_missing_inputs_and_reference_mismatch(tmp_path):
 def test_missing_optional_dependency_has_installation_hint(monkeypatch):
     original = builtins.__import__
 
-    def without_pysam(name, *args, **kwargs):
-        if name == "pysam":
+    def without_rubam(name, *args, **kwargs):
+        if name == "rubam":
             raise ImportError("test missing dependency")
         return original(name, *args, **kwargs)
 
-    monkeypatch.setattr(builtins, "__import__", without_pysam)
+    monkeypatch.setattr(builtins, "__import__", without_rubam)
     with pytest.raises(OrganelleDependencyError, match=r"organelleverse\[qc\]"):
         detect_editing_sites("missing.bam", "missing.fa")
 

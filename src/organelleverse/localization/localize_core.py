@@ -231,7 +231,10 @@ def score_signal_peptide(
         score = 0.0
         ok = True
         for pos in score_positions:
-            j = cut + pos  # 0-based residue index for matrix position ``pos``
+            # 0-based residue index for matrix position ``pos``. ``cut`` is the first
+            # mature residue: -1 is s[cut - 1] and +1 is s[cut] (there is no position 0);
+            # cut + pos read +1 one residue too far.
+            j = cut + pos if pos < 0 else cut + pos - 1
             if j < 0 or j >= len(s):
                 ok = False
                 break
@@ -264,95 +267,92 @@ def score_signal_peptide(
 
 
 # =============================================================================
-# 2. Transit peptides (mTP / cTP) -- compositional log-odds over the N-terminus
+# 2. Transit peptides (mTP / cTP) -- N-terminal multinomial logistic model
 # =============================================================================
 #
-# TargetP (Emanuelsson 2000) and Predotar use neural networks whose weights are
-# not openly published, so we cannot reproduce them exactly. We instead
-# implement the *published* amino-acid composition bias that distinguishes
-# targeting peptides from mature/cytosolic proteins, as described in
-# von Heijne (1989) and Emanuelsson (2000) Table analyses:
-#
-#   - mTP (mitochondrial): enriched in Arg, Ser, Ala; depleted in Asp, Glu.
-#     Strongly basic net charge over the N-terminal ~20-60 residues.
-#   - cTP (chloroplast): enriched in Ser, Thr; near-neutral or weakly acidic
-#     charge; depleted in Arg relative to mTP.
-#   - Both transit peptides are depleted in acidic residues (D, E) over the
-#     N-terminal ~50 residues (the "no acidic residues early" rule).
-#
-# The score is a log-odds over the first ``window`` residues using published
-# frequency ratios for the N-terminal targeting region. We self-calibrate the
-# cutoff to a small labeled set at module load (see ``_CALIBRATION`` below) so
-# that the threshold is data-driven rather than arbitrary; the scorer is
-# explicitly documented as "compositional heuristic, not TargetP".
+# TargetP's network weights are not public. This scorer is a multinomial logistic
+# regression on N-terminal composition, trained on 2026-10-25 on Arabidopsis
+# thaliana (TAIR10 proteins from Ensembl Plants) with labels from AtMitoCarta
+# (Kim et al. 2026, Cell 189:6267, Table S2):
+#   mtp   AtMitoCarta member with a TargetP 2.0 mTP call        (433 training proteins)
+#   ctp   SUBA5 plastid only, TargetP 2.0 cTP or luTP           (746)
+#   other SUBA5 localisation outside mitochondria and plastids  (11678)
+# Trained on chromosomes 1-3; each threshold gives <= 5% calls on training
+# "other". Held out (chromosomes 4-5): mTP recall 78.8%, cTP recall
+# 92.3%; "other" called mTP 3.3% and cTP 4.7%; cTP proteins
+# called mTP 0.9%; random 400-aa sequences called mTP 0.55%. The composition
+# heuristic it replaces called 20.7% of "other" and 71.7% of cTP proteins mTP.
+# Probabilities are posteriors under the Arabidopsis proteome's class balance, so a
+# real targeting peptide often scores well below 0.5; the calls use the thresholds.
 
-# N-terminal composition biases distinguishing targeting peptides from mature /
-# cytosolic proteins, as reported in von Heijne (1989) and Emanuelsson (2000).
-#
-# The most *discriminating* features (rather than raw log-odds) are used as
-# hard filters, because TargetP's NN weights are unpublished and a naive
-# composition-only scorer has an unacceptable false-positive rate on the many
-# cytosolic proteins whose N-termini happen to be S/T/A-rich.
-#
-# Hard-rule features (all required for a transit-peptide prediction):
-#   (a) The first ~15 residues contain almost no acidic residues (D/E). Real
-#       mTPs/cTPs are essentially devoid of D/E in the first 15 aa. We allow
-#       at most one D or E in the first 15.
-#   (b) The first 15 residues are enriched in S/T/A (>= 50 %).
-#   (c) mTP additionally requires a basic net charge (R+K > D+E) over the
-#       N-terminal window; cTP is near-neutral or weakly acidic.
-_TP_WEIGHTS_MITO: dict[str, float] = {
-    "R": 1.2,
-    "S": 0.7,
-    "A": 0.5,
-    "L": 0.2,
-    "P": 0.2,
-    "T": 0.3,
-    "D": -1.2,
-    "E": -1.0,
-    "K": 0.2,
-    "H": 0.2,
-}
-_TP_WEIGHTS_PLASTID: dict[str, float] = {
-    "S": 1.0,
-    "T": 0.8,
-    "A": 0.5,
-    "M": 0.3,
-    "L": 0.2,
-    "I": 0.2,
-    "D": -1.1,
-    "E": -0.9,
-    "R": 0.3,
-}
+_TP_AA = "ACDEFGHIKLMNPQRSTVWY"
+_TP_WINDOWS = (15, 30, 60)
+#: Rows: other, mtp, ctp. Columns: amino-acid fractions over residues 1-15, 1-30
+#: and 1-60 (``_TP_AA`` order), net charge per residue over 1-30, hydrophobic
+#: (AILMFVW) fraction over 1-20.
+_TP_COEF: tuple[tuple[float, ...], ...] = (
+    (
+        -4.45957, -0.92432, 4.04265, 4.16112, 0.20839, 1.49732, -0.38002, -1.67427, 4.26658,
+        -2.49388, -1.15365, 0.99432, -0.22854, -1.00477, 0.87822, -0.36366, -1.60099, -1.31652,
+        0.18967, 0.13444, -0.08018, -0.40670, 4.35867, 3.64432, -0.87134, 0.63434, -1.91686,
+        0.36735, 3.32925, -0.67968, 0.88358, -1.60454, -1.68772, -0.54356, -1.97434, -3.28301,
+        -0.90654, 0.52790, 0.51175, 0.46982, -0.93806, 0.81769, 4.63459, 2.87006, -0.62683,
+        0.84764, 0.33088, 1.18387, -0.59492, -0.07806, 0.81062, -0.27018, 1.29775, 0.39677,
+        -5.12323, -6.31160, -1.31122, -0.42283, 1.27295, 1.98663, -6.64807, 0.54267,
+    ),
+    (
+        0.12370, -0.82912, -2.31428, -2.52341, 0.02071, -1.29626, -0.10627, 1.62693, 0.68459,
+        1.53061, -0.33230, -0.48548, -2.62387, 0.44653, 6.65950, -1.17931, -1.02109, -0.03490,
+        0.72966, 0.50635, 1.00726, -0.43893, -2.16013, -1.53952, 0.21866, -0.07304, 0.06704,
+        0.09561, -2.41314, 0.78906, -0.57817, 0.33237, -1.95150, 0.36768, 3.01083, 1.44045,
+        0.34241, 0.13597, 0.44348, 0.48589, 0.77655, -1.31112, -0.60284, 0.13708, 0.58464, 0.22551,
+        -0.13220, -0.24990, -1.50576, 0.16907, -0.52128, -0.22661, -1.25297, -0.10513, 0.77512,
+        2.69130, 0.81146, -0.71903, -0.05655, 0.09492, 4.29735, 0.38182,
+    ),
+    (
+        4.33587, 1.75344, -1.72836, -1.63771, -0.22910, -0.20106, 0.48630, 0.04734, -4.95117,
+        0.96327, 1.48595, -0.50885, 2.85241, 0.55824, -7.53771, 1.54297, 2.62208, 1.35142,
+        -0.91933, -0.64079, -0.92707, 0.84564, -2.19853, -2.10480, 0.65268, -0.56130, 1.84982,
+        -0.46296, -0.91612, -0.10939, -0.30541, 1.27217, 3.63922, 0.17588, -1.03649, 1.84256,
+        0.56414, -0.66388, -0.95524, -0.95570, 0.16151, 0.49343, -4.03175, -3.00714, 0.04219,
+        -1.07315, -0.19867, -0.93397, 2.10068, -0.09101, -0.28934, 0.49679, -0.04478, -0.29164,
+        4.34811, 3.62030, 0.49975, 1.14186, -1.21640, -2.08155, 2.35073, -0.92449,
+    ),
+)
+_TP_INTERCEPT: tuple[float, float, float] = (4.21863, -2.46950, -1.74913)
+_TP_THRESHOLD_MTP: float = 0.08813
+_TP_THRESHOLD_CTP: float = 0.12688
 
-# Transit peptides are short (typically 20-60 aa); score over the N-terminal end.
-_TP_WINDOW = 60
-_TP_HEAD = 15  # the strongly-filtered N-terminal stretch
+
+def _tp_features(s: str) -> list[float]:
+    """Model inputs; ``s`` is already reduced to the 20 standard residues."""
+    out: list[float] = []
+    for w in _TP_WINDOWS:
+        head = s[:w] or "X"
+        out += [head.count(a) / len(head) for a in _TP_AA]
+    h30, h20 = s[:30] or "X", s[:20] or "X"
+    out.append((sum(h30.count(a) for a in "RK") - sum(h30.count(a) for a in "DE")) / len(h30))
+    out.append(sum(h20.count(a) for a in "AILMFVW") / len(h20))
+    return out
 
 
 @validated_public('localization.score_transit_peptides')
 def score_transit_peptides(
     seq: str,
     *,
-    window: int = _TP_WINDOW,
+    window: int = 60,
 ) -> dict[str, object]:
     """Score mitochondrial (mTP) and chloroplast (cTP) transit peptides.
 
-    Uses published N-terminal composition biases (von Heijne 1989; Emanuelsson
-    2000) plus hard filters on the strongly-conserved first-15-aa region (no
-    acidic residues, S/T/A enrichment, basic charge for mTP).
-
-    Notes
-    -----
-    This is a *compositional heuristic*, explicitly not a TargetP/Predotar
-    reproduction (those use unpublished NN weights). Designed for high
-    precision / low recall: it predicts mTP/cTP only when the N-terminus
-    clearly matches the published targeting-peptide signature.
+    Multinomial logistic model on N-terminal composition (see the section
+    comment for training data and held-out performance). ``window`` is kept for
+    compatibility; the model always reads residues 1-15, 1-30 and 1-60. The three
+    ``*_filter`` flags are the classical N-terminal rules (no D/E in residues
+    1-15; basic charge with Arg for mTP; S/T/A-rich, not basic for cTP), reported
+    for information only.
     """
     s = "".join(c for c in seq.upper() if c in _AA_ORDER)
-    head = s[:window]
-    n = len(head)
-    if n < 15:
+    if len(s) < 15:
         return {
             "mtp_score": 0.0,
             "ctp_score": 0.0,
@@ -363,99 +363,31 @@ def score_transit_peptides(
             "mtp_charge_filter": False,
             "ctp_composition_filter": False,
         }
-
-    n_term = s[:_TP_HEAD]
-    n_acidic = sum(1 for a in n_term if a in "DE")
-    n_sta = sum(1 for a in n_term if a in "STA")
-    n_arg = sum(1 for a in head if a == "R")
-    n_basic = sum(1 for a in head if a in "RK")
-    n_acidic_full = sum(1 for a in head if a in "DE")
-    net_charge = n_basic - n_acidic_full
-    # Common hard filter for both transit-peptide classes: the first 15 aa are
-    # essentially devoid of acidic residues (real targeting peptides almost
-    # never have D/E in the very N-terminal region -- von Heijne 1989).
-    no_acidic_ok = n_acidic <= 1
-    # mTP signature: basic net charge (R/K > D/E by >= 2) and at least one Arg
-    # over the window. mTPs are characteristically Arg-rich and basic.
-    mtp_charge_ok = (net_charge >= 2) and (n_arg >= 1)
-    # cTP signature: STA-rich N-terminus (>= 50 %) and not strongly basic
-    # (cTPs are near-neutral; a strongly-basic N-terminus points to mTP, not cTP).
-    ctp_composition_ok = (n_sta >= _TP_HEAD / 2) and (net_charge < 3)
-
-    # Raw per-residue log-odds sums, length-normalized to per-100-aa units.
-    mtp = sum(_TP_WEIGHTS_MITO.get(a, 0.0) for a in head) / n * 100.0
-    ctp = sum(_TP_WEIGHTS_PLASTID.get(a, 0.0) for a in head) / n * 100.0
-
-    # Charge modifier: mTPs are basic (R/K/H-rich), cTPs near-neutral.
-    charge_per_100 = net_charge / n * 100.0
-    mtp += 0.4 * max(0.0, charge_per_100) - 0.4 * max(0.0, -charge_per_100)
-    ctp += 0.2 * max(0.0, -charge_per_100)
-
-    # Probabilities only clear the cutoff when the hard filters pass. mTP needs
-    # no_acidic + basic charge; cTP needs no_acidic + STA-rich + not basic.
-    # Without the relevant filters, cap at a low value so we never confidently
-    # mis-predict a cytosolic protein.
-    mtp_prob = _logistic(mtp, _MTP_MID, _MTP_SCALE)
-    ctp_prob = _logistic(ctp, _CTP_MID, _CTP_SCALE)
-    if not (no_acidic_ok and mtp_charge_ok):
-        mtp_prob = min(mtp_prob, 0.15)
-    if not (no_acidic_ok and ctp_composition_ok):
-        ctp_prob = min(ctp_prob, 0.15)
-    # When both raw scores are high but their specific filters conflict (e.g. an
-    # STA-rich, basic N-terminus that could be either cTP or mTP), defer to the
-    # compositional winner -- this resolves ambiguous plant targeting peptides
-    # whose charge puts them on the cTP/mTP boundary. Require the basic-charge
-    # signature for the mTP branch and STA-enrichment for the cTP branch so a
-    # generic hydrophobic / non-targeting N-terminus never wins.
-    sta_rich = n_sta >= _TP_HEAD / 2
-    if no_acidic_ok and mtp_charge_ok and ctp >= _CTP_MID and sta_rich and ctp > mtp:
-        ctp_prob = max(ctp_prob, 0.7)
-        mtp_prob = min(mtp_prob, 0.3)
-    elif no_acidic_ok and mtp_charge_ok and mtp >= _MTP_MID:
-        mtp_prob = max(mtp_prob, 0.7)
-        ctp_prob = min(ctp_prob, 0.3)
-    # Cap heuristic confidence: these are composition scorers, not NNs.
-    mtp_prob = min(mtp_prob, 0.85)
-    ctp_prob = min(ctp_prob, 0.85)
-
+    x = _tp_features(s)
+    logits = [b + sum(w * v for w, v in zip(row, x, strict=True)) for row, b in zip(_TP_COEF, _TP_INTERCEPT, strict=True)]
+    top = max(logits)
+    exps = [math.exp(z - top) for z in logits]
+    total = sum(exps)
+    _p_other, p_mtp, p_ctp = (e / total for e in exps)
     predicted = None
-    if mtp_prob >= _TP_PROB_CUTOFF and mtp_prob >= ctp_prob:
+    if p_mtp >= _TP_THRESHOLD_MTP and p_mtp >= p_ctp:
         predicted = "Mitochondrion"
-    elif ctp_prob >= _TP_PROB_CUTOFF and ctp_prob > mtp_prob:
+    elif p_ctp >= _TP_THRESHOLD_CTP and p_ctp > p_mtp:
         predicted = "Plastid"
 
+    n_term, head = s[:15], s[:window]
+    net_charge = sum(head.count(a) for a in "RK") - sum(head.count(a) for a in "DE")
+    no_acidic_ok = sum(n_term.count(a) for a in "DE") <= 1
     return {
-        "mtp_score": round(mtp, 3),
-        "ctp_score": round(ctp, 3),
-        "mitochondrion_prob": round(mtp_prob, 3),
-        "plastid_prob": round(ctp_prob, 3),
+        "mtp_score": round(logits[1] - logits[0], 3),
+        "ctp_score": round(logits[2] - logits[0], 3),
+        "mitochondrion_prob": round(p_mtp, 3),
+        "plastid_prob": round(p_ctp, 3),
         "predicted": predicted,
         "no_acidic_filter": no_acidic_ok,
-        "mtp_charge_filter": mtp_charge_ok,
-        "ctp_composition_filter": ctp_composition_ok,
+        "mtp_charge_filter": net_charge >= 2 and "R" in head,
+        "ctp_composition_filter": sum(n_term.count(a) for a in "STA") >= 15 / 2 and net_charge < 3,
     }
-
-
-def _logistic(x: float, mid: float, scale: float) -> float:
-    """Numerically stable logistic sigmoid centered at ``mid``."""
-    z = (x - mid) / scale
-    # sigma(z) = 1 / (1 + e^{-z}); compute via the sign-stable form to avoid
-    # overflow for large |z|.
-    if z >= 0:
-        return 1.0 / (1.0 + math.exp(-z))
-    ez = math.exp(z)
-    return ez / (1.0 + ez)
-
-
-# Calibration constants for the transit-peptide logistic maps. Chosen so that a
-# clear targeting peptide (RbcS cTP, ATP-synthase-beta mTP) maps to >= 0.8
-# while typical cytosolic proteins (GFP, actin) map to <= 0.05 after the hard
-# N-terminal filter. Calibrated on a small set of canonical plant proteins.
-_TP_PROB_CUTOFF: float = 0.5
-_MTP_MID: float = 12.0
-_MTP_SCALE: float = 3.0
-_CTP_MID: float = 12.0
-_CTP_SCALE: float = 3.0
 
 
 # =============================================================================
@@ -473,7 +405,10 @@ _CTP_SCALE: float = 3.0
 # extended 6-7 residue monopartite classes of Kosugi (2009) (class 1/2).
 
 # Monopartite: 4+ basic residues in a 6-aa window (SV40-like).
-_NLS_MONO = re.compile(r"[KR].{0,3}[KR][KR].{0,2}[KR]|[KR][KR][KR][KR]")
+# Classical monopartite NLS: K-(K/R)-X-(K/R) (Chelsky 1989), or four basic residues in
+# a row. The former pattern [KR].{0,3}[KR][KR].{0,2}[KR] matched 39% of random
+# 400-aa sequences.
+_NLS_MONO = re.compile(r"K[KR].[KR]|[KR][KR][KR][KR]")
 # Bipartite (Robbins 1991): 2 basic | 9-12 spacer | 3+ basic.
 _NLS_BIPARTITE = re.compile(r"[KR][KR].{9,12}[KR][KR][KR]")
 # Kosugi class-2 short basic cluster (5-6 aa, at least 3 basic / 1 hydrophobic).
@@ -731,10 +666,13 @@ class LocalizationScores:
         if has_sp:
             probs["Secretory"] = 0.95
         tp = self.transit_peptides
-        probs["Mitochondrion"] = max(
-            probs["Mitochondrion"], float(tp.get("mitochondrion_prob", 0.0))
-        )
-        probs["Plastid"] = max(probs["Plastid"], float(tp.get("plastid_prob", 0.0)))
+        # The transit-peptide model calls on its own calibrated thresholds, well below
+        # 0.5 (its probabilities are proteome-prior posteriors): a called compartment
+        # is lifted to the 0.5 reporting level, an uncalled one stays below it.
+        for compartment, key in (("Mitochondrion", "mitochondrion_prob"), ("Plastid", "plastid_prob")):
+            p = float(tp.get(key, 0.0))
+            p = max(p, 0.5) if tp.get("predicted") == compartment else min(p, 0.49)
+            probs[compartment] = max(probs[compartment], p)
         if self.nls.get("has_nls"):
             probs["Nucleus"] = float(self.nls.get("nucleus_prob", 0.9))
         if self.pts.get("has_pts"):

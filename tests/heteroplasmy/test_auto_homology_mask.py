@@ -8,9 +8,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from organelleverse.heteroplasmy import quantify_variant_fractions
 
 from organelleverse import heteroplasmy
-from organelleverse.heteroplasmy import quantify_variant_fractions
+from tests.bam_fixtures import bam_header
 
 CONTIG = "MT"
 
@@ -24,31 +25,35 @@ def _fresh_cache():
 
 def _bam(path: Path, length: int, groups: list[tuple[int, list[str]]]) -> Path:
     """Reads of 20 bp whose 10th base is the tested base: site position = start0 + 10."""
-    pysam = pytest.importorskip("pysam")
+    rubam = pytest.importorskip("rubam")
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": CONTIG, "LN": length}]}
     unsorted = path.with_suffix(".unsorted.bam")
-    with pysam.AlignmentFile(str(unsorted), "wb", header=header) as out:
+    with rubam.AlignmentFile(
+        str(unsorted), "wb", header=bam_header(header, Path(unsorted).parent)
+    ) as out:
         n = 0
         for start0, bases in groups:
             for base in bases:
-                read = pysam.AlignedSegment()
+                read = rubam.AlignedSegment()
                 read.query_name = f"r{n}"
                 read.query_sequence = "A" * 9 + base + "A" * 10
                 read.flag = 0
                 read.reference_id = 0
                 read.reference_start = start0
                 read.mapping_quality = 60
-                read.cigar = [(0, 20)]
-                read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+                read.cigartuples = [(0, 20)]
+                read.query_qualities = rubam.qualitystring_to_array("I" * 20)
                 out.write(read)
                 n += 1
-    pysam.sort("-o", str(path), str(unsorted))
-    pysam.index(str(path))
+    rubam.sort(str(unsorted), str(path))
+    rubam.index(str(path))
     return path
 
 
 def _two_site_bam(tmp_path: Path) -> Path:
-    return _bam(tmp_path / "reads.bam", 100, [(0, ["A"] * 7 + ["G"] * 3), (40, ["A"] * 5 + ["G"] * 5)])
+    return _bam(
+        tmp_path / "reads.bam", 100, [(0, ["A"] * 7 + ["G"] * 3), (40, ["A"] * 5 + ["G"] * 5)]
+    )
 
 
 def _two_sites(path: Path) -> Path:
@@ -161,7 +166,9 @@ def test_mitochondrial_runs_with_a_reference_are_masked_by_default(
     )
     assert result.status == "ok", result.summary_text
     rows = _rows(result)
-    assert rows["in_insert"]["status"] == "masked" and rows["in_insert"]["mask_source"] == "homology"
+    assert (
+        rows["in_insert"]["status"] == "masked" and rows["in_insert"]["mask_source"] == "homology"
+    )
     assert rows["unique"]["status"] == "ok" and rows["unique"]["alt_fraction"] == 0.2
     mask = result.metrics["homology_mask"]
     assert mask["mode"] == "bundled_plastomes" and mask["bundled_references"] == 1
@@ -224,9 +231,7 @@ def test_without_a_reference_fasta_the_gap_is_flagged_not_hidden(tmp_path: Path)
     assert "unavailable" in result.summary_text
 
 
-def test_plastid_runs_are_not_masked_automatically_and_say_why(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_plastid_runs_are_not_masked_automatically_and_say_why(tmp_path: Path, monkeypatch) -> None:
     _patch_search(monkeypatch, [{"nuclear_seqid": CONTIG, "nuclear_start": 1, "nuclear_end": 100}])
     result = _run(tmp_path, scope="plastid")
     assert result.metrics["masked_sites"] == 0
@@ -266,7 +271,9 @@ def test_an_explicit_homology_fasta_replaces_the_bundled_library(
     def boom():
         raise AssertionError("the bundled library must not be read")
 
-    monkeypatch.setattr("organelleverse.annotation.plastome.db.default_plastome_reference_dir", boom)
+    monkeypatch.setattr(
+        "organelleverse.annotation.plastome.db.default_plastome_reference_dir", boom
+    )
     _patch_search(monkeypatch, [{"nuclear_seqid": CONTIG, "nuclear_start": 5, "nuclear_end": 20}])
     own = tmp_path / "own_plastome.fa"
     own.write_text(">cp\nACGT\n", encoding="utf-8")

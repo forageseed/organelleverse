@@ -101,21 +101,13 @@ def predict_edits(
             if not gene:
                 continue
             gene_l = gene.lower()
-            for kind, _sigs in _SIGNATURES.items():
-                target_set = _STOP_GAIN_GENES if kind == "stop_gain" else _START_GAIN_GENES
-                target_lower = {g.lower() for g in target_set}
-                if gene_l not in target_lower:
-                    continue
-                # Report candidate site with the feature coordinates as position proxy.
-                sites.append(
-                    {
-                        "gene": gene_l,
-                        "kind": kind,
-                        "confidence": "high",
-                        "position": feature.genomic_position(0) + 1,
-                    }
-                )
-                break
+            # A site needs the editable codon in the sequence itself (it used to be
+            # reported for every listed gene, at the CDS start, whatever the codons
+            # were). Genes known to carry such edits keep "high" confidence.
+            for site in _terminal_edit_sites(feature, record.sequence, record.seqid):
+                target_set = _STOP_GAIN_GENES if site["kind"] == "stop_gain" else _START_GAIN_GENES
+                known = gene_l in {g.lower() for g in target_set}
+                sites.append({"gene": gene_l, **site, "confidence": "high" if known else "medium"})
     stop_count = sum(1 for s in sites if s["kind"] == "stop_gain")
     start_count = sum(1 for s in sites if s["kind"] == "start_gain")
     return OrganelleResult(
@@ -150,8 +142,13 @@ def validate_edits(
 ) -> OrganelleResult:
     """Validate predicted editing sites against RNA-seq evidence.
 
-    Uses rubam (standard tool) when a BAM is given; otherwise parses a simple
-    pileup TSV (columns: position, ref, depth, T_fraction).
+    With a BAM, the edited and unedited reads at each site are counted by
+    :func:`quantify_known_site_efficiency` (rubam); otherwise a simple pileup TSV
+    (columns: position, ref, depth, T_fraction) is read. A site is supported when
+    at least 10% of its reads carry the edit. Sites give their 1-based genome
+    position as ``position`` or ``genome_position``; with a BAM they also need
+    ``seqid`` (unless the BAM has one reference) and ``strand`` (default ``+``:
+    C>T on the reference; ``-``: G>A).
     """
     bam_path = as_path(bam_path)
     if bam_path is None and pileup_tsv is None:
@@ -170,8 +167,18 @@ def validate_edits(
             if len(parts) >= 4:
                 pileup[int(parts[0])] = float(parts[3])
         for site in predicted_sites:
-            pos = site.get("position", 0)
-            t_frac = pileup.get(pos)
+            pos = _site_position(site)
+            t_frac = pileup.get(pos) if pos is not None else None
+            if t_frac is not None and t_frac >= 0.1:
+                validated += 1
+                supported.append({**site, "T_fraction": t_frac})
+    else:
+        # A BAM used to be accepted and never read: every call returned "ok" with
+        # nothing validated, even for a file that is not a BAM.
+        fractions = _bam_editing_fractions(predicted_sites, bam_path)
+        if isinstance(fractions, OrganelleResult):
+            return fractions
+        for site, t_frac in zip(predicted_sites, fractions, strict=True):
             if t_frac is not None and t_frac >= 0.1:
                 validated += 1
                 supported.append({**site, "T_fraction": t_frac})
@@ -198,6 +205,59 @@ def validate_edits(
     )
 
 
+def _site_position(site: Mapping[str, Any]) -> int | None:
+    """1-based genome position of a predicted site (deepred/plantc2u use ``genome_position``)."""
+    value = site.get("genome_position", site.get("position"))
+    return int(value) if value is not None else None
+
+
+def _bam_editing_fractions(
+    sites: list[Mapping[str, Any]], bam_path: Path
+) -> list[float | None] | OrganelleResult:
+    """Edited-read fraction at each site from a BAM, or a failed result."""
+    import csv
+    import tempfile
+
+    from .efficiency import quantify_known_site_efficiency
+
+    references: list[str] = []
+    try:
+        import rubam
+
+        with rubam.AlignmentFile(str(bam_path), "rb") as bam:
+            references = list(bam.references)
+    except Exception:  # noqa: BLE001 - rubam missing or unreadable BAM: the quantifier reports it
+        references = []
+    rows = []
+    for index, site in enumerate(sites):
+        pos = _site_position(site)
+        seqid = site.get("seqid") or (references[0] if len(references) == 1 else None)
+        if pos is None or not seqid:
+            continue
+        plus = str(site.get("strand", "+")) != "-"
+        rows.append([f"site{index}", seqid, pos, "C" if plus else "G", "T" if plus else "A", "+" if plus else "-"])
+    with tempfile.TemporaryDirectory() as tmp:
+        table = Path(tmp) / "sites.tsv"
+        with table.open("w", newline="") as handle:
+            writer = csv.writer(handle, delimiter="\t")
+            writer.writerow(["site_id", "seqid", "position", "ref", "edited", "strand"])
+            writer.writerows(rows)
+        result = quantify_known_site_efficiency(bam_path, table) if rows else None
+    if result is None:
+        return [None] * len(sites)
+    if result.status != "ok":
+        error = result.errors[0] if result.errors else None
+        return _failed(
+            "validate_edits",
+            scope="mitochondrion",
+            code=error.code if error else "rna_editing.bam_validation_failed",
+            message=error.message if error else "Could not count reads at the predicted sites.",
+            backend="rubam",
+        )
+    fractions = {row["site_id"]: row["editing_fraction"] for row in result.metrics["sites"]}
+    return [fractions.get(f"site{index}") for index in range(len(sites))]
+
+
 def _qual_str(feature: AnnotationFeature, key: str) -> str:
     values = feature.qualifier_values(key)
     return values[0] if values else ""
@@ -210,6 +270,51 @@ def _feature_strand(feature: AnnotationFeature) -> str:
     if strands == {-1}:
         return "-"
     return "."
+
+
+def _strand_at(feature: AnnotationFeature, offset: int) -> str:
+    """Strand of the part holding a zero-based offset of the spliced feature."""
+    remaining = offset
+    for part in feature.parts:
+        length = part.end - part.start
+        if remaining < length:
+            return "+" if part.strand == 1 else "-"
+        remaining -= length
+    return _feature_strand(feature)
+
+
+_START_GAIN_CODONS = {"ACG": "ATG"}
+_STOP_GAIN_CODONS = {"CAA": "TAA", "CAG": "TAG", "CGA": "TGA"}
+
+
+def _terminal_edit_sites(feature: AnnotationFeature, record_sequence: str, seqid: str) -> list[dict]:
+    """C-to-U start gains (ACG first codon) and stop gains (CAA/CAG/CGA last codon) of one CDS.
+
+    Only the terminal codons qualify: an internal ACG or CAA is an ordinary codon,
+    and editing an internal CAA to UAA would truncate the protein.
+    """
+    cds = feature.extract(record_sequence).upper()
+    if len(cds) < 6:
+        return []
+    sites: list[dict] = []
+    for kind, offset, table in (("start_gain", 0, _START_GAIN_CODONS), ("stop_gain", len(cds) - len(cds) % 3 - 3, _STOP_GAIN_CODONS)):
+        codon = cds[offset : offset + 3]
+        if codon not in table:
+            continue
+        edited = table[codon]
+        c_offset = offset + next(i for i in range(3) if codon[i] != edited[i])
+        sites.append(
+            {
+                "kind": kind,
+                "seqid": seqid,
+                "position": feature.genomic_position(c_offset) + 1,
+                "strand": _strand_at(feature, c_offset),
+                "codon_pos": c_offset - offset + 1,
+                "codon_before": codon,
+                "codon_after": edited,
+            }
+        )
+    return sites
 
 
 # ---------------------------------------------------------------------------
@@ -277,14 +382,20 @@ def predict_edits_prep(
                     if aa_before != aa_after and aa_after != "?":
                         # check known targets
                         edit_type = None
+                        last_codon = len(cds_seq) - len(cds_seq) % 3 - 3
                         for (g, cb, ca), kind in _CONSERVED_TARGETS.items():
-                            if gene_l.startswith(g) and codon == cb and edited == ca:
+                            # a start gain is only a start gain at the first codon, a stop
+                            # gain only at the last; elsewhere ACG/CAA are ordinary codons
+                            positional = i == 0 if kind == "start_gain" else i == last_codon
+                            if gene_l.startswith(g) and codon == cb and edited == ca and positional:
                                 edit_type = kind
                                 break
                         if edit_type:
                             sites.append(
                                 {
                                     "gene": gene_l,
+                                    "seqid": record.seqid,
+                                    "strand": _strand_at(feature, i + pos_in_codon),
                                     "position": feature.genomic_position(i + pos_in_codon) + 1,
                                     "codon_pos": pos_in_codon + 1,
                                     "codon_before": codon,

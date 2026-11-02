@@ -159,35 +159,41 @@ def identify(
                 finished_at=utc_now(),
             ),
         )
-    query_kmers = {
-        query[i : i + k] for i in range(len(query) - k + 1) if "N" not in query[i : i + k]
-    }
-    scores: list[tuple[str, float]] = []
+    # Canonical k-mers (the smaller of a k-mer and its reverse complement), so a query
+    # read off the other strand matches; each record on its own, so no k-mer spans the
+    # junction of two records. The call uses containment (share of the query's k-mers
+    # found in the reference), which does not shrink when the reference is longer
+    # than the query the way Jaccard does.
+    query_kmers: set[str] = set()
+    for _, seq in as_records(query_fasta):
+        query_kmers |= _canonical_kmers(seq, k)
+    scores: list[tuple[str, float, float]] = []
     for ref_name, ref_seq in refs:
-        ref_kmers = {
-            ref_seq.upper()[i : i + k]
-            for i in range(len(ref_seq) - k + 1)
-            if "N" not in ref_seq.upper()[i : i + k]
-        }
+        ref_kmers = _canonical_kmers(ref_seq, k)
         if not query_kmers or not ref_kmers:
             continue
         overlap = len(query_kmers & ref_kmers)
+        containment = overlap / len(query_kmers)
         jaccard = overlap / len(query_kmers | ref_kmers)
-        scores.append((ref_name, round(jaccard, 4)))
-    scores.sort(key=lambda x: x[1], reverse=True)
-    best_match = scores[0] if scores else ("none", 0.0)
+        scores.append((ref_name, round(containment, 4), round(jaccard, 4)))
+    scores.sort(key=lambda x: (x[1], x[2]), reverse=True)
+    best_match = scores[0] if scores else ("none", 0.0, 0.0)
     return OrganelleResult(
         operation_id="barcode.identify",
         operation_version=OPERATION_VERSION,
         scope=RESULT_SCOPE,
         status="ok",
-        summary_text=f"Best match: {best_match[0]} (Jaccard={best_match[1]:.3f}).",
+        summary_text=(
+            f"Best match: {best_match[0]} (k-mer containment={best_match[1]:.3f}, "
+            f"Jaccard={best_match[2]:.3f})."
+        ),
         metrics={
             "best_match": best_match[0],
-            "jaccard": best_match[1],
+            "containment": best_match[1],
+            "jaccard": best_match[2],
             "n_references": len(refs),
         },
-        findings=(finding("best_match", best_match[1], metric=best_match[0], unit="jaccard"),),
+        findings=(finding("best_match", best_match[1], metric=best_match[0], unit="kmer_containment"),),
         flags=("identified",) if best_match[1] > 0.3 else (),
         provenance=make_provenance(
             operation_id="barcode.identify",
@@ -197,6 +203,22 @@ def identify(
             finished_at=utc_now(),
         ),
     )
+
+
+_KMER_COMPLEMENT = str.maketrans("ACGT", "TGCA")
+
+
+def _canonical_kmers(sequence: str, k: int) -> set[str]:
+    """Canonical k-mers of a sequence; k-mers with anything other than ACGT are skipped."""
+    seq = sequence.upper()
+    out: set[str] = set()
+    for i in range(len(seq) - k + 1):
+        kmer = seq[i : i + k]
+        if kmer.strip("ACGT"):
+            continue
+        reverse = kmer.translate(_KMER_COMPLEMENT)[::-1]
+        out.add(min(kmer, reverse))
+    return out
 
 
 def _count_variable_sites(seqs: list[str], start: int, end: int) -> int:

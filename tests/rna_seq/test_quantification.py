@@ -3,19 +3,25 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-import pysam
-
+import rubam
 from organelleverse.capabilities.parser import parse_capability_bundle
 from organelleverse.rna_seq.quantification import (
     quantify_exon_expression,
     quantify_splicing_efficiency,
 )
 
+from tests.bam_fixtures import bam_header
+
 
 def _bam(tmp_path):
     bam_path = tmp_path / "reads.bam"
-    header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": "chrM", "LN": 200}, {"SN": "chrN", "LN": 200}]}
-    with pysam.AlignmentFile(str(bam_path), "wb", header=header) as out:
+    header = {
+        "HD": {"VN": "1.6", "SO": "coordinate"},
+        "SQ": [{"SN": "chrM", "LN": 200}, {"SN": "chrN", "LN": 200}],
+    }
+    with rubam.AlignmentFile(
+        str(bam_path), "wb", header=bam_header(header, Path(bam_path).parent)
+    ) as out:
         # Exact splice across chrM: positions 41-50 (1-based), 10 bp intron.
         for name, start, cigar, flag in [
             ("spliced", 29, [(0, 12), (3, 10), (0, 12)], 0),
@@ -23,20 +29,23 @@ def _bam(tmp_path):
             ("other-junction", 29, [(0, 12), (3, 9), (0, 13)], 0),
             ("duplicate", 29, [(0, 12), (3, 10), (0, 12)], 1024),
         ]:
-            read = pysam.AlignedSegment()
-            read.query_name, read.query_sequence = name, "A" * sum(n for op, n in cigar if op in (0, 1, 4, 7, 8))
+            read = rubam.AlignedSegment()
+            read.query_name, read.query_sequence = (
+                name,
+                "A" * sum(n for op, n in cigar if op in (0, 1, 4, 7, 8)),
+            )
             read.flag, read.reference_id, read.reference_start = flag, 0, start
             read.mapping_quality, read.cigartuples = 60, cigar
-            read.query_qualities = pysam.qualitystring_to_array("I" * len(read.query_sequence))
+            read.query_qualities = rubam.qualitystring_to_array("I" * len(read.query_sequence))
             out.write(read)
         # One read in an unrelated nuclear contig contributes to CPM denominator.
-        read = pysam.AlignedSegment()
+        read = rubam.AlignedSegment()
         read.query_name, read.query_sequence = "nuclear", "A" * 20
         read.flag, read.reference_id, read.reference_start = 0, 1, 5
         read.mapping_quality, read.cigartuples = 60, [(0, 20)]
-        read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+        read.query_qualities = rubam.qualitystring_to_array("I" * 20)
         out.write(read)
-    pysam.index(str(bam_path))
+    rubam.index(str(bam_path))
     return bam_path
 
 
@@ -50,9 +59,20 @@ def _write_table(path, header, rows):
 
 def test_splicing_exact_junction_and_unspliced_intron(tmp_path):
     bam = _bam(tmp_path)
-    sites = _write_table(tmp_path / "introns.tsv",
+    sites = _write_table(
+        tmp_path / "introns.tsv",
         ["intron_id", "gene_id", "seqid", "start", "end", "strand"],
-        [{"intron_id": "i1", "gene_id": "nad1", "seqid": "chrM", "start": 42, "end": 51, "strand": "-"}])
+        [
+            {
+                "intron_id": "i1",
+                "gene_id": "nad1",
+                "seqid": "chrM",
+                "start": 42,
+                "end": 51,
+                "strand": "-",
+            }
+        ],
+    )
     result = quantify_splicing_efficiency(bam, sites, scope="mitochondrion", min_anchor=8)
     row = result.metrics["introns"][0]
     assert row["spliced_reads"] == 1  # default excludes PCR duplicate
@@ -63,10 +83,28 @@ def test_splicing_exact_junction_and_unspliced_intron(tmp_path):
 
 def test_exon_gene_read_counts_and_library_cpm(tmp_path):
     bam = _bam(tmp_path)
-    exons = _write_table(tmp_path / "exons.tsv",
+    exons = _write_table(
+        tmp_path / "exons.tsv",
         ["feature_id", "gene_id", "seqid", "start", "end", "strand"],
-        [{"feature_id": "e1", "gene_id": "nad1", "seqid": "chrM", "start": 30, "end": 70, "strand": "-"},
-         {"feature_id": "e2", "gene_id": "nad1", "seqid": "chrM", "start": 71, "end": 100, "strand": "-"}])
+        [
+            {
+                "feature_id": "e1",
+                "gene_id": "nad1",
+                "seqid": "chrM",
+                "start": 30,
+                "end": 70,
+                "strand": "-",
+            },
+            {
+                "feature_id": "e2",
+                "gene_id": "nad1",
+                "seqid": "chrM",
+                "start": 71,
+                "end": 100,
+                "strand": "-",
+            },
+        ],
+    )
     result = quantify_exon_expression(bam, exons, scope="mitochondrion")
     row = result.metrics["genes"][0]
     assert row["gene_id"] == "nad1"
@@ -78,22 +116,36 @@ def test_exon_gene_read_counts_and_library_cpm(tmp_path):
 def test_exon_expression_streams_alignments_without_query_name_collisions(tmp_path):
     bam = tmp_path / "reused-names.bam"
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": "chrM", "LN": 200}]}
-    with pysam.AlignmentFile(str(bam), "wb", header=header) as out:
+    with rubam.AlignmentFile(str(bam), "wb", header=bam_header(header, Path(bam).parent)) as out:
         for start in (10, 50):
-            read = pysam.AlignedSegment()
+            read = rubam.AlignedSegment()
             read.query_name = "same-name"
             read.query_sequence = "A" * 20
             read.flag, read.reference_id, read.reference_start = 0, 0, start
             read.mapping_quality, read.cigartuples = 60, [(0, 20)]
-            read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+            read.query_qualities = rubam.qualitystring_to_array("I" * 20)
             out.write(read)
-    pysam.index(str(bam))
+    rubam.index(str(bam))
     exons = _write_table(
         tmp_path / "exons.tsv",
         ["feature_id", "gene_id", "seqid", "start", "end", "strand"],
         [
-            {"feature_id": "e1", "gene_id": "nad1", "seqid": "chrM", "start": 1, "end": 40, "strand": "+"},
-            {"feature_id": "e2", "gene_id": "nad1", "seqid": "chrM", "start": 41, "end": 100, "strand": "+"},
+            {
+                "feature_id": "e1",
+                "gene_id": "nad1",
+                "seqid": "chrM",
+                "start": 1,
+                "end": 40,
+                "strand": "+",
+            },
+            {
+                "feature_id": "e2",
+                "gene_id": "nad1",
+                "seqid": "chrM",
+                "start": 41,
+                "end": 100,
+                "strand": "+",
+            },
         ],
     )
 
@@ -105,14 +157,25 @@ def test_exon_expression_streams_alignments_without_query_name_collisions(tmp_pa
 
 def test_invalid_strand_fails_clearly(tmp_path):
     bam = _bam(tmp_path)
-    introns = _write_table(tmp_path / "bad.tsv",
+    introns = _write_table(
+        tmp_path / "bad.tsv",
         ["intron_id", "gene_id", "seqid", "start", "end", "strand"],
-        [{"intron_id": "i1", "gene_id": "nad1", "seqid": "chrM", "start": 42, "end": 51, "strand": "."}])
+        [
+            {
+                "intron_id": "i1",
+                "gene_id": "nad1",
+                "seqid": "chrM",
+                "start": 42,
+                "end": 51,
+                "strand": ".",
+            }
+        ],
+    )
     assert quantify_splicing_efficiency(bam, introns).status == "failed"
 
 
 def test_capability_bundles_resolve_to_quantifiers():
-    bundle_root = Path(__file__).parents[2] / "src" / "organelleverse" / "capabilities"
+    bundle_root = Path(__file__).parents[2] / "src" / "capabilities"
     bundles = sorted(bundle_root.glob("rna-seq-*/capability.toml"))
     assert {parse_capability_bundle(path).capability.id for path in bundles} == {
         "rna_seq.quantify_splicing_efficiency",

@@ -813,9 +813,15 @@ def refseq_snapshot(
     out = dest_dir / f"refseq_{organelle}_release{pinned}.gbff"
 
     accessions: list[str] = []
+    streaming = callable(getattr(http, "download_to_path", None))
     with out.open("w", encoding="utf-8") as handle:
         for name in names:
             url = f"{directory}{name}"
+            if streaming:
+                # A RefSeq plastid/mito file is GBs once decompressed: stream it
+                # through disk instead of holding the blob and its text in memory.
+                accessions.extend(_stream_genbank_file(http, url, out.parent, handle))
+                continue
             blob = retry_with_backoff(lambda url=url: http.get(url, timeout=600.0))
             text = _maybe_gunzip(blob)
             accessions.extend(_accessions_in_genbank(text))
@@ -845,6 +851,44 @@ _HREF_RE = re.compile(r'href="([^"]+\.genomic\.gbff\.gz)"')
 def _genbank_files_in_index(index: bytes | str) -> list[str]:
     raw = index.decode(errors="replace") if isinstance(index, bytes) else index
     return sorted(set(_HREF_RE.findall(raw)))
+
+
+def _stream_genbank_file(http: Transport, url: str, scratch: Path, sink: Any) -> list[str]:
+    """Download ``url`` to a temporary file and copy its text into ``sink`` line by line."""
+    temporary = scratch / (url.rsplit("/", 1)[-1] + ".part")
+    try:
+        retry_with_backoff(lambda: _checked_download(http, url, temporary))
+        with temporary.open("rb") as probe:
+            gzipped = probe.read(2) == b"\x1f\x8b"
+        opener = gzip.open if gzipped else open
+        versions: list[str] = []
+        loci: list[str] = []
+        with opener(temporary, "rt", encoding="utf-8", errors="replace") as source:
+            for line in source:
+                if line.startswith("VERSION"):
+                    parts = line.split()
+                    if len(parts) > 1:
+                        versions.append(parts[1])
+                elif line.startswith("LOCUS"):
+                    parts = line.split()
+                    if len(parts) > 1:
+                        loci.append(parts[1])
+                sink.write(line)
+        return versions or loci
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _checked_download(http: Transport, url: str, dest: Path) -> int:
+    status = http.download_to_path(url, dest, timeout=1800.0)
+    if status >= 400:
+        raise OrganelleExecutionError(
+            code="fetch.download_failed",
+            message=f"HTTP {status} for {url}",
+            details={"url": url, "status": status},
+            retryable=status >= 500,
+        )
+    return status
 
 
 def _maybe_gunzip(blob: bytes) -> str:

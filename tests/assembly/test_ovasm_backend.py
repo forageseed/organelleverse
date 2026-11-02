@@ -73,6 +73,24 @@ def _long(tmp_path: Path, technology: str = "pacbio_hifi", quality_state: str = 
     )
 
 
+def test_multichrom_profile_requires_hifi_and_a_read_coverage_cutoff(tmp_path):
+    hifi = _long(tmp_path)
+    context = _context(tmp_path, hifi, backend_parameters=OvasmParameters(
+        read_set="target_reads", graph_mode="multichrom", graph_min_count=80,
+    ))
+    command = OvasmAdapter().build_command(context)
+    assert command.stable_argv[command.stable_argv.index("--graph-mode") + 1] == "multichrom"
+    assert command.stable_argv[command.stable_argv.index("--graph-min-count") + 1] == "80"
+    for technology, parameters in [
+        ("pacbio_hifi", OvasmParameters(graph_mode="multichrom")),
+        ("ont", OvasmParameters(graph_mode="multichrom", graph_min_count=80)),
+        ("pacbio_hifi", OvasmParameters(graph_min_count=80)),
+    ]:
+        data = _long(tmp_path, technology, "raw" if technology == "ont" else "ccs")
+        with pytest.raises(OrganelleInputError, match=r"multichrom|graph_min_count"):
+            _context(tmp_path, data, backend_parameters=parameters)
+
+
 def _illumina(tmp_path: Path, layout: str = "single_end") -> OrganelleData:
     read2 = _fastq(tmp_path / "R2.fastq") if layout == "paired_end" else None
     return read_reads(
@@ -164,7 +182,9 @@ def test_ovasm_is_a_released_native_backend() -> None:
     )
 
 
-def test_automatic_routing_never_selects_ovasm(tmp_path: Path) -> None:
+def test_the_static_auto_rules_do_not_name_ovasm(tmp_path: Path) -> None:
+    # ovasm is the automatic choice only through the routing context (see
+    # tests/assembly/test_routing_ovasm_default.py); without one the rules table decides
     assert all(rule.backend_id != "ovasm" for rule in AUTO_RULES)
     cases = [
         (_long(tmp_path, "pacbio_hifi", "ccs"), "oatk"),
@@ -242,6 +262,12 @@ def test_effective_ovasm_parameters_record_the_read_type(tmp_path: Path) -> None
             "read_set": "whole_genome",
             "seed_source": "builtin",
             "also_discover": False,
+            "fallback": True,
+            "k_ladder_start": "auto",
+            "max_molecules": 4,
+            "graph_mode": "sparse",
+            "graph_min_count": None,
+            "nuclear_ploidy": 2,
             "sample": "sample",
             "read_type": read_type,
         }
@@ -262,6 +288,7 @@ def test_ovasm_options_that_would_not_be_used_are_refused(tmp_path: Path) -> Non
         (hifi, {"read_set": "target_reads", "also_discover": True}, "assembled as given"),
         (ont, {"seed_source": "discover"}, "needs PacBio HiFi"),
         (ont, {"also_discover": True}, "needs PacBio HiFi"),
+        (ont, {"k_ladder_start": "top"}, "needs PacBio HiFi"),
         (hifi, {"seed_source": "discover", "also_discover": True}, "already uses discovery"),
         (hifi, {"sample": "a#b"}, "sample must be"),
         (hifi, {"sample": "a.b"}, "sample must be"),
@@ -275,6 +302,42 @@ def test_ovasm_options_that_would_not_be_used_are_refused(tmp_path: Path) -> Non
         "ovasm", OvasmParameters(seed_source="custom", sample="Col-0"), payload=_payload(seeded)
     )
     assert accepted["seed_source"] == "custom" and accepted["sample"] == "Col-0"
+
+
+def test_cover_search_options_are_recorded_and_forwarded(tmp_path: Path) -> None:
+    parameters = OvasmParameters(k_ladder_start="top", max_molecules=8)
+    context = _context(tmp_path, _long(tmp_path), backend_parameters=parameters)
+    command = OvasmAdapter().build_command(context)
+    assert command.stable_argv[command.stable_argv.index("--k-ladder-start") + 1] == "top"
+    assert command.stable_argv[command.stable_argv.index("--max-molecules") + 1] == "8"
+    effective = effective_backend_parameters("ovasm", parameters, payload=context.payload)
+    assert effective["k_ladder_start"] == "top" and effective["max_molecules"] == 8
+    with pytest.raises(ValueError):
+        OvasmParameters(max_molecules=0)
+
+
+def test_public_read_origin_artifact_is_bound_and_part_of_input_identity(tmp_path):
+    base = _long(tmp_path)
+    origins = tmp_path / "origins.json"
+    sha = base.artifacts["long_0_reads"].sha256
+    origins.write_text(json.dumps({"original_reads_sha256": sha}))
+    screened = _long(tmp_path, read_origins=origins)
+    assert screened.object_id != base.object_id
+    params = OvasmParameters(graph_mode="multichrom", graph_min_count=80)
+    context = _context(tmp_path, screened, backend_parameters=params)
+    command = OvasmAdapter().build_command(context)
+    assert "role://artifact/read_origins" in command.stable_argv
+    assert str(origins) in command.resolved_argv
+    assert sha in command.resolved_argv
+    with pytest.raises(OrganelleInputError, match="original whole-genome"):
+        _context(tmp_path, screened, backend_parameters=OvasmParameters(
+            read_set="target_reads", graph_mode="multichrom", graph_min_count=80,
+        ))
+    origins.write_text(json.dumps({"original_reads_sha256": "0" * 64}))
+    stale = _long(tmp_path, read_origins=origins)
+    assert stale.object_id != screened.object_id
+    with pytest.raises(OrganelleInputError, match="canonical original read artifact"):
+        OvasmAdapter().build_command(_context(tmp_path, stale, backend_parameters=params))
 
 
 # --- native environment -------------------------------------------------------------------------
@@ -303,6 +366,16 @@ def test_native_environment_is_the_binary_and_its_identity(tmp_path: Path, monke
     _fake_binary(binary, "something else 1.0")
     with pytest.raises(OrganelleDependencyError, match="is not ovasm"):
         manager.prepare(OVASM_ENVIRONMENT, policy="ensure")
+
+
+def test_new_component_report_contract_does_not_reuse_an_older_output_bundle(tmp_path, monkeypatch):
+    from organelleverse.assembly.backends import ovasm
+
+    monkeypatch.setenv("ORG_VERSE_OVASM_BIN", str(_fake_binary(tmp_path / "ovasm")))
+    manager = NativeOvasmEnvironment()
+    current = manager.expected_environment_digest(OVASM_ENVIRONMENT)
+    monkeypatch.setattr(ovasm, "OVASM_REPORT_PROTOCOL_VERSION", "0")
+    assert manager.expected_environment_digest(OVASM_ENVIRONMENT) != current
 
 
 def test_missing_binary_is_an_unavailable_environment(monkeypatch) -> None:
@@ -381,6 +454,10 @@ def test_ovasm_command_runs_the_shared_pipeline_in_a_child_python(tmp_path: Path
         "NIP",
         "--threads",
         "3",
+        "--k-ladder-start",
+        "auto",
+        "--max-molecules",
+        "4",
         "--seed",
         f"role://artifact/{seed_role}",
         "--out",
@@ -389,7 +466,7 @@ def test_ovasm_command_runs_the_shared_pipeline_in_a_child_python(tmp_path: Path
     resolved = command.resolved_argv
     assert resolved[:2] == (sys.executable, "-c")
     # the child imports the parent's own code tree, whatever PYTHONPATH the service strips
-    assert Path(resolved[3]) == Path(ovasm_backend.__file__).resolve().parents[3]
+    assert Path(resolved[3]) == Path(ovasm_backend.__file__).resolve().parents[2]
     assert resolved[resolved.index("--ovasm") + 1] == str(tmp_path / "bin" / "ovasm")
     assert resolved[resolved.index("--reads") + 1] == str(tmp_path / "ont.fastq")
     assert resolved[resolved.index("--seed") + 1] == str(seed)
@@ -455,6 +532,52 @@ def test_ovasm_outputs_are_normalized_like_the_other_backends(tmp_path: Path) ->
     }
 
 
+def test_component_retention_evidence_is_published_by_the_public_backend(tmp_path: Path) -> None:
+    context = _context(tmp_path, _long(tmp_path))
+    root = context.workspace / "backend" / "ovasm"
+    _pipeline_outputs(root)
+    report = {"components": [{"id": 0, "kept": True, "target_genes": [],
+                               "segments": ["u45"], "reason": "depth_like_reference"}]}
+    (root / "components.json").write_text(json.dumps(report))
+    adapter = OvasmAdapter()
+    normalized = adapter.normalize(context, adapter.collect_outputs(context),
+                                   context.workspace / "normalized")
+    evidence = next(item for item in normalized.outputs if item.role == "component_filter")
+    assert evidence.path.name == "components.json"
+    assert json.loads(evidence.path.read_text()) == report
+    assert (normalized.record_count, normalized.total_bases) == (1, 6)
+
+
+def test_read_origin_outputs_preserve_unassigned_sequence_and_require_complete_partition(tmp_path):
+    origins = tmp_path / "origins.json"
+    origins.write_text("{}")
+    context = _context(tmp_path, _long(tmp_path, read_origins=origins),
+                       backend_parameters=OvasmParameters(graph_mode="multichrom", graph_min_count=80))
+    root = context.workspace / "backend" / "ovasm"
+    _pipeline_outputs(root)
+    partition = {
+        "assembly.assigned.gfa": "S\ttarget\tACGTAC\n",
+        "assembly.unassigned.gfa": "S\tunassigned\tGATTACA\n",
+        "unassigned.fasta": ">unassigned.1\nGATTACA\n",
+        "unassigned.json": '{"records": [{"length": 7}]}',
+    }
+    for name, content in partition.items():
+        (root / name).write_text(content)
+    adapter = OvasmAdapter()
+    normalized = adapter.normalize(context, adapter.collect_outputs(context),
+                                   context.workspace / "normalized")
+    unassigned = next(item for item in normalized.outputs if item.role == "unassigned_sequences")
+    assert unassigned.path.read_text() == partition["unassigned.fasta"]
+    assert (normalized.record_count, normalized.total_bases) == (1, 6)
+    for name, content in partition.items():
+        (root / name).unlink()
+        with pytest.raises(OrganelleExecutionError) as raised:
+            adapter.collect_outputs(context)
+        assert raised.value.code == "assembly.output_incomplete"
+        assert raised.value.details["missing"] == name
+        (root / name).write_text(content)
+
+
 def test_a_graph_without_a_representative_sequence_fails_and_says_where_the_graph_is(
     tmp_path: Path,
 ) -> None:
@@ -469,7 +592,7 @@ def test_a_graph_without_a_representative_sequence_fails_and_says_where_the_grap
 
 
 def test_backend_command_calls_the_desktop_pipeline_function(tmp_path, monkeypatch, capsys) -> None:
-    from organelleverse.assembly import ovasm_runner
+    from organelleverse.assembly import ovasm_pipeline as ovasm_runner
 
     seen = {}
 
@@ -495,6 +618,12 @@ def test_backend_command_calls_the_desktop_pipeline_function(tmp_path, monkeypat
         "seed_source": "custom",
         "seed": "seed.fa",
         "also_discover": False,
+        "fallback": True,
+        "k_ladder_start": "auto",
+        "max_molecules": 4,
+        "graph_mode": "sparse",
+        "graph_min_count": None,
+        "nuclear_ploidy": 2,
         "sample": "S1",
         "threads": 5,
         "organelle": "plastid",
@@ -591,7 +720,9 @@ def test_ovasm_takes_paired_end_and_hybrid_libraries(tmp_path: Path) -> None:
         assert validate_ovasm_assembly_data(data) == _payload(data)
         validate_released_assembly_data(data)
     reasons = {
-        "hybrid_needs_noisy_long_reads": _long_plus_short(tmp_path, "pacbio_hifi", "ccs", "single_end"),
+        "hybrid_needs_noisy_long_reads": _long_plus_short(
+            tmp_path, "pacbio_hifi", "ccs", "single_end"
+        ),
         "long_read_profile_not_supported": _long_plus_short(tmp_path, "ont", "hq", "single_end"),
         "unsupported_library_combination": _two_short(tmp_path),
     }
@@ -673,7 +804,7 @@ def test_hybrid_command_passes_the_long_reads_and_every_illumina_file(tmp_path: 
 
 
 def test_backend_command_hands_the_extra_files_to_the_pipeline(tmp_path, monkeypatch) -> None:
-    from organelleverse.assembly import ovasm_runner
+    from organelleverse.assembly import ovasm_pipeline as ovasm_runner
 
     seen: dict[str, object] = {}
 
@@ -711,7 +842,7 @@ class _Stop(Exception):
 def test_runner_gives_both_files_of_a_pair_to_recruitment_and_assembly(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from organelleverse.assembly import ovasm_runner
+    from organelleverse.assembly import ovasm_pipeline as ovasm_runner
 
     r1, r2 = _fastq(tmp_path / "a_1.fastq"), _fastq(tmp_path / "a_2.fastq")
     seen: dict[str, object] = {}
@@ -754,7 +885,7 @@ def test_runner_gives_both_files_of_a_pair_to_recruitment_and_assembly(
 
 
 def test_runner_refuses_a_mate_for_other_read_types(tmp_path: Path, monkeypatch) -> None:
-    from organelleverse.assembly import ovasm_runner
+    from organelleverse.assembly import ovasm_pipeline as ovasm_runner
 
     reads, mate = _fastq(tmp_path / "x.fastq"), _fastq(tmp_path / "y.fastq")
     monkeypatch.setattr(ovasm_runner._ovasm, "resolve_ovasm", lambda: "ovasm")

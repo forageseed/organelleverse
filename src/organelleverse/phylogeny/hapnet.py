@@ -1,4 +1,4 @@
-"""Haplotype-network construction + visualisation (PopART-equivalent).
+"""Haplotype-network construction and visualisation.
 
 Three classical algorithms, all re-implemented from the primary literature in
 the OrganelleVerse style (no GPL code, no external dependency beyond numpy /
@@ -24,6 +24,8 @@ shared across all three. The renderer draws population-aware pie-chart nodes
 from __future__ import annotations
 
 import math
+import heapq
+from itertools import combinations, groupby, product
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -89,7 +91,10 @@ def pdistance(a: str, b: str) -> int:
 
     Gaps and ambiguous bases (N/?) are ignored, matching PopART/TCS behaviour.
     """
-    n = min(len(a), len(b))
+    if len(a) != len(b):
+        raise ValueError("p-distance requires equal-length aligned sequences")
+    a, b = a.upper(), b.upper()
+    n = len(a)
     d = 0
     for i in range(n):
         x, y = a[i], b[i]
@@ -119,29 +124,54 @@ def tcs_connection_limit(
     sequence_length: int = 0,
     confidence: float = 0.95,
 ) -> int:
-    """Maximum connection distance for the 95% parsimony criterion.
+    """Templeton et al. (1992), equations 6–8, nucleotide parsimony limit.
 
-    Per Templeton, Crandall & Sing (1992, *Genetics* 130:163). With no sequence
-    length we fall back to a simple floor of the Poisson-derived threshold.
+    Uses the author's TCS ``calcPars(j, L-j, 2000)`` probability definition,
+    with Gauss–Jacobi evaluation of its polynomial integrals instead of
+    rectangular quadrature. ``n_haplotypes`` is retained for API
+    compatibility; the original nucleotide probability depends on L and j.
+    L must be the number of comparable alignment columns, not a sample count.
     """
-    if sequence_length > 0:
-        # Poisson cumulative probability on k mutations; λ ≈ 2·ln(n_haplotypes).
-        lam = 2.0 * math.log(n_haplotypes) if n_haplotypes > 1 else 1.0
-        cumulative = 0.0
-        for k in range(1, sequence_length + 1):
-            try:
-                cumulative += (lam**k) * math.exp(-lam) / math.factorial(k)
-            except (OverflowError, ValueError):
-                break
-            if cumulative >= (1 - confidence):
-                return max(1, k)
-        return max(1, min(sequence_length, 10))
-    # No length given: use the closed-form approx (same as the older helper).
-    threshold = (1 - confidence) * 3 / 4
-    if threshold <= 0:
-        return max(1, n_haplotypes - 1)
-    d = 1 + math.log(threshold) / math.log(2 / 3)
-    return max(1, math.floor(d))
+    if sequence_length <= 0 or n_haplotypes < 1 or not 0 < confidence < 1:
+        raise ValueError("TCS requires positive sequence_length and n_haplotypes, and 0 < confidence < 1")
+    for steps in range(1, sequence_length + 1):
+        if _tcs_parsimony_probability(steps, sequence_length - steps) <= confidence:
+            return steps - 1
+    return sequence_length
+
+
+def _tcs_parsimony_probability(steps, shared_sites):
+    """Product of 1-E[q] under Templeton's successive mutation densities.
+
+    Density i is q**i (1-q)**(2m+1) (1-q/3) (2-4q/3)**i
+    (1-2q+2q*q/3). Factoring a Beta(i+1,2m+2) kernel permits
+    exact-degree Gaussian quadrature without an alternating moment expansion.
+    Normalized Golub–Welsch weights avoid overflow of the Jacobi weight's
+    normalization constant for long alignments.
+    """
+    import numpy as np
+    from scipy.linalg import eigh_tridiagonal
+
+    probability = 1.0
+    for i in range(steps):
+        alpha, beta = 2 * shared_sites + 1, i
+        total = alpha + beta
+        # The remaining numerator polynomial has degree i+4. An n-node
+        # Gaussian rule integrates all polynomials through degree 2n-1.
+        count = (i + 6) // 2
+        k = np.arange(count, dtype=float)
+        diagonal = (beta - alpha) * total / ((2 * k + total) * (2 * k + total + 2))
+        k = np.arange(1, count, dtype=float)
+        off = np.sqrt(4 * k * (k + alpha) * (k + beta) * (k + total)
+                      / ((2 * k + total)**2 * (2 * k + total - 1) * (2 * k + total + 1)))
+        nodes, eigenvectors = eigh_tridiagonal(diagonal, off)
+        q = (nodes + 1) / 2
+        weights = eigenvectors[0]**2
+        residual = (1-q/3) * (1-2*q/3)**i * (1-2*q+2*q*q/3)
+        denominator = float(np.dot(weights, residual))
+        numerator = float(np.dot(weights, q * residual))
+        probability *= 1.0 - numerator / denominator
+    return probability
 
 
 # ===========================================================================
@@ -154,7 +184,7 @@ def build_msn(
     haplotypes: list[Mapping[str, str | int | float | bool | None]],
     connection_limit: int | None = None,
 ) -> tuple[list[tuple[str, str, int]], dict[str, list[str]]]:
-    """Minimum-spanning network: Kruskal greedy join at ascending distances.
+    """Union of all minimum spanning trees, retaining equal-distance links.
 
     Returns ``(edges, components)``. ``edges`` is a list of
     ``(hap_a, hap_b, distance)``; ``components`` maps a component id to its
@@ -163,7 +193,7 @@ def build_msn(
     pairs = pairwise_distances(haplotypes)
     if connection_limit is not None:
         pairs = [p for p in pairs if p[2] <= connection_limit]
-    pairs.sort(key=lambda p: p[2])
+    pairs.sort(key=lambda p: (p[2], p[0], p[1]))
 
     parent = {h["id"]: h["id"] for h in haplotypes}
 
@@ -174,11 +204,13 @@ def build_msn(
         return x
 
     edges: list[tuple[str, str, int]] = []
-    for d, a, b in ((p[2], p[0], p[1]) for p in pairs):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
-            edges.append((a, b, d))
+    for _, tied in groupby(pairs, key=lambda p: p[2]):
+        # Evaluate a whole distance class before merging its components.
+        # Sequential union would discard equally parsimonious alternatives.
+        selected = [(a, b, d) for a, b, d in tied if find(a) != find(b)]
+        edges.extend(selected)
+        for a, b, _ in selected:
+            parent[find(a)] = find(b)
 
     comps: dict[str, list[str]] = {}
     for h in haplotypes:
@@ -200,7 +232,7 @@ def build_tcs_network(
     connection_limit: int | None = None,
     infer_intermediates: bool = True,
     collapse_degree2: bool = True,
-) -> tuple[list[tuple[str, str, int]], dict[str, list[str]], list[Mapping[str, str | int | float | bool | None]]]:
+) -> tuple[list[tuple[str, str, int]], dict[str, list[str]], list[Mapping[str, str | tuple[str, str]]]]:
     """TCS statistical-parsimony network (Clement, Posada & Crandall 2000).
 
     Component-based connection: haplotypes are joined at increasing distance
@@ -231,6 +263,57 @@ def build_tcs_network(
     intermediates: list[dict] = []
     int_counter = 0
 
+    observed_dist = {frozenset((a, b)): d for a, b, d in pairs}
+
+    def distances(start):
+        out = {start: 0}
+        pending = [(0, start)]
+        while pending:
+            distance, node = heapq.heappop(pending)
+            if distance != out[node]:
+                continue
+            for neighbor, weight in adj[node].items():
+                proposal = distance + weight
+                if proposal < out.get(neighbor, math.inf):
+                    out[neighbor] = proposal
+                    heapq.heappush(pending, (proposal, neighbor))
+        return out
+
+    def endpoints(u, v, distance):
+        # Choose the intermediate attachment satisfying the largest number
+        # of observed between-component distances (Clement's TCS criterion).
+        cu, cv = component_ids[u], component_ids[v]
+        du, dv = distances(u), distances(v)
+        all_dist = {node: distances(node) for node in adj}
+        choices = []
+        for left, dl in du.items():
+            if component_ids[left] not in (cu, -1) or dl >= distance:
+                continue
+            for right, dr in dv.items():
+                remaining = distance - dl - dr
+                if component_ids[right] not in (cv, -1) or remaining <= 0:
+                    continue
+                score = 0
+                valid = True
+                for a in (h["id"] for h in haplotypes if component_ids[h["id"]] == cu):
+                    for b in (h["id"] for h in haplotypes if component_ids[h["id"]] == cv):
+                        implied = all_dist[left].get(a, math.inf) + remaining + all_dist[right].get(b, math.inf)
+                        actual = observed_dist[frozenset((a, b))]
+                        if implied == actual:
+                            score += 20
+                        elif implied > actual:
+                            score -= 5
+                        elif implied < distance:
+                            valid = False
+                        else:
+                            score -= 10
+                if valid:
+                    choices.append((-score, remaining, left, right))
+        if not choices:
+            raise ValueError("TCS cannot attach components consistently with observed distances")
+        _, length, left, right = min(choices)
+        return left, right, length
+
     for M in sorted(by_distance.keys()):
         pending = by_distance[M]
         while pending:
@@ -250,17 +333,21 @@ def build_tcs_network(
                         adj.setdefault(u_id, {})[v_id] = M
                         adj.setdefault(v_id, {})[u_id] = M
                     else:
-                        # insert a chain of (M-1) intermediates between u and v
-                        int_counter = _insert_chain(adj, u_id, v_id, M, int_counter, intermediates)
-                        # intermediates live in "no man's land" (comp -1)
-                        for k in range(int_counter - (M - 1), int_counter):
-                            component_ids[f"mv{k}"] = -1
+                        left, right, length = endpoints(u_id, v_id, M)
+                        existing = distances(left).get(right, math.inf)
+                        if existing < length:
+                            raise ValueError("TCS attachment conflicts with an existing shorter path")
+                        if existing > length:
+                            previous = len(intermediates)
+                            int_counter = _insert_chain(adj, left, right, length, int_counter, intermediates)
+                            for node in intermediates[previous:]:
+                                component_ids[node["id"]] = -1
                 else:
                     deferred.append((u_id, v_id))
             # merge components comp_b into comp_a
             if comp_a >= 0:
                 for hid in list(component_ids):
-                    if component_ids[hid] == comp_b:
+                    if component_ids[hid] == comp_b or component_ids[hid] < 0:
                         component_ids[hid] = comp_a
                     elif component_ids[hid] > comp_b:
                         component_ids[hid] -= 1
@@ -278,7 +365,10 @@ def build_tcs_network(
 
     # Collapse degree-2 intermediates (PopART TCS post-processing).
     if collapse_degree2 and infer_intermediates:
-        edges = _collapse_degree2(edges)
+        edges = _collapse_degree2(edges, {i["id"] for i in intermediates})
+
+    retained = {node for a, b, _ in edges for node in (a, b)}
+    intermediates = [node for node in intermediates if node["id"] in retained]
 
     # Components (on the post-collapse graph).
     comps = _connected_components(
@@ -291,6 +381,8 @@ def _insert_chain(adj, u_id, v_id, distance, counter, intermediates):
     """Insert a chain of (distance-1) intermediate vertices between u and v."""
     current = u_id
     for _ in range(distance - 1):
+        while f"mv{counter}" in adj:
+            counter += 1
         mv_id = f"mv{counter}"
         counter += 1
         adj.setdefault(current, {})[mv_id] = 1
@@ -302,7 +394,7 @@ def _insert_chain(adj, u_id, v_id, distance, counter, intermediates):
     return counter
 
 
-def _collapse_degree2(edges):
+def _collapse_degree2(edges, intermediate_ids):
     """Collapse intermediate (mv*) vertices of degree 2 into a single edge."""
     adj: dict[str, dict[str, int]] = {}
     for a, b, d in edges:
@@ -312,7 +404,7 @@ def _collapse_degree2(edges):
     while changed:
         changed = False
         for node in list(adj):
-            if not node.startswith("mv"):
+            if node not in intermediate_ids:
                 continue
             neigh = adj[node]
             if len(neigh) != 2:
@@ -366,24 +458,43 @@ def _connected_components(edges, all_nodes):
 # ===========================================================================
 
 
-def _three_way_median(a: str, b: str, c: str) -> str:
-    """Quasi-median of three equal-length sequences (Bandelt 1999).
-
-    At each column, take the majority base; if all three differ, pick 'N'
-    (ambiguous — not a valid median site).
-    """
-    L = min(len(a), len(b), len(c))
-    out = []
-    for i in range(L):
-        cols = (a[i], b[i], c[i])
-        # majority vote
-        if cols[0] == cols[1] or cols[0] == cols[2]:
-            out.append(cols[0])
-        elif cols[1] == cols[2]:
-            out.append(cols[1])
+def _quasi_medians(a: str, b: str, c: str) -> set[str]:
+    """All Hamming medians: majority states, or each of three tied states."""
+    choices = []
+    for x, y, z in zip(a, b, c, strict=True):
+        if x == y or x == z:
+            choices.append((x,))
+        elif y == z:
+            choices.append((y,))
         else:
-            out.append("N")  # all three differ → not a real median site
-    return "".join(out)
+            choices.append(tuple(sorted((x, y, z))))
+    return {"".join(states) for states in product(*choices)}
+
+
+def _feasible_msn(haplotypes, epsilon):
+    """Bandelt feasible links: no path with every edge shorter than d-epsilon."""
+    pairs = sorted(pairwise_distances(haplotypes), key=lambda p: (p[2], p[0], p[1]))
+    ids = [h["id"] for h in haplotypes]
+    mst, _ = build_msn(haplotypes)
+    cutoff = max((d for _, _, d in mst), default=0) + epsilon
+    parent = {node: node for node in ids}
+
+    def find(node):
+        while parent[node] != node:
+            node = parent[node]
+        return node
+
+    lower = 0
+    edges = []
+    for d, tied in groupby(pairs, key=lambda p: p[2]):
+        if d > cutoff:
+            break
+        while lower < len(pairs) and pairs[lower][2] < d - epsilon:
+            a, b, _ = pairs[lower]
+            parent[find(a)] = find(b)
+            lower += 1
+        edges.extend((a, b, distance) for a, b, distance in tied if find(a) != find(b))
+    return edges
 
 
 @validated_public('phylogeny.build_mjn')
@@ -394,8 +505,9 @@ def build_mjn(
 ) -> tuple[list[tuple[str, str, int]], dict[str, list[str]], list[Mapping[str, str | int | float | bool | None]]]:
     """Median-joining network (Bandelt, Forster & Röhl 1999).
 
-    Iteratively adds median vectors (unsampled ancestors) for connected
-    triplets when doing so reduces the total network length (within ``epsilon``).
+    Retains feasible MSN links, considers adjacent edge pairs (open triplets
+    included), and adds all quasi-medians within epsilon of the minimum
+    connection cost. This follows Bandelt et al. (1999), not a single MST.
     Returns ``(edges, components, medians)`` where ``medians`` is the list of
     inferred ``{"id", "sequence"}`` dicts.
     """
@@ -404,62 +516,39 @@ def build_mjn(
         edges, comps = build_msn(haplotypes)
         return edges, comps, []
 
-    # Current node set: observed haplotypes + inferred medians.
-    nodes: dict[str, str] = {h["id"]: h["sequence"] for h in haplotypes}
-    medians: list[dict] = []
-    mv_counter = 0
-
+    nodes = {h["id"]: h["sequence"].upper() for h in haplotypes}
+    if len(nodes) != n or len({len(s) for s in nodes.values()}) != 1:
+        raise ValueError("MJN requires unique node ids and an equal-length alignment")
+    if any(set(s) - set("ACGT") for s in nodes.values()):
+        raise ValueError("MJN requires unambiguous ACGT columns; mask missing columns first")
+    originals = set(nodes)
+    next_id = 0
     for _ in range(max_iterations):
-        edges, _ = build_msn([{"id": k, "sequence": v} for k, v in nodes.items()])
+        edges = _feasible_msn([{"id": k, "sequence": v} for k, v in nodes.items()], epsilon)
         adj = _edge_list_to_adj(edges)
-        # find all connected triplets in the current MSN
-        candidate_medians: list[tuple[str, str]] = []  # (mv_id, sequence)
-        seen_seqs = set(nodes.values())
-        current_cost = sum(d for _, _, d in edges)
-
-        for a in nodes:
-            for b in adj.get(a, []):
-                if b <= a:
-                    continue
-                for c in adj.get(a, []):
-                    if c <= b or c == b:
-                        continue
-                    if c not in adj.get(b, []) and b not in adj.get(c, []):
-                        continue
-                    # a, b, c form a connected triplet
-                    med = _three_way_median(nodes[a], nodes[b], nodes[c])
-                    if "N" in med:
-                        continue  # no valid quasi-median
-                    if med in seen_seqs:
-                        continue
-                    # cost reduction check: add med and recompute MSN length
-                    test_nodes = dict(nodes)
-                    test_id = f"mv{mv_counter}"
-                    test_nodes[test_id] = med
-                    test_edges, _ = build_msn(
-                        [{"id": k, "sequence": v} for k, v in test_nodes.items()]
-                    )
-                    new_cost = sum(d for _, _, d in test_edges)
-                    if new_cost <= current_cost + epsilon:
-                        candidate_medians.append((test_id, med))
-                        mv_counter += 1
-                        seen_seqs.add(med)
-                        nodes[test_id] = med
-                        medians.append({"id": test_id, "sequence": med})
-                        current_cost = new_cost
-                        break  # restart the triplet scan with the new node
-                else:
-                    continue
-                break
-            else:
-                continue
-            break
-        else:
-            break  # no candidate added this pass → converged
-
-    edges, comps = build_msn([{"id": k, "sequence": v} for k, v in nodes.items()])
-    components = _connected_components(edges, list(nodes.keys()))
-    return edges, components, medians
+        obsolete = {node for node in nodes if node not in originals and len(adj.get(node, ())) < 2}
+        if obsolete:
+            for node in obsolete:
+                del nodes[node]
+            continue
+        seen = set(nodes.values())
+        costs = {}
+        for center, neighbors in adj.items():
+            for a, b in combinations(sorted(neighbors), 2):
+                triple = (nodes[center], nodes[a], nodes[b])
+                for median in _quasi_medians(*triple) - seen:
+                    cost = sum(pdistance(s, median) for s in triple)
+                    costs[median] = min(cost, costs.get(median, cost))
+        if not costs:
+            medians = [{"id": k, "sequence": v} for k, v in nodes.items() if k not in originals]
+            return edges, _connected_components(edges, list(nodes)), medians
+        bound = min(costs.values()) + epsilon
+        for median in sorted(m for m, cost in costs.items() if cost <= bound):
+            while f"mv{next_id}" in nodes:
+                next_id += 1
+            nodes[f"mv{next_id}"] = median
+            next_id += 1
+    raise RuntimeError("MJN did not converge within max_iterations; no network was accepted")
 
 
 def _edge_list_to_adj(edges):
@@ -699,7 +788,7 @@ def haplotype_network(
 ) -> OrganelleResult:
     """Build a TCS / median-joining / minimum-spanning haplotype network.
 
-    Algorithms (all PopART-equivalent):
+    Algorithms:
       - ``method="tcs"`` (default for ``auto`` when ``connection_limit`` or
         ``confidence`` is given): Clement, Posada & Crandall (2000)
         statistical-parsimony network with the Templeton 1992 limit and
@@ -727,6 +816,18 @@ def haplotype_network(
             code="phylogeny.haplotype_network.too_few_sequences",
             anomalies=["too_few_sequences"],
         )
+
+    if len({len(seq) for _, seq in seqs}) != 1:
+        return failed_result("haplotype_network", summary_text="Haplotype networks require an equal-length alignment.",
+                             code="phylogeny.haplotype_network.not_aligned")
+    original_length = len(seqs[0][1])
+    # PopART uses a single complete-deletion mask for all taxa. Pairwise
+    # deletion can create inconsistent distances and distinct zero-distance haps.
+    columns = [i for i in range(original_length) if all(seq[i].upper() in "ACGT" for _, seq in seqs)]
+    if not columns:
+        return failed_result("haplotype_network", summary_text="No unambiguous alignment columns remain.",
+                             code="phylogeny.haplotype_network.no_comparable_sites")
+    seqs = [(name, "".join(seq[i].upper() for i in columns)) for name, seq in seqs]
 
     # external hapnet backend
     if backend == "hapnet":
@@ -807,6 +908,8 @@ def haplotype_network(
             "edges": edge_info,
             "components": components,
             "n_samples": len(seqs),
+            "sequence_length": len(columns),
+            "masked_columns": original_length - len(columns),
             "intermediates": intermediates,
         },
         result_findings=findings(

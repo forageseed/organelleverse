@@ -33,7 +33,6 @@ dependencies = [
     "gfapy>=1.0",
     "jsonschema>=4.18",
     "matplotlib>=3.8",
-    "nbformat>=5.10",
     "numpy>=1.26",
     "packaging>=23",
     "pydantic>=2.12.3",

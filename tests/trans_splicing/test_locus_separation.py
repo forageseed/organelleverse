@@ -80,3 +80,30 @@ def test_close_exon_features_of_one_gene_still_merge(tmp_path: Path) -> None:
     genome = read_genbank_genome(path, organelle="mitochondrion", species="Synthetic")
     result = detect_trans_splicing(genome, min_exon_gap=5000)
     assert dict(result.metrics)["trans_splicing"] == 0
+
+
+def test_cis_gene_across_the_origin_of_a_circular_molecule_is_cis(tmp_path: Path) -> None:
+    sequence = "A" * 200 + "C" * 50000 + "G" * 300
+    features = [
+        "CDS             join(50201..50500,1..200)",
+        '                /gene="ycf3"',
+    ]
+    path = tmp_path / "origin.gb"
+    _write_genbank(path, sequence, features)
+    genome = read_genbank_genome(path, organelle="plastid", species="Synthetic")
+    result = detect_trans_splicing(genome, min_exon_gap=5000)
+    assert dict(result.metrics)["trans_splicing"] == 0
+    assert dict(result.metrics)["cis_splicing"] == 1
+
+
+def test_far_apart_exons_on_a_circular_molecule_stay_trans(tmp_path: Path) -> None:
+    sequence = "A" * 1000 + "C" * 40000 + "G" * 1000 + "T" * 40000 + "A" * 1000 + "C" * 20000
+    features = [
+        "CDS             join(1..1000,41001..42000,82001..83000)",
+        '                /gene="nad5"',
+    ]
+    path = tmp_path / "scattered.gb"
+    _write_genbank(path, sequence, features)
+    genome = read_genbank_genome(path, organelle="mitochondrion", species="Synthetic")
+    result = detect_trans_splicing(genome, min_exon_gap=5000)
+    assert dict(result.metrics)["trans_splicing"] == 1

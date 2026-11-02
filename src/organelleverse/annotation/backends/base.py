@@ -25,7 +25,7 @@ class AnnotationRequest:
     threads: int
     stages: tuple[AnnotationStage, ...]
     call_orfs: bool = False
-    orf_min_aa: int = 30
+    orf_min_aa: int = 100
     orf_circular: bool = False
     allow_partial: bool = False
     rotate_to_trnh: bool = False

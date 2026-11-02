@@ -274,15 +274,30 @@ def _analyze_one(g: OrganelleGenome) -> dict:
         # typical cp layout: LSC ... IRb ... SSC ... IRa (circular)
         irb_start, irb_end = irb["start"], irb["end"]
         ira_start, ira_end = ira["start"], ira["end"]
-        # circular cp layout: LSC wraps from IRa_end around origin to IRb_start
-        lsc_length = (total_len - ira_end + irb_start) if ira_end < total_len else irb_start
-        ssc_length = max(0, ira_start - irb_end)  # SSC = irb_end..ira_start
-        junctions = {
-            "JLB": _gene_at(genes, irb_start),  # IRb/LSC
-            "JSB": _gene_at(genes, irb_end),  # IRb/SSC
-            "JSA": _gene_at(genes, ira_start),  # SSC/IRa
-            "JLA": _gene_at(genes, ira_end),  # IRa/LSC
-        }
+        # The two single-copy regions are the one between the IR copies and the one
+        # across the origin. The LSC is the longer one; which of the two it is depends
+        # only on where the sequence happens to start.
+        outer = (total_len - ira_end + irb_start) if ira_end < total_len else irb_start
+        inner = max(0, ira_start - irb_end)
+        if outer >= inner:
+            # LSC across the origin: LSC | IRb | SSC | IRa | LSC
+            lsc_length, ssc_length = outer, inner
+            junctions = {
+                "JLB": _gene_at(genes, irb_start),  # LSC/IRb
+                "JSB": _gene_at(genes, irb_end),  # IRb/SSC
+                "JSA": _gene_at(genes, ira_start),  # SSC/IRa
+                "JLA": _gene_at(genes, ira_end),  # IRa/LSC
+            }
+        else:
+            # sequence starts in the SSC: SSC | IRa | LSC | IRb | SSC, so the copy after
+            # the LSC (the second one) is IRb
+            lsc_length, ssc_length = inner, outer
+            junctions = {
+                "JLB": _gene_at(genes, ira_start),  # LSC/IRb
+                "JSB": _gene_at(genes, ira_end),  # IRb/SSC
+                "JSA": _gene_at(genes, irb_start),  # SSC/IRa
+                "JLA": _gene_at(genes, irb_end),  # IRa/LSC
+            }
     return {
         "name": name,
         "total_length": total_len,
@@ -458,15 +473,26 @@ def _extend_arm(
 
 
 def _gene_at(genes: list[dict], pos: int, window: int = 500) -> dict:
-    """Find the gene nearest to a junction position."""
+    """Find the gene at, or nearest to, a junction position.
+
+    Distance is to the gene's nearer end (0 when the junction lies inside it). The
+    gene's midpoint is not used: a 5.5 kb ycf1 spanning the SSC/IRa junction has its
+    midpoint kilobases away and was reported as "intergenic".
+    """
     best = None
-    best_dist = window
+    best_key = (window, 0)
     for g in genes:
-        center = (g["start"] + g["end"]) // 2
-        dist = abs(center - pos)
-        if dist < best_dist:
-            best_dist = dist
+        if g["start"] <= pos <= g["end"]:
+            dist = 0
+        else:
+            dist = min(abs(g["start"] - pos), abs(g["end"] - pos))
+        # among genes at the same distance (overlapping genes across the junction),
+        # prefer the one whose midpoint is closest
+        key = (dist, abs((g["start"] + g["end"]) // 2 - pos))
+        if dist < window and (best is None or key < best_key):
+            best_key = key
             best = g
+    best_dist = best_key[0]
     if best:
         return {
             "gene": best["name"],

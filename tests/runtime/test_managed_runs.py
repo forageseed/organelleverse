@@ -6,9 +6,8 @@ import os
 import stat
 from pathlib import Path
 
-import pytest
-
 import organelleverse.runtime as runtime
+import pytest
 from organelleverse.capabilities.codecs import CapabilityExecutionContext, _build_provenance
 from organelleverse.core.artifacts import ArtifactRef
 from organelleverse.core.data import OrganelleData
@@ -34,6 +33,20 @@ def _artifact(uri: str, content: bytes = b"verified bytes") -> ArtifactRef:
         size_bytes=len(content),
         validated=True,
     )
+
+
+def test_owned_readonly_snapshot_cleanup_preserves_external_source(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "home"))
+    source = tmp_path / "source.fa"
+    source.write_bytes(b">source\nACGT\n")
+    owned = managed_run_path("demo.cleanup", "owned")
+    owned.mkdir(parents=True)
+    snapshot = owned / "snapshot.fa"
+    snapshot.write_bytes(source.read_bytes())
+    snapshot.chmod(stat.S_IREAD)
+    remove_managed_entry(owned)
+    assert not owned.exists()
+    assert source.read_bytes() == b">source\nACGT\n"
 
 
 def _artifact_result(*artifacts: ArtifactRef) -> OrganelleResult:

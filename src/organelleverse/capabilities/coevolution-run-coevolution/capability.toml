@@ -53,3 +53,12 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "r_threshold"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "reconciliation"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "dlcpar_dir"
+codec = "directory"
+path_role = "input"

@@ -752,10 +752,21 @@ def measure(
     }
 
 
+# JSON-safe shapes of measure() output (the public validator rejects Any and recursion).
+MeasuredScalar = str | int | float | bool | None
+#: One per-object row: scalars plus small sequences such as bbox (a tuple from
+#: measure(), a list from JSON callers).
+MeasuredObject = Mapping[str, MeasuredScalar | list[MeasuredScalar] | tuple[MeasuredScalar, ...]]
+#: The full measure() result: rows, totals, and one-level summaries (counts, network...).
+MeasureResult = Mapping[
+    str, MeasuredScalar | list[MeasuredObject] | Mapping[str, MeasuredScalar | Mapping[str, MeasuredScalar]]
+]
+
+
 @validated_public('morphology.summarize')
 def summarize(
-    per_object: list[Mapping[str, str | int | float | bool | None]]
-    | Mapping[str, list[Mapping[str, str | int | float | bool | None]]],
+    # A measure() row, or measure()'s whole result; only per_object/class_name are read.
+    per_object: list[MeasuredObject] | MeasureResult,
     *,
     by_class: bool = True,
 ) -> dict[str, Any]:

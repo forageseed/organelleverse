@@ -6,8 +6,67 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+from scipy import sparse
+
 from ..core.artifacts import ArtifactRef
-from .graph import _sequence, load_gfa, path_steps
+from .graph import _overlaps, _sequence, load_gfa
+
+
+def _path_spans(
+    graph, record, node_index, node_lengths, implied
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
+    """Step node indices and half-open spans, identical to graph._steps coordinates.
+
+    ``node_lengths`` holds -1 for segments of unknown length.
+    """
+    overlaps = _overlaps(graph, record, implied)
+    indices = np.fromiter(
+        (node_index[node] for node, _ in record.steps), dtype=np.int64, count=len(record.steps)
+    )
+    lengths = node_lengths[indices]
+    if len(lengths) and lengths.min() < 0:
+        node = record.steps[int(np.argmax(lengths < 0))][0]
+        raise ValueError(f"unknown segment length: {node}")
+    shifts = np.zeros(len(lengths), dtype=np.int64)
+    shifts[1:] = overlaps
+    preceding = np.concatenate([[0], np.cumsum(lengths)[:-1]]) if len(lengths) else lengths
+    starts = (record.start or 0) + preceding - np.cumsum(shifts)
+    return indices, starts, starts + lengths, any(overlaps)
+
+
+def _bin_contributions(starts, ends, start, end, bin_size) -> sparse.csr_matrix:
+    """Bases of each step inside each bin (steps x bins); spans must be disjoint."""
+    n_bins = (end - start + bin_size - 1) // bin_size
+    keep = np.flatnonzero(ends > starts)
+    first = (starts[keep] - start) // bin_size
+    last = (ends[keep] - 1 - start) // bin_size
+    counts = last - first + 1
+    rows = np.repeat(keep, counts)
+    offsets = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts)
+    columns = np.repeat(first, counts) + offsets
+    left = start + columns * bin_size
+    right = np.minimum(end, left + bin_size)
+    values = np.minimum(right, ends[rows]) - np.maximum(left, starts[rows])
+    return sparse.csr_matrix((values, (rows, columns)), shape=(len(starts), n_bins))
+
+
+def _union_coverage(starts, ends, present, start, end, bin_size) -> np.ndarray:
+    """Exact union-then-bin coverage for paths whose spans overlap."""
+    shared = _union(list(zip(starts[present].tolist(), ends[present].tolist(), strict=True)))
+    covered = []
+    cursor = 0
+    for left in range(start, end, bin_size):
+        right = min(end, left + bin_size)
+        while cursor < len(shared) and shared[cursor][1] <= left:
+            cursor += 1
+        total = 0
+        index = cursor
+        while index < len(shared) and shared[index][0] < right:
+            total += max(0, min(right, shared[index][1]) - max(left, shared[index][0]))
+            index += 1
+        covered.append(total)
+    return np.asarray(covered, dtype=np.int64)
 
 
 def _union(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -37,22 +96,32 @@ def graph_shared_windows(
     if any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in (bin_size, max_rows)):
         raise ValueError("bin_size and max_rows must be positive integers")
     graph = load_gfa(gfa_path)
-    steps = path_steps(gfa_path)
     if not graph.paths:
         raise ValueError("Graph-shared windows require recorded sample paths")
     samples = sorted({record.sample for record in graph.paths.values()})
     if len(samples) < 2:
         raise ValueError("Graph-shared windows require at least two biological samples")
-    sample_nodes: dict[str, set[str]] = defaultdict(set)
-    bounds = {}
+    column = {sample: index for index, sample in enumerate(samples)}
+    node_index = {node: index for index, node in enumerate(graph.segments)}
+    node_lengths = np.array(
+        [-1 if s.length is None else s.length for s in graph.segments.values()], dtype=np.int64
+    )
+    implied: dict = {}
+    # Node x sample presence, OR across each sample's paths/molecules.
+    presence = np.zeros((len(node_index), len(samples)), dtype=bool)
+    spans, bounds = {}, {}
     for name, record in graph.paths.items():
         if record.kind == "W" and record.start is None:
             raise ValueError(f"Native path coordinates are unknown for {name}")
-        sample_nodes[record.sample].update(node for node, _ in record.steps)
-        if any(step["overlap_previous"] for step in steps[name]):
+        indices, starts, ends, overlapping = _path_spans(
+            graph, record, node_index, node_lengths, implied
+        )
+        if overlapping:
             _sequence(graph, record)
+        presence[indices, column[record.sample]] = True
+        spans[name] = (indices, starts, ends, overlapping)
         start = record.start or 0
-        bounds[name] = (start, max((s["end"] for s in steps[name]), default=start))
+        bounds[name] = (start, int(ends.max()) if len(ends) else start)
     row_count = sum(
         (end - start + bin_size - 1) // bin_size * (len(samples) - 1)
         for start, end in bounds.values()
@@ -64,26 +133,27 @@ def graph_shared_windows(
     rows = []
     for name, record in graph.paths.items():
         start, end = bounds[name]
+        indices, starts, ends, overlapping = spans[name]
+        steps_present = presence[indices]
+        if overlapping:
+            covered = np.stack(
+                [
+                    _union_coverage(starts, ends, steps_present[:, s], start, end, bin_size)
+                    for s in range(len(samples))
+                ],
+                axis=1,
+            )
+        else:
+            # Disjoint 0M spans: the union equals the sum of present step bases.
+            contributions = _bin_contributions(starts, ends, start, end, bin_size)
+            covered = np.asarray(contributions.T @ steps_present.view(np.uint8), dtype=np.int64)
         for sample in samples:
             if sample == record.sample:
                 continue
-            shared = _union(
-                [
-                    (step["start"], step["end"])
-                    for step in steps[name]
-                    if step["node"] in sample_nodes[sample]
-                ]
-            )
-            cursor = 0
-            for left in range(start, end, bin_size):
+            per_bin = covered[:, column[sample]]
+            for number, left in enumerate(range(start, end, bin_size)):
                 right = min(end, left + bin_size)
-                while cursor < len(shared) and shared[cursor][1] <= left:
-                    cursor += 1
-                covered = 0
-                index = cursor
-                while index < len(shared) and shared[index][0] < right:
-                    covered += max(0, min(right, shared[index][1]) - max(left, shared[index][0]))
-                    index += 1
+                shared_bp = int(per_bin[number])
                 rows.append(
                     {
                         "path": name,
@@ -91,9 +161,9 @@ def graph_shared_windows(
                         "comparison_sample": sample,
                         "start": left,
                         "end": right,
-                        "shared_bp": covered,
+                        "shared_bp": shared_bp,
                         "window_bp": right - left,
-                        "shared_fraction": covered / (right - left),
+                        "shared_fraction": shared_bp / (right - left),
                     }
                 )
     return {

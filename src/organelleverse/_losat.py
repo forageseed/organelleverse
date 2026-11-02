@@ -23,6 +23,7 @@ so failures carry the same stderr-rich error shape as other externals.
 
 from __future__ import annotations
 
+from organelleverse._bundled import bundled_executable
 from organelleverse._layout import checkout_root
 
 import os
@@ -115,7 +116,7 @@ def _uppercase_query(program: str, query: str | Path) -> Iterator[str | Path]:
 
 
 def resolve_losat() -> str | None:
-    """Resolve the LOSAT binary: env override, then checkout, then PATH."""
+    """Resolve the LOSAT binary: env override, packaged build, checkout, then PATH."""
     env_value = os.environ.get("ORG_VERSE_LOSAT_BIN")
     if env_value:
         if env_value.strip().casefold() in _DISABLED_TOKENS:
@@ -125,6 +126,9 @@ def resolve_losat() -> str | None:
         )
         if resolved:
             return resolved
+    packaged = bundled_executable("LOSAT")
+    if packaged:
+        return packaged
     candidate = (
         checkout_root()
         / "external_tools"

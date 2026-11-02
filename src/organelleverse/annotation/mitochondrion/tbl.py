@@ -31,13 +31,37 @@ from .models.genome import GenomeSequence
 
 
 def _intervals(ann: GeneAnnotation | tRNAAnnotation | rRNAAnnotation) -> list[tuple[int, int]]:
-    """Exon intervals in transcription order, each written 5' to 3'."""
+    """Exon intervals in transcription order, each written 5' to 3'.
+
+    A cis-spliced feature is ordered by its coordinates. A trans-spliced one
+    (nad1/nad2/nad5: exons on both strands, or out of coordinate order) follows
+    its exon numbers, and every exon is written on its own strand.
+    """
     exons = getattr(ann, "exons", None)
+    if exons and _transcription_order_differs(exons):
+        numbers = [e.number for e in exons]
+        ordered = sorted(exons, key=lambda e: e.number) if len(set(numbers)) == len(numbers) else list(exons)
+        return [(e.end, e.start) if e.strand == Strand.MINUS else (e.start, e.end) for e in ordered]
     spans = sorted((e.start, e.end) for e in exons) if exons else [(ann.start, ann.end)]
     minus = getattr(ann, "strand", Strand.PLUS) == Strand.MINUS
     if minus:
         return [(b, a) for a, b in reversed(spans)]
     return spans
+
+
+def _transcription_order_differs(exons: list[ExonRecord]) -> bool:
+    """Whether coordinate order cannot be the transcription order of these exons."""
+    if len({e.strand for e in exons}) > 1:
+        return True
+    numbers = [e.number for e in exons]
+    if len(exons) < 2 or len(set(numbers)) != len(numbers):
+        return False
+    starts = [e.start for e in sorted(exons, key=lambda e: e.number)]
+    ascending = starts == sorted(starts)
+    if exons[0].strand != Strand.MINUS:
+        return not ascending
+    # minus strand: exon numbers may run either way along the genome for a cis gene
+    return not (ascending or starts == sorted(starts, reverse=True))
 
 
 def _mark_partial(spans: list[tuple[int, int]], five: bool, three: bool) -> list[tuple[str, str]]:
@@ -150,9 +174,9 @@ def _document_exons(feature: AnnotationFeature) -> list[ExonRecord]:
     and re-derives that order per strand, so cis-spliced features round-trip
     exactly.
     """
-    strand = _document_strand(feature)
+    # each part keeps its own strand: a trans-spliced gene has parts on both
     return [
-        ExonRecord(start=part.start + 1, end=part.end, strand=strand, number=number)
+        ExonRecord(start=part.start + 1, end=part.end, strand=Strand(part.strand), number=number)
         for number, part in enumerate(feature.parts, 1)
     ]
 

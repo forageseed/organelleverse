@@ -621,6 +621,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
             ParameterOverride(name='collinear_search_scope', codec=ParameterCodec.JSON),
             ParameterOverride(name='collinear_color_mode', codec=ParameterCodec.JSON),
             ParameterOverride(name='pairwise_match_style', codec=ParameterCodec.JSON),
+            ParameterOverride(name='method', codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.ARTIFACT,
         result_key=None,

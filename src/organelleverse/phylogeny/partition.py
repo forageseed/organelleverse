@@ -35,7 +35,7 @@ from typing import Any
 
 from organelleverse._public_validation import validated_public
 
-from ..core.errors import OrganelleDependencyError, OrganelleInputError
+from ..core.errors import OrganelleDependencyError, OrganelleExecutionError, OrganelleInputError
 from ..core.external import run_external
 from ..core.result import OrganelleResult
 from ._results import artifact_for, failed_result, findings, ok_result, provenance
@@ -145,6 +145,17 @@ def _taxon_name(record: Any, path: Path) -> str:
     return _SAFE_NAME.sub("_", str(candidate))
 
 
+def _feature_cds(feature: Any, record: Any) -> str:
+    """Extract a CDS from its first complete codon (NCBI /codon_start)."""
+    start = int(feature.qualifiers.get("codon_start", ["1"])[0])
+    if start not in (1, 2, 3):
+        raise OrganelleInputError(
+            code="phylogeny.partition.codon_start",
+            message=f"CDS codon_start must be 1, 2 or 3; got {start}.",
+        )
+    return str(feature.extract(record.seq)).upper()[start - 1 :]
+
+
 def _read_cds(path: Path, genetic_code: int) -> tuple[Any, dict[str, str]]:
     from Bio import SeqIO  # type: ignore
 
@@ -156,17 +167,19 @@ def _read_cds(path: Path, genetic_code: int) -> tuple[Any, dict[str, str]]:
         gene = (feature.qualifiers.get("gene") or [""])[0].strip()
         if not gene:
             continue
-        seq = str(feature.extract(record.seq)).upper()
+        seq = _codon_clean(_feature_cds(feature, record), genetic_code)
         # Keep the longest copy (IR duplicates are identical; fragments shorter).
         if len(seq) > len(genes.get(gene, "")):
             genes[gene] = seq
     return record, genes
 
 
-def _codon_clean(seq: str) -> str:
+def _codon_clean(seq: str, genetic_code: int = 11) -> str:
+    from Bio.Data import CodonTable
+
     seq = re.sub(r"[^ACGTRYSWKMBDHVN]", "N", seq.upper())
     seq = seq[: len(seq) - len(seq) % 3]
-    if seq[-3:] in {"TAA", "TAG", "TGA"}:
+    if seq[-3:] in CodonTable.unambiguous_dna_by_id[genetic_code].stop_codons:
         seq = seq[:-3]
     return seq
 
@@ -190,19 +203,14 @@ def _codon_align(
     with tempfile.TemporaryDirectory() as tmp:
         fasta = Path(tmp) / "proteins.fa"
         fasta.write_text("".join(f">{n}\n{p}\n" for n, p in proteins))
-        result = align(fasta, method=method)
+        result = align(fasta, method=method, alphabet="protein")
+    if result.status != "ok":
+        error = result.errors[0]
+        raise OrganelleExecutionError(
+            code=error.code, message=error.message, details=dict(error.details)
+        )
     aligned = dict(result.metrics["alignment"])
     aligner = str(result.metrics["method"])
-    if aligner == "concat_placeholder":
-        lengths = {len(p) for _, p in proteins}
-        if len(lengths) != 1:
-            raise OrganelleDependencyError(
-                code="phylogeny.partition.no_aligner",
-                message=(
-                    "no multiple-sequence aligner available (Rust MAFFT port not built and "
-                    "no 'mafft' on PATH); install: conda install -c bioconda mafft"
-                ),
-            )
     out: list[tuple[str, str]] = []
     for name, nt in records:
         prot_aln = aligned[name]
@@ -245,7 +253,9 @@ def build_partitioned_supermatrix(
     Taxa missing a gene get ``?`` for its columns. Each gene is aligned
     codon-aware (protein alignment via :func:`phylo.align`, back-translated),
     so codon position charsets stay in frame. Terminal stop codons and
-    trailing partial codons are removed.
+    trailing partial codons are removed. ``codon_start`` sets each CDS frame;
+    ``genetic_code`` specifies the common translation table used for every
+    CDS, including terminal-stop removal.
 
     ``max_length_deviation`` guards against partial or mis-annotated CDS
     (e.g. a missing exon of an intron-containing gene): a gene is dropped
@@ -286,7 +296,7 @@ def build_partitioned_supermatrix(
         record, cds = _read_cds(path, genetic_code)
         name = _SAFE_NAME.sub("_", taxon_names[index]) if taxon_names else _taxon_name(record, path)
         taxa.append(name)
-        per_taxon.append({g: _codon_clean(s) for g, s in cds.items()})
+        per_taxon.append(cds)
     if len(set(taxa)) != len(taxa):
         dupes = sorted({t for t in taxa if taxa.count(t) > 1})
         raise OrganelleInputError(

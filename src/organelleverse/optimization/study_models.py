@@ -18,7 +18,7 @@ from pydantic import (
 )
 
 from organelleverse.operations.spec import StrictSpecModel
-from organelleverse.plugin_experiments.adaptive_models import AttemptIdentity, RepeatEvidence
+from organelleverse.optimization.evidence_models import AttemptIdentity, RepeatEvidence
 
 from .evaluation import BenchmarkSplitV3, CapabilityIdentityV3
 from .models import _canonical_json  # pyright: ignore[reportPrivateUsage]

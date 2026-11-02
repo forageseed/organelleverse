@@ -42,8 +42,9 @@ from .service import (
     run_trim_alignment,
     select_partition_scheme,
 )
+from .pglmm import phylogenetic_mixed_model
 from .topology import test_topologies
-from .treecompare import compare_trees, robinson_foulds
+from .treecompare import compare_trees, cophenetic_correlation, robinson_foulds
 
 read = make_reader("phylogeny", "fasta", "tree")
 
@@ -60,12 +61,14 @@ __all__ = [
     "collapse_haplotypes",
     "compare_trees",
     "compute_alignment",
+    "cophenetic_correlation",
     "date_tree",
     "extract_shared_genes",
     "gene_presence_traits",
     "haplotype_network",
     "iqtree_to_mrbayes_model",
     "pdistance",
+    "phylogenetic_mixed_model",
     "plan_tree_build",
     "read",
     "reconstruct_ancestral_states",

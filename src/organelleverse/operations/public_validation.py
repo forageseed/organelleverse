@@ -11,9 +11,13 @@ import dataclasses
 import inspect
 from collections.abc import Callable, Mapping, Sequence
 from functools import cache
-from typing import Annotated, Any, get_args, get_origin, get_type_hints
+from pathlib import Path
+from types import MappingProxyType
+from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 from organelleverse.core.errors import OrganelleContractError
+from organelleverse.core.result import OrganelleResult
+from organelleverse.inputs import Tree
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -26,6 +30,30 @@ from pydantic import (
 from .registry import CoreObject, _parameter_error, registry
 from .signature import OperationSignature, StrictParameters
 
+_TRANSFER_RESULT = "a transfer Result or its metrics; the function selects the rows itself"
+
+#: Shapes a public function documents and handles from Python beyond its
+#: annotation. The annotation also derives the Agent JSON schema, so it stays
+#: as it is; only the native parameter model accepts these too.
+NATIVE_EXTRA_SHAPES: Mapping[str, Mapping[str, tuple[object, str]]] = MappingProxyType(
+    {
+        "visualization.plot_transfer_circos": {
+            "transfers": (OrganelleResult | Mapping[str, Any], _TRANSFER_RESULT),
+        },
+        "visualization.nuclear_transfer_ideogram": {
+            "fragments": (OrganelleResult | Mapping[str, Any], _TRANSFER_RESULT),
+            "plastid_fragments": (OrganelleResult, _TRANSFER_RESULT),
+        },
+        "visualization.plot_transfer_tracks": {
+            "candidates": (OrganelleResult | Mapping[str, Any], _TRANSFER_RESULT),
+            "plastid_candidates": (OrganelleResult | Mapping[str, Any], _TRANSFER_RESULT),
+        },
+        "visualization.plot_tree_conflict": {
+            "trees": (Mapping[str, str | Path | Tree], "{panel name: tree}; the keys name the panels"),
+        },
+    }
+)
+
 
 @cache
 def python_signature(
@@ -33,6 +61,7 @@ def python_signature(
     python_only: tuple[str, ...],
     input_name: str | None,
     path_parameters: tuple[str, ...] = (),
+    extra_shapes: tuple[tuple[str, object], ...] = (),
 ) -> tuple[inspect.Signature, dict[str, Any], type[BaseModel]]:
     """Build the native parameter model from the same scientific annotations."""
     signature = inspect.signature(function)
@@ -64,6 +93,9 @@ def python_signature(
             from .python_binding import _one_path_as_list
 
             annotation = Annotated[annotation, BeforeValidator(_one_path_as_list)]
+        extra = dict(extra_shapes).get(name)
+        if extra is not None:
+            annotation = Union[annotation, extra]  # noqa: UP007 - may be Annotated
         fields[name] = (annotation, default)
     model = create_model(
         function.__name__ + "_PythonParameters",
@@ -100,7 +132,12 @@ def invoke_python(
         for parameter in binding.spec.binding.parameters
         if parameter.codec.value == "path"
     )
-    _, hints, model = python_signature(function, tuple(python_only), core_name, path_parameters)
+    extra_shapes = tuple(
+        (name, shape) for name, (shape, _) in NATIVE_EXTRA_SHAPES.get(operation_id, {}).items()
+    )
+    _, hints, model = python_signature(
+        function, tuple(python_only), core_name, path_parameters, extra_shapes
+    )
     native = OperationSignature(
         python_signature=signature,
         input_name=core_name,

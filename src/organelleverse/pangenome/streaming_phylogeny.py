@@ -1,4 +1,4 @@
-"""Chunked Jaccard trees and MineGraph-referenced adaptive PAV bootstrap.
+"""Chunked Jaccard trees and adaptive-stopping node-PAV bootstrap.
 
 Multiplicity-weighted Jaccard is exactly ordinary node resampling; this module
 is not IQ-TREE UFBoot2's likelihood-based RELL candidate-tree approximation.
@@ -53,6 +53,121 @@ def _distance(source: BatchSource, n_nodes: int, n_samples: int, rng=None) -> np
     return 1.0 - similarity
 
 
+class _PatternStore:
+    """One pass over the PAV batches, collapsed to distinct presence patterns.
+
+    Replicates repeat ``_distance``'s random calls batch by batch, so a seed
+    gives the same node draws; the draws are then summed per pattern. All
+    products are of integer counts, so distances equal ``_distance`` exactly.
+    Memory is O(distinct patterns x samples), not O(replicates x nodes).
+    """
+
+    def __init__(
+        self,
+        source: BatchSource,
+        n_nodes: int,
+        n_samples: int,
+        node_blocks: np.ndarray | None = None,
+    ):
+        index: dict[bytes, int] = {}
+        rows: list[np.ndarray] = []
+        node_pattern = np.empty(n_nodes, dtype=np.int64)
+        self.batch_sizes: list[int] = []
+        seen = 0
+        for raw in source():
+            values = np.asarray(raw)
+            if values.ndim != 2 or values.shape[1] != n_samples or not np.isin(values, [0, 1]).all():
+                raise ValueError("PAV batches must be binary nodes-by-samples arrays")
+            size = values.shape[0]
+            if size == 0 or seen + size > n_nodes:
+                raise ValueError("PAV batch row count differs from declared node count")
+            for offset, row in enumerate(values.astype(np.uint8)):
+                key = row.tobytes()
+                number = index.get(key)
+                if number is None:
+                    number = index[key] = len(rows)
+                    rows.append(row)
+                node_pattern[seen + offset] = number
+            self.batch_sizes.append(size)
+            seen += size
+        if seen != n_nodes:
+            raise ValueError("PAV batches do not contain the declared node count")
+        if node_blocks is not None:
+            node_blocks = np.asarray(node_blocks, dtype=np.int64)
+            if node_blocks.shape != (n_nodes,) or (n_nodes and node_blocks.min() < 0):
+                raise ValueError("Block labels must give one nonnegative block per PAV node")
+        # float32 sums integers exactly below 2**24. Block draws can give one
+        # node a large weight, so block replicates always use float64.
+        exact32 = n_nodes < 2**24 and node_blocks is None
+        self.patterns = np.asarray(rows, dtype=np.float32 if exact32 else np.float64)
+        self.node_pattern = node_pattern
+        self.n_nodes = n_nodes
+        self.node_blocks = node_blocks
+        self.n_blocks = int(node_blocks.max()) + 1 if node_blocks is not None and n_nodes else 0
+
+    def _node_weights(self, rng) -> np.ndarray:
+        if self.node_blocks is not None:
+            # Resample whole blocks; every node of a drawn block gets its count.
+            draws = np.bincount(
+                rng.integers(0, self.n_blocks, self.n_blocks), minlength=self.n_blocks
+            )
+            return draws[self.node_blocks]
+        weights = np.empty(self.n_nodes, dtype=np.int64)
+        seen, remaining_draws = 0, self.n_nodes
+        for size in self.batch_sizes:
+            remaining_nodes = self.n_nodes - seen
+            allocated = (
+                remaining_draws
+                if size == remaining_nodes
+                else rng.binomial(remaining_draws, size / remaining_nodes)
+            )
+            weights[seen : seen + size] = rng.multinomial(allocated, np.full(size, 1 / size))
+            remaining_draws -= allocated
+            seen += size
+        return weights
+
+    def distance(self, rng=None) -> np.ndarray:
+        if rng is None:
+            counts = np.bincount(self.node_pattern, minlength=len(self.patterns))
+        else:
+            counts = np.bincount(
+                self.node_pattern, weights=self._node_weights(rng), minlength=len(self.patterns)
+            )
+        weighted = self.patterns * counts.astype(self.patterns.dtype)[:, None]
+        intersection = (self.patterns.T @ weighted).astype(np.float64)
+        sizes = weighted.sum(axis=0, dtype=np.float64)
+        union = sizes[:, None] + sizes[None, :] - intersection
+        similarity = np.divide(intersection, union, out=np.ones_like(union), where=union != 0)
+        return 1.0 - similarity
+
+
+def superbubble_blocks(node_ids: Sequence[str], bubbles: Iterable[dict]) -> np.ndarray:
+    """Block label per node: interiors of overlapping or nested superbubbles merge.
+
+    Entrance and exit nodes are left out, otherwise consecutive bubbles would
+    chain through their shared boundary nodes into one block. Nodes outside
+    every bubble interior are their own block.
+    """
+    index = {node: i for i, node in enumerate(node_ids)}
+    parent = list(range(len(index)))
+
+    def find(item: int) -> int:
+        while parent[item] != item:
+            parent[item] = parent[parent[item]]
+            item = parent[item]
+        return item
+
+    for bubble in bubbles:
+        ends = {bubble["entrance"]["node_id"], bubble["exit"]["node_id"]}
+        interior = [index[node] for node in bubble["node_ids"] if node not in ends]
+        for other in interior[1:]:
+            left, right = find(interior[0]), find(other)
+            if left != right:
+                parent[left] = right
+    roots = np.fromiter((find(i) for i in range(len(parent))), dtype=np.int64, count=len(parent))
+    return np.unique(roots, return_inverse=True)[1]
+
+
 def _split(clade, n_samples):
     left = tuple(sorted(clade))
     right = tuple(sorted(set(range(n_samples)) - set(left)))
@@ -80,15 +195,19 @@ def batch_node_pav_tree(
     convergence_threshold: float = 0.99,
     batch_size: int = 100,
     consecutive_converged: int = 2,
+    node_blocks: np.ndarray | None = None,
 ) -> dict:
-    """Read replayable bounded batches; retain only sample-square distances.
+    """Read the batches once; keep distinct presence patterns, not every node.
 
-    Adaptive stopping follows MineGraph b8c9ebf's multiplicity Jaccard idea.
-    Improvements: exact maximum bound, canonical ties for equal-sized splits,
-    and undefined Pearson values never automatically count as convergence.
-    Fixed mode supports rooted clades, matching the existing node_pav_tree.
-    Adaptive mode supports nontrivial unrooted splits, matching MineGraph's
-    intended bipartition semantics. Neither mode treats linked nodes as loci.
+    Adaptive mode draws replicates in batches and stops once the support
+    vector of the original tree's splits correlates above the threshold for
+    consecutive batches. The maximum bound is exact, equal-sized splits have
+    canonical ties, and undefined Pearson values never count as convergence.
+    Fixed mode supports rooted clades, matching the existing node_pav_tree;
+    adaptive mode supports nontrivial unrooted splits. ``superbubble_block``
+    resamples whole blocks of linked nodes (``node_blocks``, one label per PAV
+    row) instead of single nodes, so nodes of one bubble enter a replicate
+    together; it otherwise follows fixed mode.
     """
     if len(paths) < 2 or len(set(paths)) != len(paths) or any(not x for x in paths):
         raise ValueError("Tree requires at least two uniquely named samples")
@@ -105,8 +224,11 @@ def batch_node_pav_tree(
             raise ValueError(
                 "Node count, seed and replicate parameters must be nonnegative integers"
             )
-    if n_nodes == 0 or bootstrap_method not in {"felsenstein", "adaptive_pav"}:
+    if n_nodes == 0 or bootstrap_method not in {"felsenstein", "adaptive_pav", "superbubble_block"}:
         raise ValueError("Nonempty PAV and a supported bootstrap method are required")
+    blocked = bootstrap_method == "superbubble_block"
+    if blocked != (node_blocks is not None):
+        raise ValueError("Block labels are required for, and only for, superbubble_block")
     adaptive = bootstrap_method == "adaptive_pav"
     if adaptive and (
         min_replicates < 1
@@ -117,7 +239,8 @@ def batch_node_pav_tree(
     ):
         raise ValueError("Adaptive bootstrap stopping parameters are invalid")
     n_samples = len(paths)
-    distances = _distance(batches, n_nodes, n_samples)
+    store = _PatternStore(batches, n_nodes, n_samples, node_blocks)
+    distances = store.distance()
     root = _tree(distances)
     clades = [clade for clade in _internal_clades(root) if len(clade) < n_samples]
     def keys(tree):
@@ -139,7 +262,7 @@ def batch_node_pav_tree(
     while total < limit:
         size = min(batch_size if adaptive else limit, limit - total)
         for _ in range(size):
-            counter.update(keys(_tree(_distance(batches, n_nodes, n_samples, rng))))
+            counter.update(keys(_tree(store.distance(rng))))
         total += size
         if adaptive:
             current = np.array([counter[key] / total for key in original_keys])
@@ -167,9 +290,10 @@ def batch_node_pav_tree(
         ],
         "bootstrap_method": bootstrap_method,
         "bootstrap_replicates": total,
-        "resampling_unit": "graph_node",
+        "resampling_unit": "superbubble_block" if blocked else "graph_node",
         "seed": seed,
         "node_count": n_nodes,
+        **({"block_count": store.n_blocks} if blocked else {}),
         "support_definition": "nontrivial_unrooted_split" if adaptive else "rooted_clade",
         "converged": converged if adaptive else None,
         "convergence_history": history,
@@ -182,18 +306,27 @@ def batch_node_pav_tree(
         }
         if adaptive
         else None,
-        "algorithm_reference": "https://github.com/hubner-lab/MineGraph/blob/b8c9ebfd7511d968d8f2ce763a39a83f2242d473/src/utils.py#L2053"
-        if adaptive
-        else None,
         "interpretation": "Presence-based similarity tree; linked nodes and graph segmentation affect support. Adaptive PAV uses ordinary multinomial node resampling with adaptive stopping, not IQ-TREE likelihood UFBoot2. Ties follow input sample order.",
     }
 
 
 def stored_node_pav_tree(directory: str | Path, **kwargs) -> dict:
-    """Tree adapter for the versioned bounded Parquet PAV store."""
-    from .pav_store import iter_pav_batches, load_pav_metadata
+    """Tree adapter for the versioned bounded Parquet PAV store.
+
+    Block resampling reads the run's superbubbles.json next to the store.
+    """
+    import json
+
+    from .pav_store import iter_pav_batches, iter_pav_rows, load_pav_metadata
 
     metadata = load_pav_metadata(directory)
+    if kwargs.get("bootstrap_method") == "superbubble_block":
+        bubbles_path = Path(directory) / "superbubbles.json"
+        if not bubbles_path.is_file():
+            raise ValueError("Superbubble block bootstrap needs the run's superbubbles.json")
+        node_ids = [row["node_id"] for row in iter_pav_rows(directory, unit="sample")]
+        bubbles = json.loads(bubbles_path.read_text())["bubbles"]
+        kwargs["node_blocks"] = superbubble_blocks(node_ids, bubbles)
     return batch_node_pav_tree(
         metadata.samples,
         metadata.node_count,

@@ -173,7 +173,12 @@ def _write_tsv(path: Path, rows: Iterable[dict[str, Any]]) -> Path:
             handle, fieldnames=headers, extrasaction="ignore", delimiter="\t"
         )
         writer.writeheader()
-        writer.writerows(rows)
+        # Nested values (an OV result's hit records, coordinate lists) as JSON, not Python reprs.
+        writer.writerows(
+            {key: json.dumps(value) if isinstance(value, (dict, list, tuple)) else value
+             for key, value in row.items()}
+            for row in rows
+        )
     return path
 
 
@@ -203,12 +208,15 @@ def _package(result: OrganelleResult, summary: str, files: dict[str, Path]) -> d
 
 
 def _run_gc(params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]) -> dict[str, Any]:
+    from organelleverse._bio import read_fasta
     from organelleverse.composition.gc_core import compute_gc_content
 
     source = _first_file(params, "input")
     fasta = _genome_fasta(source, output_dir)
     window = int(params.get("window") or 500)
-    data = compute_gc_content(fasta, window_size=max(window, 10))
+    window_size = max(window, 10)
+    step = params.get("step")
+    data = compute_gc_content(fasta, window_size=window_size, step=step)
     gc_file = _write_tsv(
         output_dir / "gc_summary.tsv",
         [
@@ -219,10 +227,39 @@ def _run_gc(params: dict[str, Any], *, output_dir: Path, log: Callable[[str], No
     )
     windows = data.get("windows") or data.get("gc_windows") or []
     win_file = _write_tsv(output_dir / "gc_windows.tsv", windows)
-    log(f"GC content computed over {window} bp windows")
+    sequences = []
+    offset = 0
+    for record_id, sequence in read_fasta(fasta):
+        length = len(sequence)
+        sequences.append({"id": record_id, "length": length, "start": offset + 1, "end": offset + length})
+        offset += length
+    analysis = {
+        "schema": "organelleverse.gc-analysis.v1",
+        **data,
+        "window_size": window_size,
+        "step": window_size if step is None else step,
+        "sequence_count": len(sequences),
+        "sequences": sequences,
+        "method": {
+            "algorithm": "organelleverse.composition.gc_core.compute_gc_content",
+            "coordinates": "1-based-inclusive",
+            "gc_denominator": "all_sequence_characters",
+            "gc_numerator": "G+C",
+            "ambiguous_bases": "included_in_length_not_counted_as_G_or_C",
+            "gc_skew_formula": "(G-C)/(G+C)",
+            "gc_skew_zero_denominator": 0.0,
+            "rounding_decimal_places": 4,
+            "window_boundary": "full_windows_only_except_one_short_window_for_short_input",
+            "window_topology": "linear_no_wrap",
+            "multiple_records": "concatenated_in_file_order_without_separator",
+        },
+    }
+    analysis_file = output_dir / "gc_analysis.json"
+    analysis_file.write_text(json.dumps(analysis, ensure_ascii=False, allow_nan=False, indent=2) + "\n", encoding="utf-8")
+    log(f"GC content computed over {window_size} bp windows with {analysis['step']} bp step")
     return {
         "summary_text": f"GC content: {data.get('gc_content', data.get('gc', 'n/a'))}",
-        "output_files": {"summary": str(gc_file), "windows": str(win_file)},
+        "output_files": {"summary": str(gc_file), "windows": str(win_file), "analysis": str(analysis_file)},
     }
 
 
@@ -1363,6 +1400,179 @@ def _with_annotation_report(run: RunnerFn, organelle: str) -> RunnerFn:
     )
 
 
+# --------------------------------------------------------------------------
+# mitogenome structure, transfers and phylogenetic comparative models
+# (Brown et al. 2026 measures: graph complexity, dispersed repeats, intron
+# classes, MTPT grades, PGLMM, tree congruence)
+# --------------------------------------------------------------------------
+
+
+def _optional_file(params: dict[str, Any], name: str) -> Path | None:
+    value = str(params.get(name) or "").strip()
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.exists():
+        raise FileNotFoundError(f"input file not found: {path}")
+    return path
+
+
+def _number(params: dict[str, Any], name: str, default: float) -> float:
+    value = params.get(name)
+    return default if value in (None, "") else float(value)
+
+
+def _truthy(value: Any) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _names(params: dict[str, Any], name: str) -> list[str]:
+    text = str(params.get(name) or "").replace(";", ",")
+    return [part.strip() for part in text.split(",") if part.strip()]
+
+
+def _run_graph_complexity(
+    params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]
+) -> dict[str, Any]:
+    from organelleverse.structure import graph_complexity
+
+    result = _check(
+        graph_complexity(
+            _first_file(params, "input"),
+            sequences=_optional_file(params, "sequences"),
+            min_kmer_fraction=_number(params, "min_kmer_fraction", 0.5),
+        ),
+        "structure.graph_complexity",
+    )
+    metrics = _metrics(result)
+    log(result.summary_text)
+    files = {
+        "components": _write_tsv(output_dir / "components.tsv", metrics.get("components") or []),
+        "metrics": _write_metrics_tsv(result, output_dir / "graph_metrics.tsv"),
+    }
+    try:  # OV's own graph figure of the same (sub)graph; the metrics stand without it
+        from organelleverse import write
+        from organelleverse.visualization.assembly_graph import plot_assembly_graph
+
+        figure = output_dir / "assembly_graph.png"
+        write(plot_assembly_graph(_first_file(params, "input"), sequences=_optional_file(params, "sequences")),
+              figure)
+        files["figure"] = figure
+    except Exception as error:  # noqa: BLE001 - reported, not hidden
+        log(f"assembly-graph figure not drawn: {error}")
+    return _package(result, result.summary_text, files)
+
+
+def _run_dispersed_repeats(
+    params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]
+) -> dict[str, Any]:
+    from organelleverse.structure import dispersed_repeats
+
+    fasta = _genome_fasta(_first_file(params, "input"), output_dir)
+    result = _check(
+        dispersed_repeats(
+            fasta,
+            min_length=int(_number(params, "min_length", 100)),
+            min_identity=_number(params, "min_identity", 90.0),
+            min_mapq=int(_number(params, "min_mapq", 0)),
+        ),
+        "structure.dispersed_repeats",
+    )
+    log(result.summary_text)
+    return _package(result, result.summary_text, {
+        "repeats": _write_tsv(output_dir / "dispersed_repeats.tsv", _metrics(result).get("repeats") or []),
+        "metrics": _write_metrics_tsv(result, output_dir / "dispersed_metrics.tsv"),
+    })
+
+
+def _run_intron_classes(
+    params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]
+) -> dict[str, Any]:
+    from organelleverse.structure import intron_classes
+
+    fasta = _genome_fasta(_first_file(params, "input"), output_dir)
+    result = _check(intron_classes(fasta, threads=int(_number(params, "threads", 1))), "structure.intron_classes")
+    metrics = _metrics(result)
+    rows = [{"class": label, **dict(hit)} for label in ("group_I", "group_II")
+            for hit in metrics.get(f"{label}_hits") or []]
+    log(result.summary_text)
+    return _package(result, result.summary_text, {"introns": _write_tsv(output_dir / "intron_classes.tsv", rows)})
+
+
+def _run_mtpt_grading(
+    params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]
+) -> dict[str, Any]:
+    from organelleverse.transfer import grade_mtpt
+
+    result = _check(
+        grade_mtpt(
+            _genome_fasta(_first_file(params, "input"), output_dir),
+            _optional_file(params, "plastid"),
+            plastid_reference=_first_file(params, "plastid_reference"),
+            mitochondrion_reference=_first_file(params, "mitochondrion_reference"),
+            exclude_organism=str(params.get("exclude_organism") or "").strip() or None,
+            identity_margin=_number(params, "identity_margin", 1.0),
+            threads=int(_number(params, "threads", 4)),
+        ),
+        "transfer.grade_mtpt",
+    )
+    log(result.summary_text)
+    return _package(result, result.summary_text, {
+        "fragments": _write_tsv(output_dir / "mtpt_grades.tsv", _metrics(result).get("fragments") or []),
+        "metrics": _write_metrics_tsv(result, output_dir / "mtpt_metrics.tsv"),
+    })
+
+
+def _run_pglmm(
+    params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]
+) -> dict[str, Any]:
+    from organelleverse.phylogeny.pglmm import phylogenetic_mixed_model
+
+    response = str(params.get("response") or "").strip()
+    if not response:
+        raise ValueError("name the response column")
+    result = phylogenetic_mixed_model(
+        _first_file(params, "tree"),
+        _first_file(params, "table"),
+        response,
+        _names(params, "predictors"),
+        species_column=str(params.get("species_column") or "species").strip(),
+        family=str(params.get("family") or "gaussian"),
+        response_level=str(params.get("response_level") or "").strip() or None,
+        log_response=_truthy(params.get("log_response")),
+        standardize=_names(params, "standardize"),
+        iterations=int(_number(params, "iterations", 130_000)),
+        burnin=int(_number(params, "burnin", 30_000)),
+        thin=int(_number(params, "thin", 100)),
+        seed=int(_number(params, "seed", 1)),
+    )
+    metrics = _metrics(result)
+    log(result.summary_text)
+    return _package(result, result.summary_text, {
+        "fixed_effects": _write_tsv(output_dir / "pglmm_fixed_effects.tsv", metrics.get("fixed_effects") or []),
+        "metrics": _write_metrics_tsv(result, output_dir / "pglmm_metrics.tsv"),
+    })
+
+
+def _run_compare_trees(
+    params: dict[str, Any], *, output_dir: Path, log: Callable[[str], None]
+) -> dict[str, Any]:
+    from organelleverse.phylogeny import compare_trees
+
+    result = _check(
+        compare_trees(
+            _first_file(params, "tree_a"),
+            _first_file(params, "tree_b"),
+            prune_to_shared=_truthy(params.get("prune_to_shared")),
+        ),
+        "phylogeny.compare_trees",
+    )
+    log(result.summary_text)
+    return _package(result, result.summary_text, {
+        "metrics": _write_metrics_tsv(result, output_dir / "tree_comparison.tsv"),
+    })
+
+
 def _ensures_output_dir(fn: RunnerFn) -> RunnerFn:
     """Guarantee the output directory exists before a runner touches it."""
 
@@ -1394,6 +1604,10 @@ ANALYSIS_TOOL_RUNNERS: dict[str, RunnerFn] = {
     "mito_report": _run_report,
     "mito_validate_rna": _run_validate_rna,
     "mito_assemble": _with_assembly_qc(_assemble_runner("mitochondrion")),
+    "mito_graph_complexity": _run_graph_complexity,
+    "mito_dispersed_repeats": _run_dispersed_repeats,
+    "mito_intron_classes": _run_intron_classes,
+    "mito_mtpt_grading": _run_mtpt_grading,
     # chloroplast
     "chloro_assemble": _with_assembly_qc(_assemble_runner("plastid")),
     "chloro_annotate": _with_annotation_report(_annotate_runner("chloro", "plastome"), "chloro"),
@@ -1414,6 +1628,8 @@ ANALYSIS_TOOL_RUNNERS: dict[str, RunnerFn] = {
     "sequence-alignment": _run_alignment,
     "subcellular-localization": _run_localization,
     "protein-structure": _run_protein_structure,
+    "phylo_pglmm": _run_pglmm,
+    "phylo_compare_trees": _run_compare_trees,
 }
 
 ANALYSIS_TOOL_RUNNERS = {name: _ensures_output_dir(fn) for name, fn in ANALYSIS_TOOL_RUNNERS.items()}

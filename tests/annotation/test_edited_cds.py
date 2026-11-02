@@ -8,7 +8,6 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation, SeqFeature, SimpleLocation
 from Bio.SeqRecord import SeqRecord
-
 from organelleverse.annotation import translate_edited_cds, write_edited_cds
 from organelleverse.core.errors import OrganelleInputError, OrganelleParameterError
 from organelleverse.core.frozen import thaw_json
@@ -221,7 +220,7 @@ def test_real_pmga_cox2_three_exons_and_two_published_edits():
 def test_real_negative_psba_unchanged_matches_curated_translation():
     reference = (
         Path(__file__).parents[2]
-        / "src/organelleverse/annotation/data/plastome/references/Arabidopsis_thaliana_chloroplast.gb"
+        / "src/annotation/data/plastome/references/Arabidopsis_thaliana_chloroplast.gb"
     )
     result = translate_edited_cds(evidence(), annotation_genbank=reference)
     row = next(r for r in thaw_json(result.metrics)["cds"] if r["gene"] == "psbA")
@@ -243,7 +242,7 @@ def test_both_editing_sources_capability_binding_writer_and_admission(tmp_path, 
 
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("ORGANELLEVERSE_CACHE_ROOT", str(tmp_path / "cache"))
-    root = Path(__file__).parents[2] / "src/organelleverse/capabilities"
+    root = Path(__file__).parents[2] / "src/capabilities"
     compute_bundle = parse_capability_bundle(
         root / "annotation-translate-edited-cds/capability.toml"
     )
@@ -275,10 +274,11 @@ def test_both_editing_sources_capability_binding_writer_and_admission(tmp_path, 
 
 @pytest.mark.parametrize("direction", [1, -1])
 def test_real_bam_detection_and_quantification_pipe_to_translation(tmp_path, direction):
-    import pysam
-
+    import rubam
     from organelleverse.rna_editing import detect_editing_sites
     from organelleverse.rna_editing.efficiency import quantify_known_site_efficiency
+
+    from tests.bam_fixtures import bam_header
 
     coding = "ACGAAATAA"
     sequence = coding if direction == 1 else str(Seq(coding).reverse_complement())
@@ -290,9 +290,9 @@ def test_real_bam_detection_and_quantification_pipe_to_translation(tmp_path, dir
     fasta.write_text(">seq\n" + sequence + "\n")
     bam_path = tmp_path / "reads.bam"
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": "seq", "LN": 9}]}
-    with pysam.AlignmentFile(str(bam_path), "wb", header=header) as bam:
+    with rubam.AlignmentFile(str(bam_path), "wb", header=bam_header(header, tmp_path)) as bam:
         for i in range(10):
-            read = pysam.AlignedSegment()
+            read = rubam.AlignedSegment()
             read.query_name = f"read{i}"
             read.query_sequence = changed if i < 4 else sequence
             read.flag = 0
@@ -302,7 +302,7 @@ def test_real_bam_detection_and_quantification_pipe_to_translation(tmp_path, dir
             read.cigarstring = "9M"
             read.query_qualities = [40] * 9
             bam.write(read)
-    pysam.index(str(bam_path))
+    rubam.index(str(bam_path))
     detected = detect_editing_sites(bam_path, fasta, trim_read_ends=0)
     assert detected.metrics["site_count"] == 1
     sites_tsv = tmp_path / "known.tsv"

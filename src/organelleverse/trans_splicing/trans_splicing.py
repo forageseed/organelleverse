@@ -25,6 +25,16 @@ from ..core.result import ErrorDetail, Finding, OrganelleResult
 # Known trans-splicing genes in plant mitochondria
 _KNOWN_TRANS = {"nad1", "nad2", "nad5"}
 
+
+def _circular_records(path: str, seqids: list[str]) -> dict[str, bool]:
+    """Topology of each GenBank record from its LOCUS line, matched to the parsed records in order."""
+    flags: list[bool] = []
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if line.startswith("LOCUS"):
+                flags.append("circular" in line.lower().split())
+    return dict(zip(seqids, flags, strict=False))
+
 _OPERATION_VERSION = "1.0"
 
 
@@ -110,6 +120,8 @@ def detect_trans_splicing(
     # min_exon_gap merge, while the two IR copies of a gene (tens of kb apart)
     # stay separate loci. Pooling exons by gene name alone misread every
     # IR-duplicated chloroplast gene (rpl2, ycf2, ndhB, ...) as trans-spliced.
+    circular = _circular_records(str(genome.annotation.resolve()), [r.seqid for r in document.records])
+    lengths = {record.seqid: len(record.sequence) for record in document.records}
     gene_features: dict[str, list[dict]] = defaultdict(list)
     for record in document.records:
         for feature in record.features:
@@ -160,13 +172,18 @@ def detect_trans_splicing(
                 key=lambda p: p["start"],
             )
             exon_count = max(exon_count, len(exons_sorted))
-            for i in range(len(exons_sorted) - 1):
-                gap = exons_sorted[i + 1]["start"] - exons_sorted[i]["end"]
-                if gap >= min_exon_gap:
-                    is_trans = True
-                    reason = f"large_gap:{gap}bp"
-                    break
-            if is_trans:
+            gaps = [b["start"] - a["end"] for a, b in zip(exons_sorted, exons_sorted[1:], strict=False)]
+            seqid = locus[0]["seqid"]
+            if gaps and circular.get(seqid) and lengths.get(seqid):
+                # On a circular molecule the gene occupies the shortest arc holding its
+                # exons: the largest gap, counting the one across the origin, lies outside
+                # it. A cis gene written join(150001..150500,1..200) is not trans-spliced.
+                gaps.append(lengths[seqid] - exons_sorted[-1]["end"] + exons_sorted[0]["start"])
+                gaps.remove(max(gaps))
+            large = [gap for gap in gaps if gap >= min_exon_gap]
+            if large:
+                is_trans = True
+                reason = f"large_gap:{large[0]}bp"
                 break
         if is_trans:
             trans_genes.append(

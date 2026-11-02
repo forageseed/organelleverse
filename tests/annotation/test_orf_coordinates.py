@@ -32,7 +32,7 @@ def test_real_nc_000932_negative_psba_cds_roundtrip(tmp_path):
     from Bio import SeqIO
 
     reference = Path(__file__).parents[2] / (
-        "src/organelleverse/annotation/data/plastome/references/Arabidopsis_thaliana_chloroplast.gb"
+        "src/annotation/data/plastome/references/Arabidopsis_thaliana_chloroplast.gb"
     )
     record = SeqIO.read(reference, "genbank")
     assert record.id == "NC_000932.1"

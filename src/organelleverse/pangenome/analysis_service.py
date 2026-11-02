@@ -27,7 +27,7 @@ def analyze_graph(
     seed: int = 0,
     threads: int = 4,
     tree_mode: Literal["pav", "msa", "none"] = "pav",
-    bootstrap_method: Literal["felsenstein", "adaptive_pav"] = "felsenstein",
+    bootstrap_method: Literal["felsenstein", "adaptive_pav", "superbubble_block"] = "felsenstein",
     adaptive_min_replicates: int = 1000,
     adaptive_max_replicates: int = 10000,
     adaptive_batch_size: int = 100,

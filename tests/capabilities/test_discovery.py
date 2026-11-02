@@ -288,6 +288,29 @@ def test_malformed_bundle_is_a_diagnostic_and_does_not_abort_other_candidates(
     assert any(item.code == "capability.bundle_invalid_toml" for item in index.diagnostics())
 
 
+def test_an_unreadable_search_root_is_a_diagnostic_and_the_others_are_still_scanned(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The compute provider died at start when a failing disk answered EIO for ~/.organelleverse.
+    readable = tmp_path / "readable"
+    _write_bundle(readable, "thirdparty.good")
+    broken = tmp_path / "broken"
+    real_bundle_paths = discovery_module._bundle_paths
+
+    def bundle_paths(root):
+        if root.root == broken:
+            raise OSError(5, "Input/output error", str(broken))
+        return real_bundle_paths(root)
+
+    monkeypatch.setattr(discovery_module, "_bundle_paths", bundle_paths)
+    entries, diagnostics = discovery_module.scan_search_roots(
+        (discovery_module.SearchRoot("local", broken), discovery_module.SearchRoot("local", readable)))
+
+    assert [entry.capability_id for entry in entries] == ["thirdparty.good"]
+    (unreadable,) = [item for item in diagnostics if item.code == "capability.search_root_unreadable"]
+    assert "Input/output error" in str(unreadable.details["error"])
+
+
 def test_invalid_bundle_code_is_retained_as_a_discovery_diagnostic(tmp_path: Path) -> None:
     bundle_root = _write_bundle(tmp_path, "thirdparty.invalid")
     for path in sorted((bundle_root / "code").rglob("*"), reverse=True):
@@ -433,12 +456,21 @@ def test_extra_paths_extend_the_standard_channels_instead_of_replacing_them(
     }
 
 
+def _symlink_directory_or_skip_without_privilege(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            pytest.skip("Creating directory symlinks requires Windows symlink privilege")
+        raise
+
+
 def test_discovery_rejects_symlinked_bundle_roots_as_diagnostics(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     _write_bundle(outside, "thirdparty.escape")
     scanned = tmp_path / "scanned"
     scanned.mkdir()
-    (scanned / "linked").symlink_to(outside / "thirdparty-escape", target_is_directory=True)
+    _symlink_directory_or_skip_without_privilege(scanned / "linked", outside / "thirdparty-escape")
 
     index = discover_capabilities(paths=(scanned,), entry_points=())
 
@@ -450,7 +482,7 @@ def test_discovery_rejects_a_search_root_that_is_itself_a_symlink(tmp_path: Path
     outside = tmp_path / "outside-root"
     _write_bundle(outside, "thirdparty.escape")
     linked = tmp_path / "linked-root"
-    linked.symlink_to(outside, target_is_directory=True)
+    _symlink_directory_or_skip_without_privilege(linked, outside)
 
     index = discover_capabilities(paths=(linked,), entry_points=())
 

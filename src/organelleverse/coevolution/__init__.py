@@ -1,8 +1,8 @@
 """Coevolution suite (ERC — evolutionary rate covariation). Self-contained.
 
 Two independent ERC methods:
-  method="ercnet" — ERCnet pipeline (duplication-aware, R2T species-space)
-  method="erc"    — ERC 2.0 (nclark-lab, master-tree edge-space + Fisher + permutation)
+  method="ercnet" — ERCnet BXB with explicit LCA/DLCpar reconciliation and edge-mean normalization
+  method="erc"    — ERC 2.0 (nclark-lab, master node-pair paths, WLS, independent edges, Fisher and BH)
 
 Both run through run_coevolution() or their direct entry points.
 """

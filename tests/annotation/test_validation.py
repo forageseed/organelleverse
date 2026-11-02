@@ -294,3 +294,33 @@ def test_rna_editing_exception_does_not_make_tgg_a_terminal_stop() -> None:
     report = validate_document(document.evolve(records=(record,)), ("pcg", "trna"))
 
     assert "cds_missing_stop" in {issue.code for issue in report.errors}
+
+
+def test_allow_partial_turns_a_stage_that_found_nothing_into_a_warning() -> None:
+    document = missing_requested_trna(valid_document()).evolve(completed_stages=("pcg", "trna"))
+
+    strict = validate_document(document, ("pcg", "trna"))
+    partial = validate_document(document, ("pcg", "trna"), allow_partial=True)
+
+    assert not strict.valid
+    assert partial.valid
+    assert [issue.code for issue in partial.warnings] == ["stage_no_features"]
+
+
+def test_allow_partial_still_fails_when_a_stage_did_not_run() -> None:
+    document = missing_requested_trna(valid_document())  # completed_stages == ("pcg",)
+
+    report = validate_document(document, ("pcg", "trna"), allow_partial=True)
+
+    assert not report.valid
+    assert [issue.code for issue in report.errors] == ["requested_stage_incomplete"]
+
+
+def test_allow_partial_still_fails_when_no_stage_found_anything() -> None:
+    document = valid_document()
+    empty = document.evolve(records=(document.records[0].evolve(features=()),))
+
+    report = validate_document(empty, ("pcg", "trna"), allow_partial=True)
+
+    assert not report.valid
+    assert {issue.code for issue in report.errors} == {"requested_stage_incomplete"}

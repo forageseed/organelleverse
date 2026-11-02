@@ -554,14 +554,35 @@ def plot_collinearity(
     collinear_search_scope: str | None = "adjacent",
     collinear_color_mode: str | None = "orientation",
     pairwise_match_style: str | None = "ribbon",
+    method: str = "ov",
     **kwargs: Any,
 ) -> OrganelleResult:
-    """Render a gbdraw linear collinearity/comparison plot (compute-only).
+    """Linear collinearity/comparison plot of two or more genomes (compute-only).
 
-    Provide either precomputed ``blast=...`` outfmt 6/7 files or let gbdraw run
-    protein BLASTP/LOSAT through ``protein_blastp_mode``. Render with
+    ``method="ov"`` (default) is drawn by OrganelleVerse from GenBank files with
+    no external tool: genes in OGDraw colours, the plastid IR shaded, and
+    ribbons between adjacent tracks from homologous genes (or from BLAST
+    outfmt 6 tables given as ``alignments=`` / ``blast=``); it composes with
+    ``compose_figure``. Its options (``names``, ``rotate_to``, ``orient``,
+    ``scale``, ``gene_labels``, ``min_block_genes``, ...) are those of
+    :func:`~organelleverse.visualization.collinearity.plot_collinearity_ov`.
+
+    ``method="gbdraw"`` runs the external gbdraw tool as before: provide
+    precomputed ``blast=...`` outfmt 6/7 files or let gbdraw run protein
+    BLASTP/LOSAT through ``protein_blastp_mode``; the ``protein_blastp_mode``,
+    ``collinear_search_scope``, ``collinear_color_mode`` and
+    ``pairwise_match_style`` options apply to gbdraw only. Render either with
     ``ov.write(plot, output)``.
     """
+    if method == "ov":
+        from .collinearity import plot_collinearity_ov
+
+        if "blast" in kwargs and "alignments" not in kwargs:
+            blast = kwargs.pop("blast")
+            kwargs["alignments"] = [blast] if isinstance(blast, (str, Path)) else blast
+        return plot_collinearity_ov(inputs, **kwargs)
+    if method != "gbdraw":
+        raise ValueError("method must be 'ov' or 'gbdraw'")
     return plot_gbdraw(
         inputs,
         mode="linear",

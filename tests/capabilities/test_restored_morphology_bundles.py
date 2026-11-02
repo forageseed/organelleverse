@@ -1,7 +1,7 @@
 """Capability Plan 03/05: the restored ``morphology`` bundles, for real.
 
 ``scripts/capabilities/build_restored_bundles.py`` generated the ten bundles
-under ``src/organelleverse/capabilities/morphology-*`` from
+under ``src/capabilities/morphology-*`` from
 ``docs/operations/restored-capabilities.toml`` - see the generator's and
 ``organelleverse.capabilities.adapters.morphology``'s module docstrings for
 the full per-capability reasoning.
@@ -32,7 +32,7 @@ availability is environment-dependent (a restoration-ledger dependency, not
 something admission enforces) - see the adapter module's own docstring.
 
 Mirrors ``tests/capabilities/test_restored_format_conversion_bundles.py``:
-discovery is left pointed at the real, installed ``src/organelleverse/``
+discovery is left pointed at the real, installed ``src/``
 tree for the ``"core"`` channel (only the other standard roots are
 isolated), and no test constructs ``status="admitted"``, a
 ``VerificationRecord``, or an ``execution_identity`` by hand.
@@ -103,7 +103,7 @@ _CPU_DEVICE = DeviceInfo(
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 _EXPECTED_BUNDLE_DIRS = {
     "morphology-check-all-backends",
@@ -212,7 +212,11 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
 
     discovered = discover_capabilities()
     for capability_id in _RESTORED_IDS:
-        assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+        unverified = discovered.describe(capability_id)
+        # Verification is advisory for first-party code: admitted, with a diagnostic.
+        assert unverified.status is CapabilityStatus.ADMITTED
+        assert unverified.diagnostic is not None
+        assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     for capability_id in _RESTORED_IDS:
@@ -231,7 +235,8 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
         entry = admitted.describe(capability_id)
         assert entry.status is CapabilityStatus.ADMITTED, entry.diagnostic
     admitted_ids = {item.capability_id for item in admitted.list()}
-    assert admitted_ids == set(_RESTORED_IDS)
+    # Other first-party capabilities are admitted without a record too.
+    assert set(_RESTORED_IDS) <= admitted_ids
 
 
 def _admit_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

@@ -142,8 +142,10 @@ _DEEPLOC_MAP: dict[str, str] = {
     "Peripheral": "Membrane",
     "Transmembrane": "Membrane",
     "Lipid anchor": "Membrane",
-    "Soluble": "Cytoplasm",
+    # "Soluble" is a membrane-type descriptor (not membrane-bound), not a
+    # compartment: a soluble mitochondrial protein is not cytoplasmic.
 }
+_DEEPLOC_NOT_COMPARTMENT = frozenset({"Soluble"})
 # DeepLoc 2.1 probability columns (in output order), excluding the first four
 # text columns (Protein_ID, Localizations, Signals, Membrane types).
 _DEEPLOC_PROB_COLS = (
@@ -176,7 +178,9 @@ def _heuristic_predictions(
     for seqid, seq in records:
         sc = predict_heuristic(seq, sequence_id=seqid)
         scores.append(sc)
-        top = sc.predicted[0] if sc.predicted else "Cytoplasm"
+        # no compartment clears the core's 0.5 threshold: "no confident
+        # localization", not a call of Cytoplasm
+        top = sc.predicted[0] if sc.predicted else "Unassigned"
         summaries.append(
             {
                 "id": seqid,
@@ -237,6 +241,8 @@ def _parse_deeploc_output(path: Path) -> dict[str, dict[str, Any]]:
                 except ValueError:
                     continue
                 raw[col] = p
+                if col in _DEEPLOC_NOT_COMPARTMENT:
+                    continue
                 name = _DEEPLOC_MAP.get(col, col)
                 mapped[name] = max(mapped.get(name, 0.0), p)
             # Predicted = the DeepLoc-reported "Localizations" cell (authoritative
@@ -246,7 +252,7 @@ def _parse_deeploc_output(path: Path) -> dict[str, dict[str, Any]]:
             predicted = (
                 _DEEPLOC_MAP.get(labels[0], labels[0])
                 if labels
-                else (max(mapped, key=mapped.get) if mapped else "Cytoplasm")
+                else (max(mapped, key=mapped.get) if mapped else "Unassigned")
             )
             out[seqid] = {
                 "predicted": predicted,
@@ -313,9 +319,10 @@ def _parse_targetp_output(path: Path) -> dict[str, dict[str, Any]]:
                 except ValueError:
                     continue
                 probs[mapped] = max(probs.get(mapped, 0.0), p)
-            top = max(probs, key=probs.get) if probs else "Cytoplasm"
+            top = max(probs, key=probs.get) if probs else "Unassigned"
             out[seqid] = {
-                "predicted": top if probs.get(top, 0.0) >= 0.5 else "Cytoplasm",
+                # below 0.5 nothing is called; that is not a Cytoplasm call
+                "predicted": top if probs.get(top, 0.0) >= 0.5 else "Unassigned",
                 "probabilities": {k: round(v, 3) for k, v in probs.items()},
             }
     return out

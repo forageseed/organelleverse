@@ -161,7 +161,7 @@ def _seed_release_bundles(tmp_path: Path) -> None:
     from tests.capabilities.release_bundles import release_bundle_ids
 
     slug = lambda operation_id: operation_id.replace("_", "-").replace(".", "-")  # noqa: E731
-    source_root = Path(__file__).resolve().parents[2] / "src" / "organelleverse" / "capabilities"
+    source_root = Path(__file__).resolve().parents[2] / "src" / "capabilities"
     target_root = tmp_path / "installed-package" / "capabilities"
     for operation_id in release_bundle_ids():
         shutil.copytree(
@@ -173,7 +173,11 @@ def _seed_release_bundles(tmp_path: Path) -> None:
 def _admit(capability_id: str, home: Path) -> None:
     """Drive discover -> verify -> re-discover so *capability_id* reaches ADMITTED."""
     discovered = discover_capabilities()
-    assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+    unverified = discovered.describe(capability_id)
+    # Verification is advisory for first-party code: admitted, with a diagnostic.
+    assert unverified.status is CapabilityStatus.ADMITTED
+    assert unverified.diagnostic is not None
+    assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     verify_capability(
@@ -221,7 +225,7 @@ def test_reaching_the_capability_does_not_break_the_twenty_released_bindings(
     bundles, and the 16 are verified into the isolated home so the default
     registry serves them exactly as production would.
     """
-    from tests.capabilities.release_bundles import verify_release_bundles
+    from tests.capabilities.release_bundles import release_operation_ids, verify_release_bundles
 
     home = _isolate_standard_roots(tmp_path, monkeypatch)
     _seed_release_bundles(tmp_path)
@@ -231,12 +235,13 @@ def test_reaching_the_capability_does_not_break_the_twenty_released_bindings(
     fresh_registry = _ReleaseOperationRegistry()
     fresh_registry.list()  # trigger catalog + capability source attachment
 
-    release_specs = tuple(
-        spec for spec in fresh_registry.list() if spec.operation_id != _CAPABILITY_ID
-    )
-    bindings = tuple(fresh_registry.require(spec.operation_id) for spec in release_specs)
+    # tools.adapter is attached alongside; only the 20 release ids are pinned.
+    release = release_operation_ids()
+    listed = {spec.operation_id for spec in fresh_registry.list()}
+    assert _CAPABILITY_ID in listed
+    bindings = tuple(fresh_registry.require(operation_id) for operation_id in sorted(release))
 
-    assert len(bindings) == 20
+    assert release <= listed
     assert all(binding.invocation_strategy is None for binding in bindings)
 
 

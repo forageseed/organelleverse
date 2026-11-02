@@ -104,3 +104,61 @@ def test_rust_fft_anchors_preserve_repetitive_sequences():
     assert len({len(s) for s in aligned.values()}) == 1
     for name, original in sequences:
         assert aligned[name].replace("-", "") == original
+
+
+@pytest.mark.parametrize(("alphabet", "flag", "sequence"), [("dna", "--nuc", "ACGTAC"), ("protein", "--amino", "MAAAAA")])
+def test_explicit_alphabet_controls_mafft_and_bypasses_untyped_rust(tmp_path, monkeypatch, alphabet, flag, sequence):
+    source = tmp_path / "overlapping.fa"
+    source.write_text(f">a\n{sequence}\n>b\n{sequence}\n")
+    monkeypatch.setattr(phylo, "_which", lambda _: "/mafft")
+    monkeypatch.setattr(accel, "mafft_align", lambda *args: pytest.fail("Untyped Rust must not infer an explicitly declared alphabet"))
+    calls = []
+
+    def execute(argv, **kwargs):
+        calls.append(argv)
+        return CompletedProcess(argv, 0, kwargs["input_data"], "")
+
+    monkeypatch.setattr(phylo, "run_external", execute)
+    result = phylo.align(source, alphabet=alphabet)
+    assert result.status == "ok"
+    assert result.metrics["alphabet"] == alphabet
+    assert flag in calls[0] and "--auto" in calls[0]
+
+
+def test_explicit_alphabet_requires_cli_instead_of_guessing_with_rust(fasta, monkeypatch):
+    monkeypatch.setattr(phylo, "_which", lambda _: None)
+    monkeypatch.setattr(accel, "mafft_align", lambda *args: pytest.fail("Must not guess the declared sequence type"))
+    result = phylo.align(fasta, alphabet="protein")
+    assert result.status == "failed"
+    assert result.errors[0].code == "phylogeny.align.backend_missing"
+    forced = phylo.align(fasta, method="rust", alphabet="protein")
+    assert forced.status == "failed"
+    assert forced.errors[0].code == "phylogeny.align.unsupported_alphabet"
+
+
+def test_default_auto_alphabet_preserves_rust_selection(fasta, monkeypatch):
+    monkeypatch.setattr(phylo, "_which", lambda _: pytest.fail("Default auto still prefers the existing Rust backend"))
+    monkeypatch.setattr(accel, "mafft_align", lambda records, mode: [("a", "AC-GT"), ("b", "ACGGT")])
+    result = phylo.align(fasta)
+    assert result.status == "ok" and result.metrics["method"] == "rust_mafft"
+    assert result.metrics["alphabet"] == "auto"
+
+
+def test_partition_forces_protein_for_low_complexity_translation(monkeypatch):
+    from organelleverse.phylogeny._results import ok_result
+    from organelleverse.phylogeny.partition import _codon_align
+    from organelleverse.sequences import as_records
+
+    calls = []
+
+    def align_proteins(source, *, method, alphabet):
+        calls.append((method, alphabet))
+        proteins = as_records(source)
+        assert proteins == [("a", "MAAAAA"), ("b", "MAAAAA")]
+        return ok_result("align", summary_text="Declared-protein fixture.", metrics={"method": "fixture", "alignment": proteins})
+
+    monkeypatch.setattr(phylo, "align", align_proteins)
+    cds = "ATG" + "GCT" * 5
+    aligned, _ = _codon_align([("a", cds), ("b", cds)], 11, "auto")
+    assert aligned == [("a", cds), ("b", cds)]
+    assert calls == [("auto", "protein")]

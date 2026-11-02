@@ -21,7 +21,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-from pydantic import PrivateAttr
+from pydantic import ConfigDict, PrivateAttr
 
 from ..core.artifacts import ArtifactRef
 from ..core.frozen import thaw_json
@@ -362,6 +362,12 @@ def failed_plot_result(
 
 class OrganellePlot(OrganelleResult):
     """An ``OrganelleResult`` that can be displayed and saved like a plot."""
+
+    # A plot is frozen and was validated when it was built; revalidating the
+    # instance adds nothing and rebuilds it without its private state, so a
+    # validator that checks a returned plot (``TypeAdapter(OrganellePlot)``)
+    # would hand back a plot with no renderer, which ``ov.write`` refuses.
+    model_config = ConfigDict(revalidate_instances="never")
 
     _renderer: PlotRenderer | None = PrivateAttr(default=None)
     _render_state: dict[str, Any] = PrivateAttr(default_factory=dict)

@@ -6,7 +6,7 @@ in pure Python, with optional MAFFT for protein alignment.
 Pipeline (6 steps, mirroring the standard codeml-prep bash script):
   1. validate_cds()    — check CDS integrity (multiple of 3, ATG start, no stops)
   2. translate()       — CDS → protein (standard genetic code)
-  3. align_protein()   — protein MSA (MAFFT subprocess, or self-contained)
+  3. align_protein()   — protein MSA (explicit MAFFT/Rust backend)
   4. pal2nal()         — back-align protein MSA → codon alignment (pure Python)
   5. to_paml()         — FASTA → PAML format (T→U conversion)
   6. prepare_codeml()  — one-call pipeline wrapping 1-5
@@ -27,6 +27,7 @@ from typing import Any
 from organelleverse._public_validation import validated_public
 
 from ..core.external import run_external
+from ..core.errors import OrganelleInputError
 from ..core.result import OrganelleResult
 from ..selection.kaks import _CODONS as STANDARD_CODONS
 from ..sequences import Sequences, as_path, as_records
@@ -76,6 +77,8 @@ def validate_cds(
         seq = seq.upper().replace("U", "T")
         issues: list[str] = []
         # check length
+        if not seq:
+            issues.append("empty_sequence")
         if len(seq) % 3 != 0:
             issues.append("not_multiple_of_3")
         # check valid characters
@@ -103,6 +106,7 @@ def validate_cds(
             "n_sequences": len(seqs),
             "n_passed": n_pass,
             "n_failed": len(seqs) - n_pass,
+            "records": results,
         },
         findings=_contract.findings(
             "validate_cds",
@@ -192,59 +196,47 @@ def align_protein(
     method: str = "mafft",
     executor: Any = None,
 ) -> OrganelleResult:
-    """Align protein sequences (MAFFT subprocess or self-contained).
+    """Align proteins with the requested backend.
 
-    With ``method="mafft"`` and MAFFT installed, runs ``mafft --auto``.
-    Otherwise falls back to a self-contained ungapped concatenation.
-
-    Compute-only: returns the aligned FASTA records in
-    ``metrics["records"]`` and writes no user file. Materialize the
-    alignment with :func:`_materialize_aligned_protein`,
-    :func:`ov.selection.write`, or the generic :func:`ov.write`.
+    ``method="mafft"`` requires the actual MAFFT executable. ``rust-mafft``
+    explicitly selects the optional Rust implementation. ``ungapped`` accepts
+    an existing equal-length alignment without changing its columns; it never
+    pads unequal sequences or substitutes for a failed aligner.
     """
     parameters = {"method": method}
     seqs = as_records(protein_fasta)
     if not seqs:
-        return _contract.failed(
-            "align_protein",
-            summary_text="No sequences.",
-            anomalies=["empty"],
-            parameters=parameters,
-        )
-
-    aligned: list[tuple[str, str]]
-    used_method = "ungapped"
-    # Priority: Rust MAFFT (pure-Rust, no external dep) > external MAFFT > ungapped
-    from .. import accel
-
-    max_len = max(len(s) for _, s in seqs)
-    if accel.HAS_RUST and method in ("mafft", "rust-mafft"):
-        try:
-            raw = accel.mafft_align(list(seqs), "fft-ns-2")
-            # validate: all sequences must have the same length and be non-empty
-            if raw and all(len(s) > 0 for _, s in raw) and len({len(s) for _, s in raw}) == 1:
-                aligned = raw
-                used_method = "rust-mafft"
-            else:
-                raise ValueError("Rust MAFFT produced empty/invalid alignment")
-        except Exception:
-            # fall through to external MAFFT or ungapped
-            if shutil.which("mafft"):
-                try:
-                    aligned = _run_mafft(Path(as_path(protein_fasta)))
-                    used_method = "external-mafft"
-                except Exception:
-                    aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
-            else:
-                aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
-    elif method == "mafft" and shutil.which("mafft"):
-        try:
-            aligned = _run_mafft(Path(as_path(protein_fasta)))
-            used_method = "external-mafft"
-        except Exception:
-            aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
+        return _contract.failed("align_protein", summary_text="No sequences.",
+                                anomalies=["empty"], parameters=parameters)
+    if method == "mafft":
+        if not shutil.which("mafft"):
+            return _contract.failed(
+                "align_protein", summary_text="MAFFT is required for method='mafft'.",
+                anomalies=["mafft_not_found"], parameters=parameters)
+        aligned = _run_mafft(Path(as_path(protein_fasta)))
+        used_method = "external-mafft"
+    elif method == "rust-mafft":
+        from .. import accel
+        if not accel.HAS_RUST:
+            return _contract.failed(
+                "align_protein", summary_text="Rust alignment backend is unavailable.",
+                anomalies=["rust_mafft_not_found"], parameters=parameters)
+        aligned = accel.mafft_align(list(seqs), "fft-ns-2")
+        used_method = "rust-mafft"
+    elif method == "ungapped":
+        aligned = list(seqs)
+        used_method = "ungapped"
     else:
-        aligned = [(name, seq.ljust(max_len, "-")) for name, seq in seqs]
+        raise OrganelleInputError(code="selection.alignment_method",
+                                  message=f"unknown protein alignment method: {method!r}")
+    expected = {name: seq.replace("-", "") for name, seq in seqs}
+    observed = {name: seq.replace("-", "") for name, seq in aligned}
+    if (len(aligned) != len(seqs) or expected != observed
+            or len({len(seq) for _, seq in aligned}) != 1
+            or not all(seq for _, seq in aligned)):
+        return _contract.failed(
+            "align_protein", summary_text="Protein alignment must preserve every sequence and have equal non-empty column lengths.",
+            anomalies=["invalid_protein_alignment"], parameters=parameters)
 
     return _contract.ok(
         "align_protein",
@@ -271,7 +263,7 @@ def align_protein(
 
 def _run_mafft(input_path: Path) -> list[tuple[str, str]]:
     """Run MAFFT and parse the aligned output."""
-    result = run_external(["mafft", "--auto", str(input_path)], tool="MAFFT")
+    result = run_external(["mafft", "--amino", "--auto", str(input_path)], tool="MAFFT")
     return _read_fasta_str(result.stdout)
 
 
@@ -554,7 +546,9 @@ def write_codeml_inputs(
 ) -> OrganelleResult:
     """One-call pipeline: CDS → validate → translate → align → PAL2NAL → PAML.
 
-    This mirrors the standard batch codeml-prep bash script but in pure Python.
+    ``use_mafft=False`` asserts that the translated CDS already share aligned
+    columns. Equal lengths are required; no missing backend is replaced by
+    padding. Invalid CDS are excluded using the same validation decisions.
     Produces in ``output_dir``:
       - validated_cds.fasta   (CDS passing validation)
       - protein.fasta         (translated proteins)
@@ -573,7 +567,7 @@ def write_codeml_inputs(
     val = validate_cds(cds_fasta, require_start=require_start)
     step_results["validate"] = val.metrics
     steps_done.append("validate")
-    if val.metrics["n_passed"] == 0:
+    if val.status != "ok" or val.metrics["n_passed"] == 0:
         return _contract.failed(
             "prepare_codeml",
             summary_text="No CDS passed validation.",
@@ -581,16 +575,15 @@ def write_codeml_inputs(
             parameters=parameters,
         )
 
-    # filter to passing sequences
+    # Reuse the exact validation decisions, including internal stops/characters.
     all_seqs = as_records(cds_fasta)
-    valid_seqs = []
-    for name, seq in all_seqs:
-        seq_u = seq.upper().replace("U", "T")
-        passed = len(seq_u) % 3 == 0
-        if require_start and len(seq_u) >= 3 and seq_u[:3] != "ATG":
-            passed = False
-        if passed:
-            valid_seqs.append((name, seq_u))
+    decisions = val.metrics["records"]
+    valid_seqs = [(name, seq.upper().replace("U", "T"))
+                  for (name, seq), decision in zip(all_seqs, decisions, strict=True)
+                  if decision["passed"]]
+    if len(valid_seqs) < 2:
+        return _contract.failed("prepare_codeml", summary_text="CodeML requires at least two validated CDS sequences.",
+                                anomalies=["too_few_valid_cds"], parameters=parameters)
     valid_cds_path = out / "validated_cds.fasta"
     valid_cds_path.write_text("\n".join(f">{n}\n{s}" for n, s in valid_seqs) + "\n")
     steps_done.append("filter")
@@ -605,6 +598,10 @@ def write_codeml_inputs(
     prot_aln_path = out / "protein_aln.fasta"
     aln = align_protein(prot_path, method="mafft" if use_mafft else "ungapped")
     step_results["align"] = aln.metrics
+    if aln.status != "ok":
+        return _contract.failed(
+            "prepare_codeml", summary_text=aln.summary(),
+            anomalies=["protein_alignment_failed"], parameters=parameters)
     _materialize_aligned_protein(aln, prot_aln_path)
     steps_done.append("align")
 
@@ -629,6 +626,8 @@ def write_codeml_inputs(
         metrics={
             "steps_completed": len(steps_done),
             "n_valid_cds": len(valid_seqs),
+            "n_rejected_cds": val.metrics["n_failed"],
+            "cds_validation": list(decisions),
             "alignment_codons": p2n.metrics.get("alignment_codons", 0),
             "mafft_used": aln.metrics.get("mafft_used", False),
         },

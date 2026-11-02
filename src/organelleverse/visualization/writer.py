@@ -76,6 +76,11 @@ def materialize_result(result: OrganelleResult, output: str | Path) -> Organelle
     if result.operation_id in TREE_PLOT_OPERATIONS:
         return restore_tree_plot(result).materialize(destination)
 
+    from .collinearity import COLLINEARITY_OPERATIONS, restore_collinearity_plot
+
+    if result.operation_id in COLLINEARITY_OPERATIONS and "genomes" in result.metrics:
+        return restore_collinearity_plot(result).materialize(destination)
+
     from .paper_figures import PAPER_FIGURE_OPERATIONS, restore_paper_figure
 
     if result.operation_id in PAPER_FIGURE_OPERATIONS:

@@ -19,7 +19,7 @@ from typing import cast
 from uuid import uuid4
 
 from organelleverse.core.artifacts import ArtifactRef
-from organelleverse.core.errors import OrganelleError
+from organelleverse.core.errors import OrganelleDependencyError, OrganelleError
 from organelleverse.core.frozen import FrozenMap
 from organelleverse.core.genome import OrganelleGenome
 from organelleverse.core.provenance import ResultProvenance
@@ -372,6 +372,20 @@ def _execute_validate_and_persist(
                         "orfipy": version("orfipy"),
                     },
                 )
+            except OrganelleDependencyError as error:
+                # ORFs are on by default but orfipy is an optional extra: keep the
+                # validated known-gene annotation and record why no candidates were added.
+                backend_run = replace(
+                    backend_run,
+                    document=backend_run.document.evolve(
+                        source_metadata=FrozenMap(
+                            {
+                                **dict(backend_run.document.source_metadata),
+                                "orf_candidates_skipped": error.code,
+                            }
+                        )
+                    ),
+                )
             except OrganelleError as error:
                 return _error_from_exception(genome, error)
 
@@ -398,10 +412,18 @@ def run_annotation(
     """Execute one released backend and persist only validated canonical output."""
 
     if genome.sequence is None:
+        # A GenBank read is an existing annotation (for annotation.extract and
+        # qc.annotation); annotate starts from the nucleotide FASTA.
         return _error_result(
             genome,
             code="input.missing_sequence_artifact",
-            message="annotation requires a sequence artifact",
+            message="annotation requires a sequence artifact"
+            + (
+                "; this genome was read from GenBank, which annotate does not take — "
+                "write its FASTA with ov.fetch.genbank_to_fasta and read that"
+                if genome.annotation is not None and genome.annotation.format == "genbank"
+                else ""
+            ),
         )
     try:
         _validate_artifact(
@@ -507,7 +529,10 @@ def run_annotation(
         if isinstance(empty_value, tuple)
         else ()
     )
+    orf_skipped = source_metadata.get("orf_candidates_skipped")
     summary = f"Annotated {feature_count} features with {backend_name}."
+    if orf_skipped:
+        summary += " ORF candidates skipped: orfipy is not installed (organelleverse[orf])."
     if stages_without_features:
         summary += f" Partial annotation: no features from {', '.join(stages_without_features)}."
     if rejected_count:
@@ -523,13 +548,17 @@ def run_annotation(
     if stages_without_features:
         flags.append("partial_annotation")
     orf_metrics = source_metadata.get("orf_candidates") if request.call_orfs else None
-    if request.call_orfs:
+    if orf_skipped:
+        flags.append("orf_candidates_skipped")
+    elif request.call_orfs:
         flags.append("sequence_only_orf_candidates")
     return OrganelleResult(
         operation_id="annotation.annotate",
         scope=genome.organelle,
         status=(
-            "warning" if rejected_count or missing_core_genes or stages_without_features else "ok"
+            "warning"
+            if rejected_count or missing_core_genes or stages_without_features or orf_skipped
+            else "ok"
         ),
         summary_text=summary,
         metrics=FrozenMap(
@@ -548,7 +577,8 @@ def run_annotation(
                     if request.allow_partial
                     else {}
                 ),
-                **({"orf_candidates": orf_metrics} if request.call_orfs else {}),
+                **({"orf_candidates": orf_metrics} if request.call_orfs and not orf_skipped else {}),
+                **({"orf_candidates_skipped": orf_skipped} if orf_skipped else {}),
             }
         ),
         flags=tuple(flags),

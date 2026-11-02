@@ -51,8 +51,8 @@ def assess_cms_candidates(
     min_homolog_coverage: float = 0.8,
     min_alignment_aa: int = 20,
     evalue: float = 1e-5,
-    tm_window: int = 21,
-    tm_threshold: float = 0.5,
+    tm_window: int = 19,  # Kyte & Doolittle transmembrane rule; see phenotype.cms.pipeline.cms
+    tm_threshold: float = 1.6,
     threads: int = 1,
     timeout: int = 120,
     losat_path: str = "LOSAT",

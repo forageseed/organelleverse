@@ -57,13 +57,25 @@ def annotate(
     threads: Annotated[int, Ge(1), Le(256)] = 4,
     call_trna: bool = True,
     call_rrna: bool = True,
-    call_orfs: bool = False,
-    orf_min_aa: Annotated[int, Ge(1)] = 30,
+    call_orfs: bool = True,
+    orf_min_aa: Annotated[int, Ge(1)] = 100,
     orf_circular: bool = False,
     allow_partial: bool = False,
     rotate_to_trnh: bool = False,
 ) -> OrganelleResult:
     """Annotate known genes and optionally add sequence-only candidate ORF CDSs.
+
+    Candidate ORFs are on by default (``call_orfs=False`` turns them off) at the
+    usual plant organelle threshold of 100 codons; 30 aa adds about 1,800
+    candidates to an Arabidopsis mitogenome against 138 at 100 aa. Without the
+    optional orfipy engine the known-gene annotation is still returned, with
+    status "warning" and flag "orf_candidates_skipped".
+
+    ``genome`` must carry a sequence artifact, i.e. be read from FASTA
+    (``ov.read("mt.fasta", organelle=..., species=...)``). A genome read from
+    GenBank carries only its existing annotation — the input of
+    ``annotation.extract`` and ``qc.annotation`` — and is refused here; write its
+    FASTA with ``ov.fetch.genbank_to_fasta`` to re-annotate it.
 
     ORFs use complete ATG-start candidates and the genome metadata genetic code.
     Circular scanning is explicit; sequence-only candidates do not establish

@@ -1,0 +1,37 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "structure.graph_complexity"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Graph Complexity"
+description = "Classify an organelle assembly graph (GFA) as simple, complex or multicomponent, with segment/link/component counts, dead ends, double-fork repeat nodes and log mean segments per component; optionally restricted to the components holding given sequences (e.g. the mitochondrial contigs of a raw oatk graph)."
+keywords = ["assembly", "complexity", "components", "gfa", "graph", "structure"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.structure.graph_complexity:graph_complexity"
+side_effects = ["read_files"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "gfa"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "sequences"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "min_kmer_fraction"
+codec = "json"

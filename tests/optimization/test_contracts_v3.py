@@ -247,12 +247,12 @@ def test_baseline_must_exactly_cover_closed_domains(parameters: dict[str, object
         OptimizationDeclarationV3(**payload)
 
 
-def test_every_prior_is_validated_and_minegraph_remains_an_initial_candidate() -> None:
+def test_every_prior_is_validated_and_a_published_tool_prior_remains_an_initial_candidate() -> None:
     payload = declaration_payload()
     payload["priors"] = (
         PriorCandidateV3(
-            prior_id="minegraph-compatible.v1",
-            source="minegraph",
+            prior_id="mash-max-distance.v1",
+            source="published_tool",
             parameters={"iterations": 4},
             evidence_refs=("artifact:recommendation",),
         ),
@@ -264,12 +264,22 @@ def test_every_prior_is_validated_and_minegraph_remains_an_initial_candidate() -
     assert not hasattr(declaration.priors[0], "adopted")
     with pytest.raises(ValidationError):
         PriorCandidateV3(
-            prior_id="minegraph-compatible.v1",
-            source="minegraph",
+            prior_id="mash-max-distance.v1",
+            source="published_tool",
             parameters={"iterations": 4},
             evidence_refs=("artifact:recommendation",),
             score=1.0,
         )
+
+
+def test_legacy_prior_source_spelling_still_validates() -> None:
+    prior = PriorCandidateV3(
+        prior_id="legacy.v1",
+        source="minegraph",
+        parameters={"iterations": 4},
+        evidence_refs=("artifact:recommendation",),
+    )
+    assert prior.source == "minegraph"
 
 
 @pytest.mark.parametrize("prior_id", ["", "   "])

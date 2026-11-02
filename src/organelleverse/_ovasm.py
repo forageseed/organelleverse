@@ -1,24 +1,22 @@
-"""Resolution and invocation of the vendored ``ovasm`` binary (rust/ovasm).
+"""Resolution and invocation of the ``ovasm`` binary (forageseed/ovasm, 0.6.0 or later).
 
-``ovasm recruit`` scans sequencing reads once and writes the reads of each seeded
-organelle target (plus NUMT candidates and a JSON report); ``ovasm discover`` does
+``ovasm find recruit`` scans sequencing reads once and writes the reads of each seeded
+organelle target (plus NUMT candidates and a JSON report); ``ovasm find discover`` does
 the same without seeds, by k-mer depth. Assembly backends then work on a small,
-depth-normalised read set instead of the whole-genome library. ``ovasm components``
+depth-normalised read set instead of the whole-genome library. ``ovasm assemble filter``
 drops the connected components of an assembly graph that are not the target organelle
-(for reads found by depth, which bring nuclear repeats along). ``ovasm evidence``
+(for reads found by depth, which bring nuclear repeats along). ``ovasm check evidence``
 scores an assembly graph against long reads: support for every link, the minority
 share at each branch point and the pairings across two-copy repeats. ``ovasm
 linearize`` turns that report into one representative sequence through the
-read-supported phased paths and says whether the reads single it out. ``ovasm unify``
+read-supported phased paths and says whether the reads single it out. ``ovasm assemble unify``
 rewrites any backend's graph as OV-GFA v1 (blunt links, PanSN paths, common tags) for
-the pangenome module. ``ovasm run`` is the whole flow in one call: recruitment, assembly
+the pangenome module. ``ovasm run hifi``/``ovasm run short`` is the whole flow in one call: recruitment, assembly
 with the k-ladder retry, evidence, linearization, unification and, in standard mode,
 downsampled replicates.
 """
 
 from __future__ import annotations
-
-from organelleverse._layout import checkout_root
 
 import json
 import os
@@ -27,6 +25,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
+from ._bundled import bundled_executable
 from .core.errors import OrganelleDependencyError
 from .core.external import run_external
 
@@ -94,7 +93,7 @@ def run_reconstruction(
     if target_depth is not None and (not math.isfinite(target_depth) or target_depth <= 0):
         raise ValueError("target depth must be finite and positive")
     argv = [
-        _require(), "reconstruct", "--out", str(out_dir), "--sample", sample,
+        _require(), "pan", "reconstruct", "--out", str(out_dir), "--sample", sample,
         "--threads", str(threads), "--salt", str(salt),
     ]
     for path in reads:
@@ -107,13 +106,13 @@ def run_reconstruction(
     if target_depth is not None:
         argv += ["--target-depth", str(target_depth)]
     run_external(
-        argv, tool="ovasm reconstruct", code="assembly.reconstruction_failed",
+        argv, tool="ovasm pan reconstruct", code="assembly.reconstruction_failed",
         timeout=timeout_seconds,
     )
     return json.loads((Path(out_dir) / "reconstruction.json").read_text(encoding="utf-8"))
 
 
-#: ``ovasm evidence`` settings per read type: k, diagonal tolerance, hits per side.
+#: ``ovasm check evidence`` settings per read type: k, diagonal tolerance, hits per side.
 _EVIDENCE_PRESETS: dict[str, tuple[int, int, int]] = {
     "hifi": (21, 30, 10),
     "ont": (15, 150, 5),
@@ -126,7 +125,7 @@ _DISABLED_TOKENS = {"none", "off", "disable", "0"}
 
 
 def resolve_ovasm() -> str | None:
-    """Resolve the ovasm binary: env override, then the checkout build, then PATH."""
+    """Resolve the ovasm binary: env override, packaged build, then PATH."""
     env_value = os.environ.get("ORG_VERSE_OVASM_BIN")
     if env_value:
         if env_value.strip().casefold() in _DISABLED_TOKENS:
@@ -136,11 +135,7 @@ def resolve_ovasm() -> str | None:
         )
         if resolved:
             return resolved
-    name = "ovasm.exe" if os.name == "nt" else "ovasm"
-    candidate = checkout_root() / "rust" / "ovasm" / "target" / "release" / name
-    if candidate.is_file() and os.access(candidate, os.X_OK):
-        return str(candidate)
-    return shutil.which("ovasm")
+    return bundled_executable("ovasm") or shutil.which("ovasm")
 
 
 def _require() -> str:
@@ -148,7 +143,7 @@ def _require() -> str:
     if binary is None:
         raise OrganelleDependencyError(
             code="dependency_missing",
-            message="ovasm is not available; build it with `cargo build --release` in rust/ovasm "
+            message="ovasm is not available; put ovasm 0.6.0 or later (forageseed/ovasm) on PATH "
             "or set ORG_VERSE_OVASM_BIN",
             details={"missing": ["ovasm"]},
         )
@@ -171,7 +166,7 @@ def run_recruit(
     extend_gate: bool = False,
     numt_min_block: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm recruit`` and return its parsed ``recruit.json`` report.
+    """Run ``ovasm find recruit`` and return its parsed ``recruit.json`` report.
 
     ``iterations`` defaults to the preset's own: 20 for hifi/sr, 1 for noisy ont reads.
     ``seed_reads`` seeds targets from reads (their solid k-mers) instead of, or besides, a
@@ -191,6 +186,7 @@ def run_recruit(
         raise ValueError("at least one seed target is required (use run_discover without seeds)")
     argv: list[str] = [
         _require(),
+        "find",
         "recruit",
         "--out",
         str(out_dir),
@@ -225,7 +221,7 @@ def run_recruit(
         argv.append("--extend-gate")
     if numt_min_block is not None:
         argv += ["--numt-min-block", str(numt_min_block)]
-    run_external(argv, tool="ovasm recruit", code="assembly.recruitment_failed")
+    run_external(argv, tool="ovasm find recruit", code="assembly.recruitment_failed")
     return json.loads((Path(out_dir) / "recruit.json").read_text(encoding="utf-8"))
 
 
@@ -237,17 +233,17 @@ def run_discover(
     salt: int = 0,
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run seed-free ``ovasm discover`` and return its parsed ``discover.json`` report."""
+    """Run seed-free ``ovasm find discover`` and return its parsed ``discover.json`` report."""
     if not reads:
         raise ValueError("at least one read file is required")
-    argv: list[str] = [_require(), "discover", "--out", str(out_dir), "--salt", str(salt)]
+    argv: list[str] = [_require(), "find", "discover", "--out", str(out_dir), "--salt", str(salt)]
     for path in reads:
         argv += ["--reads", str(path)]
     if target_depth is not None:
         argv += ["--target-depth", str(target_depth)]
     if threads is not None:
         argv += ["--threads", str(threads)]
-    run_external(argv, tool="ovasm discover", code="assembly.recruitment_failed")
+    run_external(argv, tool="ovasm find discover", code="assembly.recruitment_failed")
     return json.loads((Path(out_dir) / "discover.json").read_text(encoding="utf-8"))
 
 
@@ -258,19 +254,19 @@ def run_label(
     out_dir: str | Path,
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm label``: assemble each read cluster, label unitigs by organelle genes.
+    """Run ``ovasm find label``: assemble each read cluster, label unitigs by organelle genes.
 
     Returns the parsed ``labels.json``; its ``seeds`` hold one FASTA per organelle (an empty
     string when no unitig of that organelle was found).
     """
     if not clusters:
         raise ValueError("at least one read cluster is required")
-    argv: list[str] = [_require(), "label", "--genes", str(genes), "--out", str(out_dir)]
+    argv: list[str] = [_require(), "find", "label", "--genes", str(genes), "--out", str(out_dir)]
     for path in clusters:
         argv += ["--reads", str(path)]
     if threads is not None:
         argv += ["--threads", str(threads)]
-    run_external(argv, tool="ovasm label", code="assembly.label_failed")
+    run_external(argv, tool="ovasm find label", code="assembly.label_failed")
     return json.loads((Path(out_dir) / "labels.json").read_text(encoding="utf-8"))
 
 
@@ -281,19 +277,19 @@ def run_identify(
     out_json: str | Path,
     k: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm identify``: k-mer containment of ``query`` in each reference genome.
+    """Run ``ovasm pan identify``: k-mer containment of ``query`` in each reference genome.
 
     ``references`` maps a set name (e.g. ``mitochondrion``) to a FASTA with one genome per
     record. Returns the parsed report, references ranked by containment.
     """
     if not references:
         raise ValueError("at least one reference set is required")
-    argv: list[str] = [_require(), "identify", "--query", str(query), "--out", str(out_json)]
+    argv: list[str] = [_require(), "pan", "identify", "--query", str(query), "--out", str(out_json)]
     for name, path in references.items():
         argv += ["--reference", f"{name}={path}"]
     if k is not None:
         argv += ["--k", str(k)]
-    run_external(argv, tool="ovasm identify", code="assembly.identify_failed")
+    run_external(argv, tool="ovasm pan identify", code="assembly.identify_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -307,7 +303,7 @@ def run_evidence(
     bootstrap: int = 1000,
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm evidence`` on an assembly graph and return the parsed JSON report."""
+    """Run ``ovasm check evidence`` on an assembly graph and return the parsed JSON report."""
     if not reads:
         raise ValueError("at least one read file is required")
     if preset not in _EVIDENCE_PRESETS:
@@ -315,6 +311,7 @@ def run_evidence(
     k, diag_tol, side_hits = _EVIDENCE_PRESETS[preset]
     argv: list[str] = [
         _require(),
+        "check",
         "evidence",
         "--gfa",
         str(gfa),
@@ -339,7 +336,7 @@ def run_evidence(
         argv += ["--reads", str(path)]
     if threads is not None:
         argv += ["--threads", str(threads)]
-    run_external(argv, tool="ovasm evidence", code="assembly.evidence_failed")
+    run_external(argv, tool="ovasm check evidence", code="assembly.evidence_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -352,7 +349,7 @@ def run_linearize(
     min_reads: int = 2,
     max_molecules: int = 0,
 ) -> dict[str, Any]:
-    """Run ``ovasm linearize`` on a graph and its evidence report; return the parsed report.
+    """Run ``ovasm solve linearize`` on a graph and its evidence report; return the parsed report.
 
     ``out_fasta`` is written only when some path visits every unique segment (``best`` set).
     Zero uses the automatic cover envelope, which includes the necessary bound
@@ -360,6 +357,7 @@ def run_linearize(
     """
     argv: list[str] = [
         _require(),
+        "solve",
         "linearize",
         "--gfa",
         str(gfa),
@@ -374,7 +372,7 @@ def run_linearize(
         "--max-molecules",
         str(max_molecules),
     ]
-    run_external(argv, tool="ovasm linearize", code="assembly.evidence_failed")
+    run_external(argv, tool="ovasm solve linearize", code="assembly.evidence_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -391,9 +389,10 @@ def run_unify(
     molecule: str | None = None,
     max_alternatives: int = 3,
 ) -> dict[str, Any]:
-    """Run ``ovasm unify`` and return its parsed JSON report."""
+    """Run ``ovasm assemble unify`` and return its parsed JSON report."""
     argv: list[str] = [
         _require(),
+        "assemble",
         "unify",
         "--gfa",
         str(gfa),
@@ -416,7 +415,7 @@ def run_unify(
         argv += ["--linearization", str(linearize_json)]
     if molecule is not None:
         argv += ["--molecule", molecule]
-    run_external(argv, tool="ovasm unify", code="assembly.unify_failed")
+    run_external(argv, tool="ovasm assemble unify", code="assembly.unify_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -431,7 +430,7 @@ def run_assemble(
     multichrom_graph: bool = False,
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm assemble`` and return its parsed JSON report.
+    """Run ``ovasm assemble graph`` and return its parsed JSON report.
 
     ``dense`` makes every k-mer a node (short reads); ``k`` then defaults to the median read
     length minus 23, otherwise to the largest of 1001, 701, ... 101 whose node depth is enough,
@@ -439,7 +438,7 @@ def run_assemble(
     """
     if not reads:
         raise ValueError("at least one read file is required")
-    argv: list[str] = [_require(), "assemble", "--out", str(out_gfa), "--out-json", str(out_json)]
+    argv: list[str] = [_require(), "assemble", "graph", "--out", str(out_gfa), "--out-json", str(out_json)]
     for path in reads:
         argv += ["--reads", str(path)]
     if k is not None:
@@ -454,7 +453,7 @@ def run_assemble(
         argv += ["--min-count", str(min_count)]
     if threads is not None:
         argv += ["--threads", str(threads)]
-    run_external(argv, tool="ovasm assemble", code="assembly.assemble_failed")
+    run_external(argv, tool="ovasm assemble graph", code="assembly.assemble_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -465,9 +464,9 @@ def run_primary(
     out_json: str | Path,
 ) -> dict[str, Any]:
     """Export primary paths and unplaced segments; these do not certify physical molecules."""
-    argv = [_require(), "primary", "--gfa", str(gfa), "--out", str(out_fasta),
+    argv = [_require(), "solve", "primary", "--gfa", str(gfa), "--out", str(out_fasta),
             "--out-json", str(out_json)]
-    run_external(argv, tool="ovasm primary", code="assembly.primary_failed")
+    run_external(argv, tool="ovasm solve primary", code="assembly.primary_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -480,12 +479,13 @@ def run_correct(
     short_reads: Sequence[str | Path] = (),
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm correct`` (noisy long reads; hybrid when ``short_reads`` are given, which
+    """Run ``ovasm assemble correct`` (noisy long reads; hybrid when ``short_reads`` are given, which
     then also runs self rounds for stretches the short reads miss) and return its report."""
     if not reads:
         raise ValueError("at least one read file is required")
     argv: list[str] = [
         _require(),
+        "assemble",
         "correct",
         "--out",
         str(out_fasta),
@@ -500,7 +500,7 @@ def run_correct(
         argv += ["--short-reads", str(path)]
     if threads is not None:
         argv += ["--threads", str(threads)]
-    run_external(argv, tool="ovasm correct", code="assembly.correct_failed")
+    run_external(argv, tool="ovasm assemble correct", code="assembly.correct_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -519,10 +519,10 @@ def run_components(
     out_assigned_gfa: str | Path | None = None,
     out_unassigned_gfa: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm components`` on an assembly graph and return its report.
+    """Run ``ovasm assemble filter`` on an assembly graph and return its report.
 
     ``out_gfa`` gets the connected components that are the target organelle: the one with the
-    most target genes (conserved-protein panel, as ``ovasm panel``), those with target
+    most target genes (conserved-protein panel, as ``ovasm find classify``), those with target
     genes unless far shallower (``gene_depth_factor``), and those without genes whose depth is
     within ``depth_factor`` of it. ``report["components"]`` lists every component, kept or
     removed, with its length, depth, genes and reason. Optional ``read_origins`` is the
@@ -535,7 +535,8 @@ def run_components(
     """
     argv: list[str] = [
         _require(),
-        "components",
+        "assemble",
+        "filter",
         "--gfa",
         str(gfa),
         "--organelle",
@@ -561,7 +562,7 @@ def run_components(
                        ("--out-unassigned-gfa", out_unassigned_gfa)):
         if path is not None:
             argv += [flag, str(path)]
-    run_external(argv, tool="ovasm components", code="assembly.components_failed")
+    run_external(argv, tool="ovasm assemble filter", code="assembly.components_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -573,15 +574,15 @@ def run_panel(
     exclude_species: Sequence[str] = (),
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm panel`` and return its report.
+    """Run ``ovasm find classify`` and return its report.
 
-    Each file of ``sets`` (e.g. a ``discover`` cluster) is called on its own as
+    Each file of ``sets`` (e.g. a ``find discover`` cluster) is called on its own as
     ``mitochondrion``, ``plastid``, ``mixed`` or ``none`` from the conserved organelle proteins
     its reads encode; ``report["sets"]`` follows the order of ``sets``.
     """
     if not sets:
         raise ValueError("at least one read set is required")
-    argv: list[str] = [_require(), "panel", "--out-json", str(out_json)]
+    argv: list[str] = [_require(), "find", "classify", "--out-json", str(out_json)]
     for path in sets:
         argv += ["--reads", str(path)]
     if panel is not None:
@@ -590,7 +591,7 @@ def run_panel(
         argv += ["--exclude-species", name]
     if threads is not None:
         argv += ["--threads", str(threads)]
-    run_external(argv, tool="ovasm panel", code="assembly.identify_failed")
+    run_external(argv, tool="ovasm find classify", code="assembly.identify_failed")
     return json.loads(Path(out_json).read_text(encoding="utf-8"))
 
 
@@ -615,7 +616,7 @@ def run_pipeline(
     component_panel: str | Path | None = None,
     threads: int | None = None,
 ) -> dict[str, Any]:
-    """Run ``ovasm run`` (reads to organelle graph and molecules) and return ``summary.json``.
+    """Run ``ovasm run hifi``/``ovasm run short`` (reads to organelle graph and molecules) and return ``summary.json``.
 
     The binary does what the desktop runner does: recruit the organelle's reads from
     whole-genome reads (``seeds`` maps ``mitochondrion``/``plastid`` to seed FASTA files, e.g.
@@ -628,7 +629,7 @@ def run_pipeline(
     ``recruit_cache`` enables lossless sequence replay with final original quality extraction.
     Source candidate reports retain uncertainty; they do not certify physical origin.
     With ``recruit="discover"``/``"both"`` each graph first loses the components that are not the
-    target organelle (``ovasm components``; ``component_panel`` swaps its protein panel).
+    target organelle (``ovasm assemble filter``; ``component_panel`` swaps its protein panel).
     ``organelle="both"`` writes each organelle into its own subdirectory and returns
     ``{"organelles": {...}}``; a failed run raises with the binary's message.
     """
@@ -640,12 +641,11 @@ def run_pipeline(
     argv: list[str] = [
         _require(),
         "run",
+        "short" if read_type == "sr" else "hifi",
         "--organelle",
         organelle,
         "--out",
         str(out_dir),
-        "--read-type",
-        read_type,
         "--read-set",
         read_set,
         "--recruit",

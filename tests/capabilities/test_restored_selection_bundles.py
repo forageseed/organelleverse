@@ -1,7 +1,7 @@
 """Capability Plan 03/05: the restored ``selection`` bundles, for real.
 
 ``scripts/capabilities/build_restored_bundles.py`` generated 27 bundles
-under ``src/organelleverse/capabilities/selection-*`` from
+under ``src/capabilities/selection-*`` from
 ``docs/operations/restored-capabilities.toml`` - see
 ``organelleverse.capabilities.adapters.selection``'s module docstring for
 the full per-capability reasoning, including two more genuinely ungated
@@ -112,7 +112,7 @@ _EXCLUDED_IDS = (
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 _EXPECTED_BUNDLE_DIRS = {
     "selection-align-protein",
@@ -242,7 +242,11 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
 
     discovered = discover_capabilities()
     for capability_id in _RESTORED_IDS:
-        assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+        unverified = discovered.describe(capability_id)
+        # Verification is advisory for first-party code: admitted, with a diagnostic.
+        assert unverified.status is CapabilityStatus.ADMITTED
+        assert unverified.diagnostic is not None
+        assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     for capability_id in _RESTORED_IDS:
@@ -257,7 +261,8 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
         entry = admitted.describe(capability_id)
         assert entry.status is CapabilityStatus.ADMITTED, entry.diagnostic
     admitted_ids = {item.capability_id for item in admitted.list()}
-    assert admitted_ids == set(_RESTORED_IDS)
+    # Other first-party capabilities are admitted without a record too.
+    assert set(_RESTORED_IDS) <= admitted_ids
 
 
 def test_a_capability_the_generator_refused_to_produce_is_simply_absent(
@@ -289,14 +294,12 @@ def test_align_protein_resolves_and_really_invokes_mafft(
 
     assert isinstance(result, OrganelleResult)
     assert result.operation_id == _ALIGN_PROTEIN_ID
-    assert result.status == "ok"
-    from organelleverse import accel
-
-    # The Rust MAFFT kernel aligns without the CLI.
-    if shutil.which("mafft") is None and not accel.HAS_RUST:
-        assert result.metrics["method"] == "ungapped"
-        assert result.metrics["mafft_used"] is False
+    if shutil.which("mafft") is None:
+        assert result.status == "failed"
+        assert "records" not in result.metrics
     else:
+        assert result.status == "ok"
+        assert result.metrics["method"] == "external-mafft"
         assert result.metrics["mafft_used"] is True
 
 
@@ -420,7 +423,7 @@ def test_parse_codeml_output_and_parse_kaks_output_resolve_and_invoke_on_real_te
     admitted = _admit_all(tmp_path, monkeypatch)
 
     codeml_out = tmp_path / "codeml.out"
-    codeml_out.write_text("lnL(ntime: 3  np: 5):  -1234.567890\nkappa (ts/ts) =  2.5\n")
+    codeml_out.write_text("lnL(ntime: 3  np: 5):  -1234.567890\nkappa (ts/tv) =  2.5\n")
     codeml_binding = admitted.binding_source().resolve(_PARSE_CODEML_OUTPUT_ID)
     assert codeml_binding is not None
     codeml_result = codeml_binding.invoke(None, {"out_path": str(codeml_out)})
@@ -501,7 +504,7 @@ def test_branch_model_branch_site_model_clade_model_and_site_model_resolve_and_p
     alignment_path = tmp_path / "codon_aln.paml"
     alignment_path.write_text("2 18\nseqA\nATGGCTGCTGCTGCTGCT\nseqB\nATGGCAGCAGCTGCTGCT\n")
     tree_path = tmp_path / "tree.nwk"
-    tree_path.write_text("(seqA:0.1,seqB:0.1);\n")
+    tree_path.write_text("(seqA #1:0.1,seqB:0.1);\n")
 
     for capability_id in (
         _BRANCH_MODEL_ID,
@@ -549,7 +552,7 @@ def test_write_branch_model_and_write_site_model_resolve_and_create_a_real_outpu
     alignment_path = tmp_path / "codon_aln.paml"
     alignment_path.write_text("2 18\nseqA\nATGGCTGCTGCTGCTGCT\nseqB\nATGGCAGCAGCTGCTGCT\n")
     tree_path = tmp_path / "tree.nwk"
-    tree_path.write_text("(seqA:0.1,seqB:0.1);\n")
+    tree_path.write_text("(seqA #1:0.1,seqB:0.1);\n")
 
     branch_out = tmp_path / "branch_out"
     assert not branch_out.exists()
@@ -599,7 +602,7 @@ def test_write_branch_site_model_and_write_clade_model_resolve_and_plan(
     alignment_path = tmp_path / "codon_aln.paml"
     alignment_path.write_text("2 18\nseqA\nATGGCTGCTGCTGCTGCT\nseqB\nATGGCAGCAGCTGCTGCT\n")
     tree_path = tmp_path / "tree.nwk"
-    tree_path.write_text("(seqA:0.1,seqB:0.1);\n")
+    tree_path.write_text("(seqA #1:0.1,seqB:0.1);\n")
 
     for capability_id, expected_operation_id, out_name in (
         (_WRITE_BRANCH_SITE_MODEL_ID, _BRANCH_SITE_MODEL_ID, "bs_out"),
@@ -644,9 +647,14 @@ def test_write_codeml_inputs_resolves_and_invokes_a_real_pipeline(
     result = binding.invoke(None, {"cds_fasta": str(cds_path), "output_dir": str(output_dir)})
 
     assert isinstance(result, OrganelleResult)
-    assert result.status == "ok"
-    assert output_dir.is_dir()
-    assert (output_dir / "codon_aln.paml").is_file()
+    if shutil.which("mafft") is None:
+        assert result.status == "failed"
+        assert "codeml_ready" not in result.flags
+        assert not (output_dir / "codon_aln.paml").exists()
+    else:
+        assert result.status == "ok"
+        assert output_dir.is_dir()
+        assert (output_dir / "codon_aln.paml").is_file()
 
 
 def test_run_kaks_calculator_workflow_resolves_and_invokes_for_real(

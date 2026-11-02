@@ -79,6 +79,7 @@ OVERRIDES: dict[str, NamedParameterOverride] = {
         parameters=(
             ParameterOverride(name="fasta_path", codec=ParameterCodec.PATH),
             ParameterOverride(name='window_size', codec=ParameterCodec.JSON),
+            ParameterOverride(name="step", codec=ParameterCodec.JSON),
         ),
         result_codec=ResultCodec.JSON_METRIC,
         result_key="gc_metrics",

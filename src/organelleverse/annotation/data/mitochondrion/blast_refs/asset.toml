@@ -9,12 +9,12 @@ summary = "BLAST reference sequences for mitochondrial PCG, rRNA, tRNA and exons
 
 [content]
 files = 75
-bytes = 1799489
-merkle = "sha256:c81c030ca76665b006a7ac52c487b0dcdedb80202253d7058ecfef973feac16a"
+bytes = 1798746
+merkle = "sha256:b7df5fd3ca9aef17541ab71ccd83dd54f04486ac28532ccd2999a68263c2e5d7"
 
 [provenance]
 source = ""
 license = ""
 rebuild = ""
 derived_from = []
-notes = "Provenance was not recorded when this asset was added to the tree. Source, license, and rebuild recipe are unknown and must be established before redistribution is claimed. all_cds_reference.fasta added 2026-08-16 (111 CDS extracted from PMGA ATH/Ginkgo/Ranunculus outputs) for the nucleotide-level CDS blastn fallback."
+notes = "Provenance was not recorded when this asset was added to the tree. Source, license, and rebuild recipe are unknown and must be established before redistribution is claimed. all_cds_reference.fasta added 2026-08-16 (111 CDS extracted from PMGA ATH/Ginkgo/Ranunculus outputs) for the nucleotide-level CDS blastn fallback. Restored 2026-10-15: pcg/{ccmB,ccmC,ccmFC,ccmFN,matR,mttB,nad4L}.Protein.fasta were deleted by the 2026-09-28 Windows snapshot ee506904 (case collisions with the lower-case files) and are brought back from ee506904^ with LF line endings; that snapshot had already normalized the other 13 CRLF files to LF. Moved 2026-10-15 to pcg_boundary/ so the boundary set no longer differs from the pcg/ length set only by letter case."

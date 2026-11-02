@@ -25,20 +25,16 @@ from .index import (
     CapabilityStatus,
 )
 from .models import (
-    AgentMetadata,
     BundleDocument,
     CapabilityBundle,
     CapabilityDeclaration,
     EquivalenceMethod,
     FixtureSpec,
-    GuiMetadata,
     ImplementationKind,
     PluginCapabilityBundle,
-    PluginMetadata,
     ProbeSpec,
 )
 from .parser import parse_capability_bundle
-from .plugin_descriptor import PluginDescriptor, PluginField, describe_plugin
 from .scaffold import ScaffoldParameter, scaffold, scaffold_plugin
 from .snapshot import (
     CapabilityAdmissionSnapshot,
@@ -56,7 +52,6 @@ from .verification import (
 from .worker import OneShotBundleWorkerExecutor
 
 __all__ = [
-    "AgentMetadata",
     "AssetIdentity",
     "BundleDocument",
     "CapabilityAdmissionSnapshot",
@@ -73,14 +68,10 @@ __all__ = [
     "EquivalenceMethod",
     "ExecutionIdentity",
     "FixtureSpec",
-    "GuiMetadata",
     "ImplementationKind",
     "LocalVerificationEnvironment",
     "OneShotBundleWorkerExecutor",
     "PluginCapabilityBundle",
-    "PluginDescriptor",
-    "PluginField",
-    "PluginMetadata",
     "ProbeSpec",
     "ScaffoldParameter",
     "TrustStore",
@@ -88,7 +79,6 @@ __all__ = [
     "VerificationStore",
     "build_admission_snapshot",
     "build_registry",
-    "describe_plugin",
     "discover_capabilities",
     "discover_capability_candidates",
     "inspect_bundle_code",

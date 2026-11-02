@@ -279,6 +279,66 @@ def test_pggb_uses_numeric_identity_pansn_input_and_discovers_final_gfa(
     )
 
 
+def test_pggb_relative_output_dir_hands_absolute_paths_to_backends(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """samtools and pggb run in the pggb cwd, so a relative input path would miss."""
+    calls: list[list[str]] = []
+
+    def fake_run_command(argv, *, stdout_path=None, cwd=None) -> CommandRecord:
+        argv_list = [str(item) for item in argv]
+        calls.append(argv_list)
+        target = Path(argv_list[-1]) if Path(argv_list[0]).name == "samtools" else None
+        if target is not None:
+            if not target.is_absolute():
+                target = Path(cwd) / target
+            if target.is_file():
+                Path(f"{target}.fai").write_text("index\n", encoding="utf-8")
+            return CommandRecord(tuple(argv_list), 0, None, "")
+        final_gfa = Path(cwd) / "test.smooth.final.gfa"
+        final_gfa.write_text(MINIMAL_GFA)
+        return CommandRecord(tuple(argv_list), 0, None, "")
+
+    monkeypatch.setattr(pangenome_module, "run_command", _versioned_runner(fake_run_command))
+    genomes = _two_genomes(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    result = build_graph(genomes, output_dir="relative-out", method="pggb")
+
+    assert result.status == "ok", result.errors
+    pggb_argv = calls[1]
+    assert Path(calls[0][-1]).is_absolute()
+    assert Path(pggb_argv[pggb_argv.index("-i") + 1]).is_absolute()
+    assert Path(pggb_argv[pggb_argv.index("-o") + 1]).is_absolute()
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_pggb_sparse_mapping_adds_auto_sparsification_only_when_requested(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sparse: bool
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_command(argv, *, stdout_path=None, cwd=None) -> CommandRecord:
+        argv_list = [str(item) for item in argv]
+        calls.append(argv_list)
+        if Path(argv_list[0]).name == "samtools":
+            Path(f"{argv_list[-1]}.fai").write_text("index\n", encoding="utf-8")
+        else:
+            (Path(cwd) / "test.smooth.final.gfa").write_text(MINIMAL_GFA)
+        return CommandRecord(tuple(argv_list), 0, None, "")
+
+    monkeypatch.setattr(pangenome_module, "run_command", _versioned_runner(fake_run_command))
+    result = build_graph(
+        _two_genomes(tmp_path), output_dir=tmp_path / "out", method="pggb", sparse_mapping=sparse
+    )
+
+    assert result.status == "ok", result.errors
+    pggb_argv = calls[1]
+    assert ("-x" in pggb_argv) is sparse
+    if sparse:
+        assert pggb_argv[pggb_argv.index("-x") + 1] == "auto"
+
+
 # -- AC-004: pggb discovery ambiguity / unusable final graphs fail closed -----
 
 #: Bytes that cannot decode as UTF-8 text under any locale.

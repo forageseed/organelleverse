@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Compute Gc Content"
-description = "Compute GC content + GC skew. Returns dict (not OrganelleResult)."
+description = "Compute global GC fraction and windowed GC fraction/GC skew."
 keywords = ["analyze", "composition", "compute", "content", "gc", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"
@@ -33,6 +33,10 @@ codec = "path"
 
 [[contract.binding.parameters]]
 name = "window_size"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "step"
 codec = "json"
 
 [[fixture]]

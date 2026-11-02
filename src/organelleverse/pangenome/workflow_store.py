@@ -157,6 +157,7 @@ def public_view(record: dict) -> dict:
             "threads",
             "segment_length",
             "identity",
+            "sparse_mapping",
             "cloud_threshold",
             "core_threshold",
             "bootstrap_replicates",

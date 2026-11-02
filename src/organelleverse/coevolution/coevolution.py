@@ -1,27 +1,15 @@
-"""Coevolution suite — ERC (evolutionary rate covariation), fully self-contained.
+"""Scientific stages for evolutionary rate covariation.
 
-Absorbs and re-implements the ERCnet2 pipeline in pure Python 3 (no DLCpar /
-Python2 dependency). The four functions model the ERCnet stages:
+Reconciliation uses an explicit SDI/LCA mapping or externally supplied DLCpar
+locus/coalescent output; these models are not interchangeable. Given that
+mapping, BXB extracts species-edge patristic measurements and normalizes each
+edge across genes. R2T is also available and averages same-species copies.
 
-1. ``reconcile_trees()`` — gene-tree / species-tree reconciliation via a
-   self-contained LCA (Last Common Ancestor) algorithm. Maps each gene-tree
-   node to a species-tree node and infers speciation vs duplication events,
-   producing DLCpar-compatible ``.locus.recon`` output. Replaces the original
-   Python2/DLCpar step.
-
-2. ``extract_branch_lengths()`` — R2T (root-to-tip) branch-length extraction
-   from reconciled gene trees, producing a gene × branch matrix.
-
-3. ``rate_covariation()`` — ERC2 residual-based correlation: transforms branch
-   lengths → computes trimmed-mean master → regresses each gene against master
-   (OLS or variance-weighted WLS, optional PCA correction) → all-by-all Pearson
-   / Spearman correlations on residuals → Benjamini-Hochberg FDR.
-
-4. ``coevolution_network()`` — builds a coevolution network from significant
-   correlations; detects communities via connected components.
-
-All tree operations use a self-contained Newick parser (no ETE3/Biopython
-required). numpy/pandas are optional and used only when available for speed.
+``rate_covariation`` performs generic raw or residual analysis of supplied
+branch vectors. The complete ERC 2.0 implementation lives in ``erc_engine``
+and uses node-pair paths, variance-weighted fitting and independent branches
+of each common-species tree. Network construction combines effect size and
+optional FDR significance; connected components are reported explicitly.
 """
 
 from __future__ import annotations
@@ -651,7 +639,7 @@ def extract_branch_lengths(
                 provenance=_provenance("extract_branch_lengths", method="BXB"),
             )
 
-        non_missing = sum(1 for row in bl_matrix.values() for val in row.values() if val == val)
+        non_missing = sum(1 for row in bl_matrix.values() for val in row.values() if val is not None and val == val)
         n_species = _species_tree_leaf_count(species_tree)
         return _ok(
             "extract_branch_lengths",
@@ -712,9 +700,10 @@ def extract_branch_lengths(
             tree = parse_newick(newick)
         except Exception:
             continue
-        row: dict[str, float] = {}
+        observations: dict[str, list[float]] = {}
         for leaf in tree.leaves():
-            row[get_species(leaf.name)] = leaf.get_distance_to_root()
+            observations.setdefault(get_species(leaf.name), []).append(leaf.get_distance_to_root())
+        row = {species: sum(values) / len(values) for species, values in observations.items()}
         bl_matrix[gene_name] = row
         all_species.update(row.keys())
 
@@ -926,7 +915,7 @@ def rate_covariation(
 
 @validated_public('coevolution.coevolution_network')
 def coevolution_network(
-    correlations: list[Mapping[str, str | int | float | bool | None]],
+    correlations: Sequence[Mapping[str, str | int | float | bool | None]],
     *,
     r_threshold: float = 0.5,
     use_fdr: bool = True,
@@ -1425,6 +1414,44 @@ def _erc_pairs(
     return pairs
 
 
+def _ercnet_pairs(
+    branch_lengths: Mapping[str, Sequence[float | None] | Mapping[str, float | None]],
+    *,
+    min_overlap: int = 5,
+    fdr_threshold: float = .05,
+) -> list[dict]:
+    """ERCnet Pearson/Spearman/Kendall on lineage-normalized raw BXB values.
+
+    Each statistic retains its own p-value and BH correction. Pearson is the
+    selected network statistic. No separate ERC2 residual fit is applied.
+    """
+    vectors = _coerce_branch_length_vectors(branch_lengths)
+    if len({len(row) for row in vectors.values()}) > 1:
+        raise ValueError("ERCnet branch vectors must share the same branch layout and length")
+    pairs = []
+    for ga, gb in combinations(vectors, 2):
+        overlap = [(x, y) for x, y in zip(vectors[ga], vectors[gb], strict=True) if math.isfinite(x) and math.isfinite(y)]
+        if len(overlap) < min_overlap:
+            continue
+        x, y = [p[0] for p in overlap], [p[1] for p in overlap]
+        if len(set(x)) < 2 or len(set(y)) < 2:
+            continue
+        pearson = _scipy_stats.pearsonr(x, y)
+        spearman = _scipy_stats.spearmanr(x, y)
+        kendall = _scipy_stats.kendalltau(x, y)
+        pairs.append({'gene_a': ga, 'gene_b': gb, 'r': float(pearson.statistic),
+                      'rho': float(spearman.statistic), 'tau': float(kendall.statistic),
+                      'pval': float(pearson.pvalue), 'spearman_pval': float(spearman.pvalue),
+                      'kendall_pval': float(kendall.pvalue), 'n_branches': len(overlap)})
+    _apply_fdr(pairs, fdr_threshold)
+    for name in ('spearman', 'kendall'):
+        if pairs:
+            adjusted = _scipy_stats.false_discovery_control([p[f'{name}_pval'] for p in pairs], method='bh')
+            for p, q in zip(pairs, adjusted, strict=True):
+                p[f'{name}_fdr_pval'] = float(q)
+    return sorted(pairs, key=lambda p: p['pval'])
+
+
 def _network_from_pairs(
     pairs: list[dict],
     *,
@@ -1608,15 +1635,17 @@ def run_coevolution(
     threads: int = 8,
     executor: Callable[[list[str]], Any] | None = None,
     results_dir: str | Path | None = None,
-    transform: str = "sqrt",
+    transform: str | None = None,
     fdr_threshold: float = 0.05,
     r_threshold: float = 0.5,
+    reconciliation: str = "lca",
+    dlcpar_dir: str | Path | None = None,
 ) -> OrganelleResult:
     """End-to-end coevolution: OrthoFinder3 → ERC → network.
 
     Two methods:
       method="ercnet" — ERCnet pipeline (BXB species-edge branch space + FDR)
-      method="erc"    — ERC 2.0 (master-tree edge-space + Fisher + permutation)
+      method="erc"    — ERC 2.0 (master-tree node-pair path space + Fisher + permutation)
 
     With ``executor=None`` (plan-only), stops after emitting the planned
     OrthoFinder argv.
@@ -1627,6 +1656,7 @@ def run_coevolution(
             summary_text=f"method={method!r} not supported; use 'ercnet' or 'erc'.",
             anomalies=["method_not_implemented"],
         )
+    transform = transform if transform is not None else ('sqrt' if method == 'erc' else 'none')
     out = Path(output_dir)
     if executor is not None or results_dir is not None:
         out.mkdir(parents=True, exist_ok=True)
@@ -1664,6 +1694,7 @@ def run_coevolution(
             sp_tree,
             transform=transform,
             min_overlap=5,
+            fdr_threshold=fdr_threshold,
         )
         metrics = dict(erc_result.metrics)
         metrics["method"] = "erc"
@@ -1698,7 +1729,9 @@ def run_coevolution(
         gene_trees,
         method="BXB",
         species_tree=sp_tree,
-        bxb_normalization="gene_sum",
+        bxb_normalization="edge_mean",
+        reconciliation=reconciliation,
+        dlcpar_dir=dlcpar_dir,
     )
     if bxb.status != "ok":
         return bxb.evolve(
@@ -1717,7 +1750,11 @@ def run_coevolution(
             anomalies=["too_few_species"],
         )
     # 5. ERC + network
-    pairs = _erc_pairs(bl, transform=transform, fdr_threshold=fdr_threshold)
+    # ERCnet correlates the lineage-normalized BXB lengths directly. It does
+    # not apply the separate ERC2 residual regression or sqrt transform.
+    if transform != 'none':
+        return _failed('run_coevolution', summary_text="ERCnet uses untransformed normalized lengths; transform must be 'none'.", anomalies=['invalid_ercnet_transform'])
+    pairs = _ercnet_pairs(bl, fdr_threshold=fdr_threshold)
     nodes, edges, communities = _network_from_pairs(pairs, r_threshold=r_threshold, use_fdr=True)
     significant = [p for p in pairs if p.get("significant")]
     # 6. artifacts
@@ -1771,7 +1808,8 @@ def run_coevolution(
             "n_species": n_species,
             "n_branches": len(branch_order),
             "branch_method": "BXB",
-            "branch_normalization": bxb.metrics.get("normalization", "gene_sum"),
+            "branch_normalization": bxb.metrics.get("normalization", "edge_mean"),
+            'reconciliation': bxb.metrics.get('reconciliation'),
             "duplications": dup_total,
             "speciations": spec_total,
             "pairs_tested": len(pairs),
@@ -1796,6 +1834,8 @@ def run_coevolution(
             parameters={
                 "method": "ercnet",
                 "transform": transform,
+                'reconciliation': reconciliation,
+                'dlcpar_dir': str(dlcpar_dir) if dlcpar_dir else None,
                 "fdr_threshold": fdr_threshold,
                 "r_threshold": r_threshold,
                 "threads": threads,

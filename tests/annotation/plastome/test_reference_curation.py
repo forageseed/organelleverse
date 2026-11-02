@@ -78,6 +78,8 @@ def test_rrna_query_references_have_no_length_outliers(gene: str) -> None:
     assert all(abs(length - median) <= 0.10 * median for length in lengths), lengths
 
 
+# Real reference-library parsing measured 94.10s in the 2026-09-30 default run.
+@pytest.mark.slow
 def test_every_reference_trna_is_named_after_parsing() -> None:
     from organelleverse.annotation.plastome.references import _parse_reference
 

@@ -8,7 +8,7 @@ from pydantic import JsonValue, ValidationError
 
 from organelleverse.capabilities.index import CapabilityEntry, CapabilityStatus
 from organelleverse.capabilities.models import PluginCapabilityBundle
-from organelleverse.capabilities.plugin_descriptor import PluginField, describe_plugin
+from organelleverse.operations.spec import ParameterCodec, ParameterSource, PluginParameterBindingSpec
 from organelleverse.core.errors import OrganelleContractError
 
 from .models import (
@@ -47,7 +47,11 @@ def contract_from_capability_entry(
             message="the capability declares no optimization profile",
             details={"capability_id": entry.capability_id},
         )
-    fields = {field.name: field for field in describe_plugin(bundle).parameters}
+    output_parameters = {output.parameter for output in bundle.contract.outputs}
+    fields = {field.name: field for field in bundle.contract.binding.parameters
+              if field.name not in output_parameters
+              and not (field.codec is ParameterCodec.DIRECTORY and field.path_role == "input")
+              and not (field.source is ParameterSource.AGENT and field.codec is ParameterCodec.PATH)}
     parameters = tuple(
         _declared_domain(fields, name, capability_id=entry.capability_id)
         for name in optimization.parameters
@@ -77,7 +81,7 @@ def contract_from_capability_entry(
 
 
 def _domain_from_plugin_field(
-    field: PluginField,
+    field: PluginParameterBindingSpec,
     *,
     capability_id: str,
 ) -> ParameterDomain:
@@ -147,7 +151,7 @@ def _domain_from_plugin_field(
 
 
 def _declared_domain(
-    fields: dict[str, PluginField],
+    fields: dict[str, PluginParameterBindingSpec],
     name: str,
     *,
     capability_id: str,

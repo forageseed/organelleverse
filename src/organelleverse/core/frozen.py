@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator, Mapping
-from typing import TYPE_CHECKING, Generic, TypeAlias, TypeVar, cast, overload
+from collections.abc import Mapping
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    NoReturn,
+    TypeAlias,
+    TypeVar,
+    cast,
+    get_args,
+    overload,
+)
 
 from .base import StrictFrozenModel
 from .errors import OrganelleInternalError
@@ -17,15 +27,63 @@ if TYPE_CHECKING:
     from .artifacts import ArtifactRef
 
 
-class FrozenMap(Mapping[str, ValueT], Generic[ValueT]):
-    """Small deterministic immutable mapping used in public contracts."""
+def _immutable(self: object, *args: object, **kwargs: object) -> NoReturn:
+    raise TypeError(f"{type(self).__name__} is immutable")
 
-    __slots__ = ("_items",)
-    _items: tuple[tuple[str, ValueT], ...]
+
+class FrozenMap(dict[str, Any], Generic[ValueT]):  # type: ignore[type-var]
+    """Small deterministic immutable mapping used in public contracts.
+
+    A ``dict`` subclass with every mutating method disabled, so that
+    ``json.dumps(result.metrics)`` (whose C encoder accepts only dicts) writes
+    the nested values as JSON instead of falling back to ``default=``; nested
+    sequences are tuples, which ``json`` writes as arrays. Keys are kept sorted.
+    """
+
+    __slots__ = ()
 
     def __init__(self: FrozenMap[FrozenJson], values: Mapping[str, object] | None = None) -> None:
         frozen = FrozenMap.from_json({} if values is None else values)
-        object.__setattr__(self, "_items", frozen._items)
+        dict.__init__(self, frozen._items)
+
+    @property
+    def _items(self) -> tuple[tuple[str, ValueT], ...]:
+        return tuple(dict.items(self))
+
+    __setitem__ = __delitem__ = __ior__ = _immutable
+    clear = pop = popitem = setdefault = update = _immutable
+
+    def __reduce__(self) -> tuple[object, tuple[object, ...]]:
+        # pickle/copy would otherwise rebuild a dict subclass through __setitem__.
+        return (FrozenMap._rebuild, (self._items,))
+
+    @staticmethod
+    def _rebuild(items: tuple[tuple[str, object], ...]) -> FrozenMap[object]:
+        return FrozenMap.__from_validated_items(items)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: object, handler: Any) -> Any:
+        # As a dict subclass with type parameters pydantic would only check
+        # isinstance; keep accepting any mapping and freezing it, as it did
+        # when FrozenMap was a plain Mapping.
+        from pydantic_core import core_schema
+
+        from .artifacts import ArtifactRef
+
+        arguments = get_args(source)
+        values = (
+            handler.generate_schema(ArtifactRef)
+            if arguments and arguments[0] is ArtifactRef
+            else core_schema.any_schema()
+        )
+        from_mapping = core_schema.no_info_after_validator_function(
+            FrozenMap.from_items,
+            core_schema.dict_schema(keys_schema=core_schema.str_schema(), values_schema=values),
+        )
+        return core_schema.union_schema(
+            [core_schema.is_instance_schema(FrozenMap), from_mapping],
+            serialization=core_schema.plain_serializer_function_ser_schema(dict),
+        )
 
     @overload
     @classmethod
@@ -76,19 +134,7 @@ class FrozenMap(Mapping[str, ValueT], Generic[ValueT]):
     def __setattr__(self, name: str, value: object) -> None:
         raise AttributeError(f"{type(self).__name__} is immutable")
 
-    def __getitem__(self, key: str) -> ValueT:
-        for item_key, item_value in self._items:
-            if item_key == key:
-                return item_value
-        raise KeyError(key)
-
-    def __iter__(self) -> Iterator[str]:
-        return (key for key, _ in self._items)
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-    def __hash__(self) -> int:
+    def __hash__(self) -> int:  # type: ignore[override]
         return hash(self._items)
 
     def __repr__(self) -> str:
@@ -97,8 +143,8 @@ class FrozenMap(Mapping[str, ValueT], Generic[ValueT]):
     @staticmethod
     def __from_validated_items(items: tuple[tuple[str, object], ...]) -> FrozenMap[object]:
         """Build a map after this module has fully validated every item."""
-        frozen = cast(FrozenMap[object], object.__new__(FrozenMap))
-        object.__setattr__(frozen, "_items", tuple(sorted(items)))
+        frozen = cast(FrozenMap[object], dict.__new__(FrozenMap))
+        dict.__init__(frozen, sorted(items, key=lambda item: item[0]))
         return frozen
 
     @staticmethod

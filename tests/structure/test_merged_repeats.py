@@ -63,7 +63,7 @@ def test_can_bridge_one_mismatch_in_inverted_repeat() -> None:
 def test_nc_037304_matches_reported_repeat_pairs() -> None:
     reference = (
         Path(__file__).resolve().parents[2]
-        / "examples/data/arabidopsis_mitochondrion.fasta"
+        / "docs/reports/realdata-matrix/annotation-bench/NC_037304.1.fasta"
     )
     identifier, sequence = read_fasta(reference)[0]
     assert identifier == "NC_037304.1"

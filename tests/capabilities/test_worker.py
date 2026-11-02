@@ -19,10 +19,9 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
-import pytest
-from pydantic import ValidationError
-
 import organelleverse.capabilities.worker as worker_module
+import psutil
+import pytest
 from organelleverse.capabilities._worker_main import (
     _loads_json,
     _require_request,
@@ -74,6 +73,7 @@ from organelleverse.operations.spec import (
     PythonBindingSpec,
     ResultCodec,
 )
+from pydantic import ValidationError
 
 
 def _bundle(
@@ -218,13 +218,7 @@ def _remove_private_modules() -> None:
 
 
 def test_worker_main_is_stdlib_only_by_ast() -> None:
-    worker_main = (
-        Path(__file__).resolve().parents[2]
-        / "src"
-        / "organelleverse"
-        / "capabilities"
-        / "_worker_main.py"
-    )
+    worker_main = Path(__file__).resolve().parents[2] / "src" / "capabilities" / "_worker_main.py"
     tree = ast.parse(worker_main.read_text(encoding="utf-8"), filename=str(worker_main))
     imported_roots: set[str] = set()
     for node in ast.walk(tree):
@@ -559,6 +553,7 @@ def test_invalid_or_oversized_response_frames_fail_closed(payload: bytes, code: 
         (b"[" * 80) + b"0" + (b"]" * 80),
         b"[" + b",".join(b"0" for _ in range(20_000)) + b"]",
     ],
+    ids=["duplicate-key", "nonfinite", "depth-limit", "node-limit"],
 )
 def test_response_json_rejects_duplicate_nonfinite_or_excessive_structure(
     body: bytes,
@@ -857,8 +852,9 @@ def test_worker_timeout_kills_the_one_shot_process_group(tmp_path: Path) -> None
     assert captured.value.code == "capability.worker_timeout"
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX process-group semantics")
-def test_worker_timeout_kills_a_spawned_descendant_process(tmp_path: Path) -> None:
+def test_worker_timeout_kills_a_spawned_descendant_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     descendant_pid = tmp_path / "descendant.pid"
     descendant_code = (
         "import os, pathlib, time; "
@@ -879,8 +875,23 @@ def test_worker_timeout_kills_a_spawned_descendant_process(tmp_path: Path) -> No
         ),
     )
 
-    # The timeout has to outlast interpreter startup, or the worker is killed
-    # before it ever reaches run() and spawns the descendant this test is about.
+    # This test exercises descendant cleanup after the child exists. Synchronize
+    # setup before starting the real wait timeout; interpreter startup varies
+    # with machine load. The separate 0.1s timeout test covers startup timeouts.
+    real_wait = subprocess.Popen.wait
+
+    def wait_after_descendant_started(
+        process: subprocess.Popen[bytes], timeout: float | None = None
+    ) -> int:
+        if timeout == 2.0:
+            setup_deadline = time.monotonic() + 30.0
+            while not descendant_pid.is_file() and process.poll() is None:
+                if time.monotonic() >= setup_deadline:
+                    pytest.fail("worker did not spawn the descendant within the setup deadline")
+                time.sleep(0.01)
+        return real_wait(process, timeout=timeout)
+
+    monkeypatch.setattr(subprocess.Popen, "wait", wait_after_descendant_started)
     with pytest.raises(OrganelleExecutionError) as captured:
         _invoke(OneShotBundleWorkerExecutor(timeout_seconds=2.0), _entry(root, bundle), tmp_path)
 
@@ -889,15 +900,16 @@ def test_worker_timeout_kills_a_spawned_descendant_process(tmp_path: Path) -> No
     pid = int(descendant_pid.read_text(encoding="utf-8"))
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        proc_stat = Path(f"/proc/{pid}/stat")
-        if not proc_stat.exists():
-            break
-        if proc_stat.read_text(encoding="utf-8").split()[2] == "Z":
+        try:
+            descendant = psutil.Process(pid)
+            if not descendant.is_running() or descendant.status() == psutil.STATUS_ZOMBIE:
+                break
+        except psutil.NoSuchProcess:
             break
         time.sleep(0.05)
     else:
-        os.kill(pid, signal.SIGKILL)
-        pytest.fail("worker descendant survived process-group cleanup")
+        descendant.kill()
+        pytest.fail("worker descendant survived process-tree cleanup")
 
 
 def test_scientific_function_body_type_error_is_not_misreported_as_binding_invalid(
@@ -998,7 +1010,10 @@ def test_launcher_uses_exact_isolated_flags_minimal_environment_and_private_cwd(
     assert len(observed) == 1
     command, options = observed[0]
     assert isinstance(command, list)
-    assert command[:5] == [sys.executable, "-I", "-S", "-E", "-B"]
+    expected_python = (
+        getattr(sys, "_base_executable", sys.executable) if os.name == "nt" else sys.executable
+    )
+    assert command[:5] == [expected_python, "-I", "-S", "-E", "-B"]
     # ``-B`` only stops the worker writing bytecode; ``pycache_prefix`` is what
     # stops it *reading* a ``__pycache__`` that ships inside a bundle. The
     # directory must be private to this run and outside the bundle, and the
@@ -1030,6 +1045,13 @@ def test_windows_fails_provider_required_without_claiming_process_tree_cleanup(
     bundle, _, _ = _write_bundle(root)
     entry = _entry(root, bundle)
     monkeypatch.setattr(worker, "_WINDOWS", True)
+    if os.name == "nt":
+        from organelleverse.capabilities import _windows_job
+
+        def unavailable(_handle):
+            raise OSError("simulated Job Object assignment refusal")
+
+        monkeypatch.setattr(_windows_job, "WindowsWorkerJob", unavailable)
 
     with pytest.raises(OrganelleContractError) as captured:
         OneShotBundleWorkerExecutor().inspect(entry)

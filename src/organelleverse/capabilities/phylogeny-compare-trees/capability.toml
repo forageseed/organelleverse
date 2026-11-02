@@ -8,8 +8,8 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Compare Trees"
-description = "Unrooted Robinson-Foulds distance between two Newick/NEXUS trees, listing conflicting splits with their support."
-keywords = ["analyze", "compare", "foulds", "phylogeny", "rf", "robinson", "tree"]
+description = "Unrooted Robinson-Foulds distance and RF similarity between two Newick/NEXUS trees, listing conflicting splits with their support, plus the cophenetic correlation of their branch lengths; optionally pruned to shared taxa."
+keywords = ["analyze", "compare", "cophenetic", "foulds", "phylogeny", "rf", "robinson", "tree"]
 execution_mode = "inline"
 stage = "analyze"
 input_kind = "none"
@@ -31,3 +31,7 @@ codec = "path"
 [[contract.binding.parameters]]
 name = "tree_b"
 codec = "path"
+
+[[contract.binding.parameters]]
+name = "prune_to_shared"
+codec = "json"

@@ -19,11 +19,11 @@ from organelleverse.assembly.ovasm_fallback import MAX_EXTRA_K, choose_target_cl
 MIN_RECRUITED_BASES = 100_000
 
 
-# the binary's automatic-k ladder (`K_LADDER` in rust/ovasm/src/assemble.rs)
+# the binary's automatic-k ladder (`K_LADDER` in ovasm's src/assemble.rs)
 K_LADDER = (1001, 701, 501, 351, 251, 201, 151, 101)
 
 #: The molecules of an attempt must explain at least this share of the assembly graph for the
-#: attempt to count (`MIN_EXPLAINED` in rust/ovasm/src/pipeline.rs, which `ovasm run` uses).
+#: attempt to count (`MIN_EXPLAINED` in ovasm's src/pipeline.rs, which `ovasm run hifi` uses).
 MIN_EXPLAINED = 0.5
 
 #: Read types (the `strategy` field of the assembly tools). The noisy ones are recruited with
@@ -304,7 +304,7 @@ def _keep_target_components(
     of nuclear repeats, 1.3 Mb at depth 7-36, gave 41 molecules). `assembly.gfa` stays as
     assembled; `components.json` lists every component with its length, depth, genes and why
     it was kept or removed. The rule's thresholds were set on seen cases (see
-    rust/ovasm/src/components.rs).
+    ovasm's src/components.rs).
     """
     log(f"OVASM: keeping the graph components that are the {organelle}")
     kept = output_dir / "assembly.filtered.gfa"
@@ -997,7 +997,7 @@ def run_ovasm(
             "has_circle": any(m.get("circular") for m in molecules),
         }
 
-    # k ladder (same rule as `ovasm run`, rust/ovasm/src/pipeline.rs). A large k can leave a
+    # k ladder (same rule as `ovasm run hifi`, ovasm's src/pipeline.rs). A large k can leave a
     # gap the rescue cannot fill (Zou AT101/AT105 plastids: k=1001 gave 2 unitigs and no
     # molecule, k=701 down to 251 all gave the exact plastome), and the automatic k only looks
     # at depth. "A molecule" is not enough either: Carex laevigata's mitochondrion (2.76 Mb

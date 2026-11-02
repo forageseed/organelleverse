@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -56,7 +57,9 @@ def test_timeout_is_recorded_before_structured_failure(
         timeout = cast(int, kwargs["timeout"])
         raise subprocess.TimeoutExpired(argv, timeout, output=b"partial\xff", stderr=b"late")
 
-    monkeypatch.setattr(execution.subprocess, "run", fake_timeout)
+    monkeypatch.setattr(execution.subprocess, "Popen", _popen_from_run(fake_timeout))
+    terminated: list[object] = []
+    monkeypatch.setattr(execution, "terminate_tree", terminated.append)
     runner = CommandRunner(log_dir=tmp_path)
 
     with pytest.raises(OrganelleExecutionError) as raised:
@@ -64,6 +67,7 @@ def test_timeout_is_recorded_before_structured_failure(
 
     assert raised.value.code == "backend_execution_failed"
     assert raised.value.as_dict()["details"]["termination"] == "timeout"
+    assert len(terminated) == 1  # a timeout kills the whole process tree
     record = _read_records(tmp_path / "commands.jsonl")[0]
     assert record["returncode"] is None
     assert record["stdout"] == "partial�"
@@ -76,7 +80,7 @@ def test_signal_exit_is_named_and_preserved(
     def fake_signal(argv: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, -15, "", "terminated")
 
-    monkeypatch.setattr(execution.subprocess, "run", fake_signal)
+    monkeypatch.setattr(execution.subprocess, "Popen", _popen_from_run(fake_signal))
     runner = CommandRunner(log_dir=tmp_path)
 
     with pytest.raises(OrganelleExecutionError) as raised:
@@ -116,14 +120,14 @@ def test_version_capture_order_and_shell_free_argv(
         return subprocess.CompletedProcess(argv, 0, f"{name} 1.2.3\n", "")
 
     monkeypatch.setattr(execution, "which", fake_which)
-    monkeypatch.setattr(execution.subprocess, "run", fake_run)
+    monkeypatch.setattr(execution.subprocess, "Popen", _popen_from_run(fake_run))
     runner = CommandRunner(log_dir=tmp_path)
 
     tools = resolve_required_tools(("blastn", "makeblastdb"), runner=runner)
 
     assert [(tool.name, tool.path, tool.version) for tool in tools] == [
-        ("blastn", "/tools/blastn", "blastn 1.2.3"),
-        ("makeblastdb", "/tools/makeblastdb", "makeblastdb 1.2.3"),
+        ("blastn", _tool_path("blastn"), "blastn 1.2.3"),
+        ("makeblastdb", _tool_path("makeblastdb"), "makeblastdb 1.2.3"),
     ]
     assert [record.sequence for record in runner.records] == [1, 2]
     assert [record.stage for record in runner.records] == [
@@ -132,7 +136,8 @@ def test_version_capture_order_and_shell_free_argv(
     ]
     assert all(isinstance(argv, tuple) for argv, _kwargs in calls)
     assert all(kwargs["shell"] is False for _argv, kwargs in calls)
-    assert all(kwargs["check"] is False for _argv, kwargs in calls)
+    # No ``check`` here: Popen never raises on an exit status; CommandRunner
+    # inspects the returncode itself.
     assert all(kwargs["text"] is True for _argv, kwargs in calls)
 
 
@@ -205,13 +210,13 @@ def test_trnascan_version_probe_uses_supported_help_flag(
             "tRNAscan-SE 2.0.12 (Nov 2022)\n",
         )
 
-    monkeypatch.setattr(execution.subprocess, "run", fake_run)
+    monkeypatch.setattr(execution.subprocess, "Popen", _popen_from_run(fake_run))
 
     tools = resolve_required_tools(("tRNAscan-SE",), runner=CommandRunner(log_dir=tmp_path))
 
-    assert calls == [("/tools/tRNAscan-SE", "-h")]
+    assert calls == [(_tool_path("tRNAscan-SE"), "-h")]
     assert tools[0].version == "tRNAscan-SE 2.0.12 (Nov 2022)"
-    assert tools[0].version_argv == ("/tools/tRNAscan-SE", "-h")
+    assert tools[0].version_argv == (_tool_path("tRNAscan-SE"), "-h")
 
 
 def test_cmsearch_version_probe_records_infernal_version(
@@ -231,7 +236,7 @@ def test_cmsearch_version_probe_records_infernal_version(
             "",
         )
 
-    monkeypatch.setattr(execution.subprocess, "run", fake_run)
+    monkeypatch.setattr(execution.subprocess, "Popen", _popen_from_run(fake_run))
 
     tools = resolve_required_tools(("cmsearch",), runner=CommandRunner(log_dir=tmp_path))
 
@@ -247,7 +252,7 @@ def test_released_trnascan_failure_cannot_be_converted_to_empty_hits(
     def fake_failure(argv: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 3, "", "tRNAscan failed")
 
-    monkeypatch.setattr(execution.subprocess, "run", fake_failure)
+    monkeypatch.setattr(execution.subprocess, "Popen", _popen_from_run(fake_failure))
     fasta = tmp_path / "input.fasta"
     fasta.write_text(">r1\nACGT\n")
     runner = CommandRunner(log_dir=tmp_path / "evidence")
@@ -270,9 +275,48 @@ def test_released_trnascan_failure_cannot_be_converted_to_empty_hits(
     assert runner.records[0].returncode == 3
 
 
+def _tool_path(name: str) -> str:
+    """The path resolve_required_tools records for a fake ``/tools/<name>``.
+
+    It stores ``Path(...).absolute()``: unchanged on POSIX, drive-qualified on
+    Windows.
+    """
+    return str(Path(f"/tools/{name}").absolute())
+
+
+def _popen_from_run(fake_run: Callable[..., subprocess.CompletedProcess[str]]) -> type:
+    """A ``subprocess.Popen`` stand-in driven by a ``subprocess.run``-style fake.
+
+    CommandRunner launches with Popen + communicate (so a timeout can kill the
+    whole process tree). The fakes below still describe one complete run; this
+    adapter replays that result through ``communicate``. ``pid`` is None so no
+    real process group can ever be signalled from a test.
+    """
+
+    class _FakePopen:
+        pid = None
+
+        def __init__(self, argv: tuple[str, ...], **kwargs: object) -> None:
+            self.args = argv
+            self._kwargs = kwargs
+            self.returncode: int | None = None
+            self._result: subprocess.CompletedProcess[str] | None = None
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            if self._result is None:
+                self._result = fake_run(self.args, timeout=timeout, **self._kwargs)
+                self.returncode = self._result.returncode
+            return self._result.stdout, self._result.stderr
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+    return _FakePopen
+
+
 def _read_records(path: Path) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         value: object = json.loads(line)
         assert isinstance(value, dict)
         records.append(cast(dict[str, object], value))

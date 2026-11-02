@@ -48,6 +48,9 @@ BACKEND_DEVICE_SUPPORT: dict[str, tuple[str, ...]] = {
     "orgseg": ("cuda", "cpu"),
     "micro_sam": ("cuda", "mps", "cpu"),
     "cellpose": ("cuda", "mps", "cpu"),
+    # Meta SAM 3 in its own interpreter (sam3_infer.py): CUDA, or the CPU of a workstation without an
+    # NVIDIA card; sam3 0.1.4 has CUDA-only code paths (bf16 autocast, Triton kernels) and no MPS/XPU support.
+    "sam3": ("cuda", "cpu"),
 }
 
 #: Declared VRAM floor (GiB) for OrgSegNet fine-tuning (PSPNet-R50-d8 at

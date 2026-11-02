@@ -43,7 +43,7 @@ def test_every_mapped_public_entry_declares_validation_and_keeps_its_signature()
         except Exception as error:
             assert hasattr(error, "errors"), (spec.operation_id, error)
             assert all(e["type"] == "missing" for e in error.errors()), (spec.operation_id, error)
-    assert entries == 250
+    assert entries == 255
 
 
 def test_every_scientific_argument_is_registered_or_has_an_explicit_native_reason():

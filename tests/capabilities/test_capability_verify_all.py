@@ -34,12 +34,17 @@ def _parse_cli_json(captured: str) -> dict:
 def test_verify_all_admits_every_discovered_capability(
     _iso_home: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # before: all core bundles are rejected for lack of verification records
+    # before: first-party verification is advisory, so every core bundle is
+    # already admitted, carrying the missing record as a diagnostic
     from organelleverse.capabilities import discover_capabilities
 
     before = discover_capabilities()
     assert len(before.entries) > 0
-    assert all(str(entry.status) == "rejected" for entry in before.entries)
+    assert all(str(entry.status) == "admitted" for entry in before.entries)
+    assert all(
+        entry.diagnostic is not None and entry.diagnostic.code == "capability.verification_missing"
+        for entry in before.entries
+    )
 
     exit_code = capability_cli.main(["verify-all", "--json"])
     captured = capsys.readouterr().out
@@ -53,6 +58,10 @@ def test_verify_all_admits_every_discovered_capability(
     # after: the same discovery now admits everything, with real records on disk
     after = discover_capabilities()
     assert all(str(entry.status) == "admitted" for entry in after.entries)
+    assert not any(
+        entry.diagnostic is not None and entry.diagnostic.code == "capability.verification_missing"
+        for entry in after.entries
+    )
     records = list((_iso_home / "verifications").rglob("*.json"))
     assert len(records) == len(before.entries)
 

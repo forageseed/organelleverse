@@ -8,34 +8,37 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
 from organelleverse.heteroplasmy import quantify_variant_fractions
+
+from tests.bam_fixtures import bam_header
 
 CONTIG = "MT"
 
 
 def _bam(path: Path, length: int, groups: list[tuple[int, list[str]]]) -> Path:
     """Reads of 20 bp whose 10th base is the tested base: site position = start0 + 10."""
-    pysam = pytest.importorskip("pysam")
+    rubam = pytest.importorskip("rubam")
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": CONTIG, "LN": length}]}
     unsorted = path.with_suffix(".unsorted.bam")
-    with pysam.AlignmentFile(str(unsorted), "wb", header=header) as out:
+    with rubam.AlignmentFile(
+        str(unsorted), "wb", header=bam_header(header, Path(unsorted).parent)
+    ) as out:
         n = 0
         for start0, bases in groups:
             for base in bases:
-                read = pysam.AlignedSegment()
+                read = rubam.AlignedSegment()
                 read.query_name = f"r{n}"
                 read.query_sequence = "A" * 9 + base + "A" * 10
                 read.flag = 0
                 read.reference_id = 0
                 read.reference_start = start0
                 read.mapping_quality = 60
-                read.cigar = [(0, 20)]
-                read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+                read.cigartuples = [(0, 20)]
+                read.query_qualities = rubam.qualitystring_to_array("I" * 20)
                 out.write(read)
                 n += 1
-    pysam.sort("-o", str(path), str(unsorted))
-    pysam.index(str(path))
+    rubam.sort(str(unsorted), str(path))
+    rubam.index(str(path))
     return path
 
 
@@ -134,7 +137,9 @@ def test_bed_for_another_contig_masks_nothing(tmp_path: Path) -> None:
     assert "homologous_regions_masked" in result.flags  # a mask was applied, it was just empty
 
 
-@pytest.mark.parametrize("line", [f"{CONTIG}\t30\t30", f"{CONTIG}\t-1\t10", f"{CONTIG}\ta\tb", CONTIG])
+@pytest.mark.parametrize(
+    "line", [f"{CONTIG}\t30\t30", f"{CONTIG}\t-1\t10", f"{CONTIG}\ta\tb", CONTIG]
+)
 def test_invalid_bed_fails_clearly(tmp_path: Path, line: str) -> None:
     bed = _bed(tmp_path / "mask.bed", line)
     result = quantify_variant_fractions(
@@ -160,9 +165,7 @@ def test_missing_bed_file_fails_clearly(tmp_path: Path) -> None:
 def _fake_search(candidates, *, status="ok", seen=None):
     def fake(nuclear_fasta, organelle_fasta, **kwargs):
         if seen is not None:
-            seen.update(
-                target=str(nuclear_fasta), source=str(organelle_fasta), **kwargs
-            )
+            seen.update(target=str(nuclear_fasta), source=str(organelle_fasta), **kwargs)
         return SimpleNamespace(
             status=status,
             summary_text="boom" if status == "failed" else "",
@@ -207,9 +210,7 @@ def test_homology_search_regions_are_masked(tmp_path: Path, monkeypatch) -> None
     assert result.provenance.software_versions["losat"] == "0.1.0"
 
 
-def test_a_failed_homology_search_never_falls_back_to_unmasked(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_a_failed_homology_search_never_falls_back_to_unmasked(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(
         "organelleverse.transfer.transfer.detect_transfers_blast",
         _fake_search([], status="failed"),
@@ -292,5 +293,7 @@ def test_a_diverged_plastid_insert_is_found_and_masked_with_the_real_search(
     )
     assert result.status == "ok", result.summary_text
     rows = _rows(result)
-    assert rows["in_insert"]["status"] == "masked" and rows["in_insert"]["mask_source"] == "homology"
+    assert (
+        rows["in_insert"]["status"] == "masked" and rows["in_insert"]["mask_source"] == "homology"
+    )
     assert rows["unique"]["status"] == "ok" and rows["unique"]["alt_fraction"] == 0.2

@@ -5,7 +5,7 @@ import pytest
 from organelleverse.annotation.cmsearch.model import parse_cm
 from tests._paths import PROJECT_ROOT
 
-CM = PROJECT_ROOT / "src/organelleverse/annotation/data/models/trna/trna.cm"
+CM = PROJECT_ROOT / "src/annotation/data/models/trna/trna.cm"
 pytestmark = pytest.mark.skipif(not CM.exists(), reason="packaged CM not built yet")
 
 

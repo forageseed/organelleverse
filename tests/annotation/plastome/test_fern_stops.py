@@ -35,7 +35,9 @@ def test_read_through_stops_near_the_anchored_end() -> None:
     seq = "C" * 60 + gene + "C" * 60
     start, end = 61, 60 + len(gene)
 
-    plain = refine_cds_boundaries_with_edits(seq, start, end, 1)
+    # start_window=0 keeps this about stop handling: the synthetic gene's other frames are almost free of stops
+    # (unlike real genes), so a start codon in another frame would reach the anchored end and be taken.
+    plain = refine_cds_boundaries_with_edits(seq, start, end, 1, start_window=0)
     through = refine_cds_boundaries_with_edits(seq, start, end, 1, tolerate_edits=True)
 
     assert plain == (start, start + 3 + 40 * 3 + 2, [])  # cut at the edited stop

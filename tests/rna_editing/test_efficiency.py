@@ -4,15 +4,16 @@ import csv
 from pathlib import Path
 
 import pytest
-
 from organelleverse.rna_editing.efficiency import quantify_known_site_efficiency
 
-pysam = pytest.importorskip("pysam")
+from tests.bam_fixtures import bam_header
+
+rubam = pytest.importorskip("rubam")
 
 
 def _write_bam(path: Path) -> None:
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": "chrM", "LN": 100}]}
-    with pysam.AlignmentFile(path, "wb", header=header) as bam:
+    with rubam.AlignmentFile(path, "wb", header=bam_header(header, Path(path).parent)) as bam:
         cases = [("C", 60, 40, 0)] * 6 + [("T", 60, 40, 0)] * 3 + [("A", 60, 40, 0)] * 2
         cases += [
             ("T", 60, 5, 0),
@@ -22,7 +23,7 @@ def _write_bam(path: Path) -> None:
             ("T", 60, 40, 512),
         ]
         for index, (base, mapq, baseq, flag) in enumerate(cases):
-            read = pysam.AlignedSegment()
+            read = rubam.AlignedSegment()
             read.query_name = f"read{index}"
             sequence = list("A" * 20)
             sequence[10] = base
@@ -31,13 +32,13 @@ def _write_bam(path: Path) -> None:
             read.reference_id = 0
             read.reference_start = 0
             read.mapping_quality = mapq
-            read.cigar = ((0, 20),)
-            read.query_qualities = pysam.qualitystring_to_array(chr(baseq + 33) * 20)
+            read.cigartuples = ((0, 20),)
+            read.query_qualities = rubam.qualitystring_to_array(chr(baseq + 33) * 20)
             bam.write(read)
         # Both overlapping mates and a mapped orphan are independent passing
         # observations under the documented filters.
         for name, flag in (("overlap", 99), ("overlap", 147), ("orphan", 73)):
-            read = pysam.AlignedSegment()
+            read = rubam.AlignedSegment()
             read.query_name = name
             sequence = list("A" * 20)
             sequence[10] = "T"
@@ -45,14 +46,15 @@ def _write_bam(path: Path) -> None:
             read.flag = flag
             read.reference_id = 0
             read.reference_start = 0
-            read.next_reference_id = 0 if name == "overlap" else -1
-            read.next_reference_start = 0 if name == "overlap" else -1
+            if name == "overlap":
+                read.next_reference_id = 0
+                read.next_reference_start = 0
             read.template_length = 20 if flag == 99 else (-20 if flag == 147 else 0)
             read.mapping_quality = 60
-            read.cigar = ((0, 20),)
-            read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+            read.cigartuples = ((0, 20),)
+            read.query_qualities = rubam.qualitystring_to_array("I" * 20)
             bam.write(read)
-    pysam.index(str(path))
+    rubam.index(str(path))
 
 
 def test_known_site_pileup_counts_and_quality_filters(tmp_path: Path) -> None:

@@ -7,10 +7,19 @@ from pathlib import Path
 
 from organelleverse.core.artifacts import ArtifactRef
 from organelleverse.pangenome.graph_selection import verified_artifact
-from organelleverse.plugin_experiments.adaptive_models import AdaptiveStudyRecord
+from types import SimpleNamespace
+from typing import Protocol
+from organelleverse.optimization.evidence_models import RepeatEvidence
+
+class StudyDiagnosticEvidence(Protocol):
+    study_id: str
+    status: str
+    contract_digest: str
+    attempts: tuple[RepeatEvidence, ...]
 
 
-def publish_diagnostics(record: AdaptiveStudyRecord, source: Path, destination: Path):
+
+def publish_diagnostics(record: StudyDiagnosticEvidence, source: Path, destination: Path):
     summary = json.loads((source / "summary.json").read_text())
     if summary["study_id"] != record.study_id or record.status not in {
         "adopted",
@@ -76,7 +85,10 @@ def main():
     parser.add_argument("study_directory", type=Path)
     args = parser.parse_args()
     root = args.study_directory
-    record = AdaptiveStudyRecord.model_validate_json((root / "study-result.json").read_text())
+    payload = json.loads((root / "study-result.json").read_text())
+    record = SimpleNamespace(study_id=payload["study_id"], status=payload["status"],
+                             contract_digest=payload["contract_digest"],
+                             attempts=tuple(RepeatEvidence.model_validate(item) for item in payload["attempts"]))
     destination = root / "evidence" / record.study_id / "diagnostics"
     publish_diagnostics(record, root / "diagnostics-v1", destination)
     print(destination)

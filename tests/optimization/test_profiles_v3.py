@@ -26,7 +26,7 @@ from organelleverse.optimization.profiles_v3 import (
 from tests.capabilities.test_bundle_models import minimal_bundle
 from tests.capabilities.test_plugin_v2_models import v2_payload
 from tests.optimization.test_contracts_v3 import declaration_payload, identity
-from tests.plugin_experiments.conftest import admit, build_plugin_entry
+from tests.support.scientific_plugin_fixtures import admit, build_plugin_entry
 
 _HASH = "sha256:" + "d" * 64
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from ..core.artifacts import ArtifactRef
 from ..core.result import OrganelleResult
-from ..plugin_experiments.store import _lock_file_descriptor, _unlock_file_descriptor
+from ..core.file_lock import _lock_file_descriptor, _unlock_file_descriptor
 from ..runtime import managed_run_path, publish_staged_result
 from . import workflow_store as store
 from ._contract import make_provenance, parameters_hash, utc_now
@@ -64,7 +64,7 @@ def _execute_locked(run_id: str) -> dict:
         store.save(directory, record)
         return store.public_view(record)
     request = WorkflowRequest.model_validate(record["request"])
-    request_hash = parameters_hash(request.model_dump(mode="json"))
+    request_hash = parameters_hash(_hashed_request(request))
     record.update(status="running", error=None)
     store.save(directory, record)
     active = None
@@ -157,6 +157,15 @@ def _execute_locked(run_id: str) -> dict:
     return store.public_view(record)
 
 
+def _hashed_request(request: WorkflowRequest) -> dict:
+    # Fields added later are hashed only when set, so paused runs created
+    # before them still match their completed checkpoints.
+    value = request.model_dump(mode="json")
+    if not value["sparse_mapping"]:
+        del value["sparse_mapping"]
+    return value
+
+
 def _consume_pause(directory: Path, record: dict) -> bool:
     marker = store.pause_path(record["run_id"])
     if not marker.exists():
@@ -229,6 +238,7 @@ def _execute_stage_body(
                 identity=request.identity,
                 recommendation=recommendation,
                 auto_adopt_recommendation=request.auto_adopt_recommendation,
+                sparse_mapping=request.sparse_mapping,
             )
             graph = require_graph_result(result, backend=request.backend)
             if request.auto_adopt_recommendation:

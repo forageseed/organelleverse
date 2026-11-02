@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import lru_cache
 from itertools import pairwise
 from pathlib import Path
 
@@ -19,6 +20,7 @@ _STEP = tuple[str, str]
 _CIGAR = re.compile(r"(?:[0-9]+[MIDNSHPX=])+")
 _OPS = re.compile(r"([0-9]+)([MIDNSHPX=])")
 _DNA = re.compile(r"[ACGTRYSWKMBDHVNacgtryswkmbdhvn]+")
+_PRINTABLE = re.compile(r"[!-~]+")  # ASCII 33..126, the GFA name alphabet
 _COMPLEMENT = str.maketrans("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "TGCAYRSWMKVHDBNtgcayrswmkvhdbn")
 
 
@@ -73,7 +75,7 @@ def _reverse_cigar(cigar: str) -> str:
 
 
 def _name(value: str) -> str:
-    if not value or value[0] in "*=" or any(ord(c) < 33 or ord(c) > 126 for c in value):
+    if not value or value[0] in "*=" or not _PRINTABLE.fullmatch(value):
         raise ValueError(f"invalid GFA name: {value!r}")
     if "+," in value or "-," in value:
         raise ValueError(f"invalid GFA name: {value!r}")
@@ -113,6 +115,7 @@ def _integer(text: str) -> int:
     return int(text)
 
 
+@lru_cache(maxsize=4096)
 def _exact_overlap(cigar: str) -> int:
     if cigar == "*":
         raise ValueError("unknown overlap cannot define path coordinates or sequence")
@@ -149,6 +152,15 @@ def _validate_overlap_length(graph: GFAGraph, source: _STEP, target: _STEP, ciga
 
 def _read_lines(lines: list[str]) -> GFAGraph:
     graph = GFAGraph()
+    # Paths revisit the same oriented nodes; validate each distinct step once.
+    parsed_steps: dict[str, _STEP] = {}
+
+    def path_step(text: str) -> _STEP:
+        step = parsed_steps.get(text)
+        if step is None:
+            step = parsed_steps[text] = _step(text[:-1], text[-1:])
+        return step
+
     for line_number, raw in enumerate(lines, 1):
         raw = raw.rstrip("\r\n")
         if not raw or raw.startswith("#"):
@@ -200,7 +212,7 @@ def _read_lines(lines: list[str]) -> GFAGraph:
                 name = _name(fields[1])
                 if ";" in fields[2]:
                     raise ValueError("GFA1.2 jump paths are not supported")
-                steps = tuple(_step(x[:-1], x[-1:]) for x in fields[2].split(","))
+                steps = tuple(path_step(x) for x in fields[2].split(","))
                 overlaps = (
                     None if fields[3] == "*" else tuple(_cigar(x) for x in fields[3].split(","))
                 )

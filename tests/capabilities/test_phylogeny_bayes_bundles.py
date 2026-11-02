@@ -49,7 +49,11 @@ def _admit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     store = VerificationStore(home / "verifications")
     records = {}
     for capability_id in _IDS:
-        assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+        unverified = discovered.describe(capability_id)
+        # Verification is advisory for first-party code: admitted, with a diagnostic.
+        assert unverified.status is CapabilityStatus.ADMITTED
+        assert unverified.diagnostic is not None
+        assert unverified.diagnostic.code == "capability.verification_missing"
         records[capability_id] = verify_capability(
             capability_id, store=store, environment=LocalVerificationEnvironment(discovered)
         )

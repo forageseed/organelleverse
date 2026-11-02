@@ -54,7 +54,7 @@ def _stub_client(responses: dict[str, str], calls: list[tuple]):
 
 def test_bundle_declares_honest_contract_flags() -> None:
     bundle = parse_capability_bundle(
-        PROJECT_ROOT / "src/organelleverse/capabilities/morphology-verify/capability.toml"
+        PROJECT_ROOT / "src/capabilities/morphology-verify/capability.toml"
     )
     spec = bundle.contract
     assert spec.operation_id == "morphology.verify"
@@ -258,3 +258,4 @@ def test_batch_resume_skips_completed_items(tmp_path: Path) -> None:
     )
     assert second == {"done": 0, "failed": 0, "skipped": 2}
     assert len(calls) == calls_after_first, "resume must not re-verify completed items"
+

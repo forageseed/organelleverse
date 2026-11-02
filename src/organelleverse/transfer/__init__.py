@@ -28,6 +28,7 @@ mtpt = detect_mtpt
 save = deprecated_alias(write, "save")
 
 from .transfer_core import compute_transfer
+from .mtpt_grading import grade_mtpt, organelle_reference_fasta
 
 read = make_reader("transfer", "fasta", "bam")
 
@@ -36,6 +37,8 @@ __all__ = [
     "detect",
     "mtpt",
     "detect_mtpt",
+    "grade_mtpt",
+    "organelle_reference_fasta",
     "detect_transfers_blast",
     "validate_transfers_depth",
     "validate_transfers_longread",

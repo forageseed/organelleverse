@@ -34,7 +34,9 @@ class PriorCandidateV3(StrictSpecModel):
     """An evidenced initial candidate with no score or adoption semantics."""
 
     prior_id: Annotated[StrictStr, Field(min_length=1, pattern=r"^\S(?:.*\S)?$")]
-    source: Literal["declared", "historical", "minegraph"]
+    # "published_tool": another tool's default policy. "minegraph" is the
+    # legacy spelling of that category, accepted so stored contracts keep their digest.
+    source: Literal["declared", "historical", "published_tool", "minegraph"]
     parameters: dict[StrictStr, JsonValue] = Field(min_length=1)
     evidence_refs: tuple[
         Annotated[StrictStr, Field(min_length=1, pattern=r"^\S(?:.*\S)?$")], ...

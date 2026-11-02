@@ -141,6 +141,9 @@ PYTHON_ONLY_PARAMETERS = MappingProxyType(
             "makeblastdb_path": "Host executable/location or explicit "
             "Python publication destination",
         },
+        "transfer.grade_mtpt": {
+            "mtpt": "Native OrganelleResult from detect_mtpt; JSON callers pass cp_fasta instead"
+        },
         "transfer.detect_transfers_evidence": {
             "blastn_path": "Host executable/location or explicit Python publication destination",
             "makeblastdb_path": "Host executable/location or explicit "

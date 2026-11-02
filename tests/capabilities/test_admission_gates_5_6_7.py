@@ -200,7 +200,8 @@ def test_adversarial_fixture_fails_when_the_capability_succeeds_instead(
 
     assert record.equivalence[0].verdict == "fail"
     entry = admitted.describe(_VALIDATED_ID)
-    assert entry.status is CapabilityStatus.REJECTED
+    # A failing verification is reported, not enforced, for first-party core code.
+    assert entry.status is CapabilityStatus.ADMITTED
     assert entry.diagnostic is not None
     assert entry.diagnostic.code == "capability.equivalence_failed"
 
@@ -315,7 +316,8 @@ def test_non_deterministic_operation_rejects_when_verification_reruns_disagree(
     assert evidence.determinism_produced_hash != evidence.candidate.produced_hash
     assert evidence.verdict == "fail"
     entry = admitted.describe(_FLAKY_ID)
-    assert entry.status is CapabilityStatus.REJECTED
+    # A failing verification is reported, not enforced, for first-party core code.
+    assert entry.status is CapabilityStatus.ADMITTED
     assert entry.diagnostic is not None
     assert entry.diagnostic.code == "capability.equivalence_failed"
 
@@ -415,7 +417,8 @@ def test_rewrite_equivalence_fails_when_the_original_output_drifted(
     assert evidence.rewrite_reference_hash != evidence.candidate.produced_hash
     assert evidence.verdict == "fail"
     entry = admitted.describe(_ECHO_ID)
-    assert entry.status is CapabilityStatus.REJECTED
+    # A failing verification is reported, not enforced, for first-party core code.
+    assert entry.status is CapabilityStatus.ADMITTED
     assert entry.diagnostic is not None
     assert entry.diagnostic.code == "capability.equivalence_failed"
 

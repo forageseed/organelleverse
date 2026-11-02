@@ -1,0 +1,69 @@
+schema = "organelleverse.capability.v1"
+
+[capability]
+id = "transfer.grade_mtpt"
+bundle_version = "1.0.0"
+implementation = "native"
+
+[contract]
+contract_version = "1.0"
+title = "Grade MTPT"
+description = "Grade MTPT candidates against other species' plastid and mitochondrial reference panels (RefSeq) as clean plastid, ambiguous (closer to plastid / to mito / equidistant), conserved mtDNA or undetermined; retained fraction drops conserved mtDNA."
+keywords = ["blast", "grade", "mtpt", "plastid", "refseq", "transfer"]
+execution_mode = "inline"
+stage = "analyze"
+input_kind = "none"
+output_kind = "result"
+callable_locator = "organelleverse.transfer.mtpt_grading:grade_mtpt"
+side_effects = ["read_files", "write_files", "subprocess"]
+deterministic = true
+idempotent = true
+cacheable = false
+
+[contract.binding]
+argument_mode = "named_parameters"
+result_codec = "canonical"
+
+[[contract.binding.parameters]]
+name = "mito_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "cp_fasta"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "plastid_reference"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "mitochondrion_reference"
+codec = "path"
+
+[[contract.binding.parameters]]
+name = "exclude_organism"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "plastid_min_coverage"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "plastid_min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mito_min_coverage"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "mito_min_identity"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "identity_margin"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "threads"
+codec = "json"

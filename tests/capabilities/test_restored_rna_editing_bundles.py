@@ -1,7 +1,7 @@
 """Capability Plan 03, Task 3: the restored ``rna_editing`` bundles, for real.
 
 ``scripts/capabilities/build_restored_bundles.py`` generated 9 bundles under
-``src/organelleverse/capabilities/rna-editing-*`` from
+``src/capabilities/rna-editing-*`` from
 ``docs/operations/restored-capabilities.toml`` - see
 ``organelleverse.capabilities.adapters.rna_editing``'s module docstring for
 the full reasoning, including a new blocker class: two ledger ids
@@ -74,7 +74,7 @@ _MITO_GBK = PROJECT_ROOT / "tests" / "data" / "mito.gbk"
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 _EXPECTED_BUNDLE_DIRS = {
     "rna-editing-change-n",
@@ -178,7 +178,11 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
 
     discovered = discover_capabilities()
     for capability_id in _RESTORED_IDS:
-        assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+        unverified = discovered.describe(capability_id)
+        # Verification is advisory for first-party code: admitted, with a diagnostic.
+        assert unverified.status is CapabilityStatus.ADMITTED
+        assert unverified.diagnostic is not None
+        assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     for capability_id in _RESTORED_IDS:
@@ -193,7 +197,8 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
         entry = admitted.describe(capability_id)
         assert entry.status is CapabilityStatus.ADMITTED, entry.diagnostic
     admitted_ids = {item.capability_id for item in admitted.list()}
-    assert admitted_ids == set(_RESTORED_IDS)
+    # Other first-party capabilities are admitted without a record too.
+    assert set(_RESTORED_IDS) <= admitted_ids
 
 
 def test_a_capability_the_generator_refused_to_produce_is_simply_absent(

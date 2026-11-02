@@ -8,7 +8,7 @@ from organelleverse.annotation.cmsearch.model import parse_cm
 from organelleverse.annotation.cmsearch.naming import gene_name, name_trna
 from tests._paths import PROJECT_ROOT
 
-_PLANT_MITO_CM = PROJECT_ROOT / "src/organelleverse/annotation/data/models/trna/plant_mito_trna.cm"
+_PLANT_MITO_CM = PROJECT_ROOT / "src/annotation/data/models/trna/plant_mito_trna.cm"
 pytestmark = pytest.mark.skipif(not _PLANT_MITO_CM.exists(), reason="plant-mito CM not built")
 
 # Real Ranunculus mitochondrial tRNAs (cmsearch/PMGA-confirmed).
@@ -49,7 +49,7 @@ def test_anticodon_columns_auto_calibrate():
     assert named is not None and named[0] == "TTT"
 
 
-_RF00005_CM = PROJECT_ROOT / "src/organelleverse/annotation/data/models/trna/trna.cm"
+_RF00005_CM = PROJECT_ROOT / "src/annotation/data/models/trna/trna.cm"
 
 
 @pytest.mark.skipif(not _RF00005_CM.exists(), reason="RF00005 CM not packaged")

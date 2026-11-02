@@ -7,7 +7,7 @@ from organelleverse.annotation.cmsearch.model import parse_cm
 from organelleverse.annotation.cmsearch.models import CMState, CovarianceModel
 from tests._paths import PROJECT_ROOT
 
-_PACKAGED_CM = PROJECT_ROOT / "src/organelleverse/annotation/data/models/trna/trna.cm"
+_PACKAGED_CM = PROJECT_ROOT / "src/annotation/data/models/trna/trna.cm"
 
 
 def _single_pair_model() -> CovarianceModel:

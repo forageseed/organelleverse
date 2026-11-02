@@ -85,23 +85,100 @@ def annotate_plastid_rrna(genome: str, ref_dir: Path | None = None) -> list[Plas
             continue
         builder = pyhmmer.plan7.Builder(alphabet)
         for top in pyhmmer.nhmmer(queries, [target], builder=builder):
-            for hit in top:
-                if hit.score < min_score:
-                    continue
+            pieces = []
+            for index, hit in enumerate(top):
                 for dom in hit.domains:
                     ali = dom.alignment
                     t_from, t_to = int(ali.target_from), int(ali.target_to)
-                    hits.append(
-                        PlastidRRNAHit(
-                            gene_name=gene,
-                            rrna_type=rrna_type,
+                    pieces.append(
+                        _Piece(
                             start=min(t_from, t_to),
                             end=max(t_from, t_to),
                             strand=1 if t_from <= t_to else -1,
-                            score=float(hit.score),
+                            q_from=int(ali.hmm_from),
+                            q_to=int(ali.hmm_to),
+                            q_length=int(ali.hmm_length),
+                            scores={index: float(hit.score)},
                         )
                     )
+            for piece in _join_split_pieces(pieces):
+                if piece.score < min_score:
+                    continue
+                hits.append(
+                    PlastidRRNAHit(
+                        gene_name=gene,
+                        rrna_type=rrna_type,
+                        start=piece.start,
+                        end=piece.end,
+                        strand=piece.strand,
+                        score=piece.score,
+                    )
+                )
     return _dedupe(hits)
+
+
+# A fast-evolving lineage can carry an insertion that the packaged (mostly angiosperm) queries
+# lack. Welwitschia 5S is 148 nt against 119-121 nt queries, and nhmmer reports its two halves as
+# separate hits (query 2-60 and 35-121, adjacent on the genome), which would give two 5S fragments
+# per copy. Pieces of one query that continue each other are joined before the score filter.
+_MAX_PIECE_GAP = 30  # genome bp between consecutive pieces
+_MAX_SPAN_FACTOR = 1.5  # joined span relative to the query length
+
+
+@dataclass
+class _Piece:
+    start: int
+    end: int
+    strand: int
+    q_from: int
+    q_to: int
+    q_length: int
+    scores: dict[int, float]  # nhmmer hit index -> hit score (a hit can hold several domains)
+
+    @property
+    def score(self) -> float:
+        return sum(self.scores.values())
+
+
+def _continues(first: _Piece, second: _Piece) -> bool:
+    """``second`` follows ``first`` in transcription order on the genome and on the query."""
+    gap = second.start - first.end - 1 if first.strand == 1 else first.start - second.end - 1
+    span = max(first.end, second.end) - min(first.start, second.start) + 1
+    return (
+        first.strand == second.strand
+        and -5 <= gap <= _MAX_PIECE_GAP
+        and second.q_from > first.q_from
+        and second.q_to > first.q_to
+        and span <= _MAX_SPAN_FACTOR * first.q_length
+    )
+
+
+def _join_split_pieces(pieces: list[_Piece]) -> list[_Piece]:
+    joined: list[_Piece] = []
+    for strand in (1, -1):
+        ordered = sorted(
+            (p for p in pieces if p.strand == strand),
+            key=lambda p: p.start if strand == 1 else -p.end,
+        )
+        current: _Piece | None = None
+        for piece in ordered:
+            if current is not None and _continues(current, piece):
+                current = _Piece(
+                    start=min(current.start, piece.start),
+                    end=max(current.end, piece.end),
+                    strand=strand,
+                    q_from=current.q_from,
+                    q_to=piece.q_to,
+                    q_length=current.q_length,
+                    scores={**current.scores, **piece.scores},
+                )
+                continue
+            if current is not None:
+                joined.append(current)
+            current = piece
+        if current is not None:
+            joined.append(current)
+    return joined
 
 
 def _dedupe(hits: list[PlastidRRNAHit]) -> list[PlastidRRNAHit]:

@@ -38,7 +38,8 @@ def compute_synteny_score(genomes) -> dict:
     orders = [_gene_order(g) for g in genomes]
     if len(orders) < 2:
         return {"synteny_blocks": 0, "order_jaccard": 1.0}
-    s1 = {(orders[0][i], orders[0][i + 1]) for i in range(len(orders[0]) - 1)}
-    s2 = {(orders[1][i], orders[1][i + 1]) for i in range(len(orders[1]) - 1)}
+    # undirected adjacencies, as in compare._adjacencies: strand of input must not matter
+    s1 = {(a, b) if a <= b else (b, a) for a, b in zip(orders[0], orders[0][1:], strict=False)}
+    s2 = {(a, b) if a <= b else (b, a) for a, b in zip(orders[1], orders[1][1:], strict=False)}
     j = len(s1 & s2) / len(s1 | s2) if (s1 | s2) else 0.0
     return {"synteny_blocks": len(s1 & s2), "order_jaccard": round(j, 4)}

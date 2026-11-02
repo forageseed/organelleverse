@@ -186,3 +186,78 @@ def test_real_fastp_known_adapter_and_all_filtered(reads):
     assert result.status == "warning"
     assert result.metrics["after"]["reads"] == 0
     assert result.metrics["after"]["mean_quality"] is None
+
+
+def test_statistics_of_read_data_summarize_each_library(reads, tmp_path):
+    import organelleverse as ov
+
+    hifi = ov.read(reads, technology="hifi")
+    metrics = dict(qc.read_statistics(hifi).metrics)
+    assert set(metrics) == {"long_0"}
+    library = dict(metrics["long_0"])
+    assert library["technology"] == "pacbio_hifi"
+    assert library["quality_state"] == "ccs"
+    assert library["reads"] == 3 and library["bases"] == 12 and library["n50"] == 6
+    # the data form summarizes exactly what the path form does
+    by_path = dict(qc.read_statistics(reads).metrics)
+    assert {k: library[k] for k in by_path} == by_path
+
+    mate = tmp_path / "reads2.fastq"
+    mate.write_text(reads.read_text())
+    paired = dict(qc.read_statistics(ov.read([reads, mate], technology="illumina")).metrics)
+    assert set(paired) == {"short_0"}
+    short = dict(paired["short_0"])
+    assert short["layout"] == "paired_end"
+    assert short["reads"] == 6 and short["bases"] == 24  # both mates pooled
+
+
+def test_statistics_of_a_genome_are_refused(tmp_path):
+    import organelleverse as ov
+    from organelleverse.core.data import OrganelleData
+
+    wrong = OrganelleData(modality="expression_matrix")
+    with pytest.raises(OrganelleInputError):
+        qc.read_statistics(wrong)
+    assert ov  # the shorthand lives on ov.read; the data type is what qc checks
+
+
+def test_qc_write_materializes_read_statistics_as_json_and_csv(reads, tmp_path):
+    import csv
+    import json
+
+    import organelleverse as ov
+
+    stats = qc.read_statistics(ov.read(reads, technology="hifi"))
+
+    as_json = tmp_path / "stats.json"
+    written = qc.write(stats, output=as_json)
+    assert written.operation_id == "qc.write"
+    assert written.summary_text == "Materialized read QC output."
+    assert json.loads(as_json.read_text())["operation_id"] == "qc.read_statistics"
+
+    as_csv = tmp_path / "stats.csv"
+    qc.write(stats, output=as_csv)
+    with as_csv.open(newline="") as handle:
+        rows = {row["metric"]: row["value"] for row in csv.DictReader(handle)}
+    assert rows["long_0.technology"] == "pacbio_hifi"
+    assert rows["long_0.reads"] == "3" and rows["long_0.n50"] == "6"
+
+    # the same content again is idempotent; different content is a conflict
+    qc.write(stats, output=as_csv)
+    as_csv.write_text("metric,value\n")
+    with pytest.raises(OrganelleInputError) as conflict:
+        qc.write(stats, output=as_csv)
+    assert conflict.value.code == "qc.destination_conflict"
+
+
+def test_qc_write_flattens_a_path_result_and_refuses_other_suffixes(reads, tmp_path):
+    stats = qc.read_statistics(reads)
+    out = tmp_path / "flat.csv"
+    qc.write(stats, output=out)
+    assert out.read_text().splitlines()[0] == "metric,value"
+    assert "reads,3" in out.read_text().splitlines()
+
+    with pytest.raises(OrganelleInputError) as refused:
+        qc.write(stats, output=tmp_path / "stats.md")
+    assert refused.value.code == "qc.unsupported_output_suffix"
+    assert not (tmp_path / "stats.md").exists()

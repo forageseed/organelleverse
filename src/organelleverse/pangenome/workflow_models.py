@@ -28,6 +28,7 @@ class WorkflowRequest(BaseModel):
     seed: int = Field(default=0, ge=0)
     segment_length: int = Field(default=5000, ge=1)
     identity: float = Field(default=90, gt=0, le=100)
+    sparse_mapping: bool = False
     k: int = Field(default=31, ge=6, le=255)
     pantools_memory_mb: int = Field(default=4096, ge=128, le=1048576)
     normalization: dict[str, MoleculeNormalization] = Field(default_factory=dict)
@@ -39,7 +40,7 @@ class WorkflowRequest(BaseModel):
     annotation_reference_paths: tuple[str, ...] = ()
     annotation_untangle: Literal["exact", "odgi"] = "exact"
     tree_mode: Literal["pav", "msa", "none"] = "pav"
-    bootstrap_method: Literal["felsenstein", "adaptive_pav"] = "felsenstein"
+    bootstrap_method: Literal["felsenstein", "adaptive_pav", "superbubble_block"] = "felsenstein"
     adaptive_min_replicates: int = Field(default=1000, ge=1, le=100000)
     adaptive_max_replicates: int = Field(default=10000, ge=1, le=100000)
     adaptive_batch_size: int = Field(default=100, ge=1, le=10000)
@@ -74,9 +75,11 @@ class WorkflowRequest(BaseModel):
             if self.tree_parsimony_starts + self.tree_random_starts < 1:
                 raise ValueError("MSA phylogeny requires at least one starting tree")
             if self.bootstrap_method != "felsenstein":
-                raise ValueError("Adaptive PAV bootstrap is specific to a PAV tree")
+                raise ValueError("Adaptive PAV and superbubble block bootstraps are specific to a PAV tree")
         elif self.msa_path or self.msa_taxon_mapping:
             raise ValueError("Alignment input and taxon mapping require MSA tree mode")
+        if self.sparse_mapping and self.backend != "pggb":
+            raise ValueError("Sparse mapping applies only to PGGB graph construction")
         if self.backend == "existing" and (self.normalization or self.molecule_topologies):
             raise ValueError(
                 "Input normalization precedes construction; an imported graph retains its coordinates"

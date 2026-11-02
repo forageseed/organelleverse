@@ -46,6 +46,8 @@ class _Record(Protocol):
     @property
     def ALT(self) -> list[_Substitution]: ...
     @property
+    def CHROM(self) -> str: ...
+    @property
     def POS(self) -> int: ...
     @property
     def calls(self) -> list[_Call]: ...
@@ -58,15 +60,21 @@ class _Reader(Protocol):
     def close(self) -> None: ...
 
 
-def read_vcf(path: str | Path) -> dict[int, dict[str, str]]:
+def read_vcf(path: str | Path, *, contig: str | None = None) -> dict[int, dict[str, str]]:
     """Read biallelic SNP genotypes from a VCF file.
 
     Indels and multi-allelic records are skipped: the population statistics that
     consume this reader are defined over biallelic sites only, so admitting the
     rest would silently change what is being measured.
 
+    The result is keyed by position, so it describes one molecule. A VCF over
+    several contigs that share a position (mitochondrion and plastid, say) is
+    refused unless ``contig`` selects one of them; it used to keep only the last
+    record at each position.
+
     Arguments:
         path: The VCF file to read. Compression is handled by the parser.
+        contig: Read only records on this CHROM.
 
     Returns:
         A mapping of position to ``{sample: genotype}``, where genotype is the
@@ -103,14 +111,24 @@ def read_vcf(path: str | Path) -> dict[int, dict[str, str]]:
             details={"path": str(source), "error": str(error)},
         ) from error
 
+    contig_at: dict[int, str] = {}
+    seen_contigs: set[str] = set()
+    shared_positions: list[int] = []
     try:
         for record in reader:
+            chrom = str(record.CHROM)
+            if contig is not None and chrom != contig:
+                continue
             if len(str(record.REF)) != 1:
                 continue
             alt = record.ALT
             if len(alt) != 1 or len(str(alt[0].value)) != 1:
                 continue
-            snps[int(record.POS)] = {
+            pos = int(record.POS)
+            seen_contigs.add(chrom)
+            if contig_at.setdefault(pos, chrom) != chrom:
+                shared_positions.append(pos)
+            snps[pos] = {
                 str(call.sample): str(call.data.get("GT", "./.")) for call in record.calls
             }
     except Exception as error:
@@ -122,4 +140,18 @@ def read_vcf(path: str | Path) -> dict[int, dict[str, str]]:
     finally:
         reader.close()
 
+    if shared_positions:
+        contigs = sorted(seen_contigs)
+        raise OrganelleInputError(
+            code="input.vcf_multiple_contigs",
+            message=(
+                f"VCF {source} has sites at the same position on several contigs "
+                f"({', '.join(contigs)}); pass contig= to read one of them"
+            ),
+            details={
+                "path": str(source),
+                "contigs": contigs,
+                "positions": sorted(set(shared_positions))[:20],
+            },
+        )
     return snps

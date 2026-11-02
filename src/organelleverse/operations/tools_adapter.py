@@ -21,16 +21,12 @@ from organelleverse.capabilities.index import (
     CapabilityStatus,
 )
 from organelleverse.capabilities.models import (
-    AgentMetadata,
-    GuiMetadata,
     PluginCapabilityBundle,
-    PluginMetadata,
 )
 from organelleverse.core.errors import OrganelleInputError
 from organelleverse.operations.python_binding import bind_python_capability
 from organelleverse.operations.schemas import parameter_schema
 from organelleverse.operations.spec import (
-    AgentSurface,
     ArgumentMode,
     CoreKind,
     ExecutionContext,
@@ -242,20 +238,6 @@ def _adapter_bundle() -> PluginCapabilityBundle:
             execution_context=ExecutionContext.HOST,
             progress_source=ProgressSource.STAGES,
         ),
-        plugin=PluginMetadata(
-            name="Tool Adapter",
-            version=_BUNDLE_VERSION,
-            author="OrganelleVerse",
-            summary="Adapter surface for legacy Tool UI runs.",
-            category="general",
-            badge="read",
-        ),
-        agent=AgentMetadata(
-            task_description="Execute a legacy Tool UI request through the plugin system.",
-            prompt="",
-            agent_surface=AgentSurface.GRANULAR,
-        ),
-        gui=GuiMetadata(),
         probes=(),
         data_contracts=(),
         fixtures=(),

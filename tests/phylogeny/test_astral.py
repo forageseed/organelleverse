@@ -77,7 +77,6 @@ def test_astral_capability_bundle_parses_and_exposes_managed_output():
     bundle_file = (
         Path(__file__).parents[2]
         / "src"
-        / "organelleverse"
         / "capabilities"
         / "phylogeny-run-astral"
         / "capability.toml"

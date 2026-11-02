@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Fisher"
-description = "Fisher z-transform: z = atanh(r) \u00b7 \u221a(n \u2212 3). Pure data function."
+description = "Fisher estimates with finite JSON and explicit perfect/undefined states."
 keywords = ["analyze", "coevolution", "fisher", "restored", "result"]
 execution_mode = "inline"
 stage = "analyze"

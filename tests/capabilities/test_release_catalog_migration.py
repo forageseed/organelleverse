@@ -21,6 +21,7 @@ import pytest
 from tests.capabilities.release_bundles import (
     RESIDUAL_CATALOG_IDS,
     release_bundle_ids,
+    release_operation_ids,
     verify_release_bundles,
 )
 
@@ -51,28 +52,47 @@ def test_existing_release_contracts_are_preserved_by_bundles() -> None:
     assert not (RESIDUAL_CATALOG_IDS & set(actual))
 
 
-def test_residual_catalog_serves_four_operations_without_verification(
+def _release_bundle_diagnostics() -> dict[str, str | None]:
+    from organelleverse.capabilities.discovery import discover_capabilities
+
+    bundle_ids = set(release_bundle_ids())
+    return {
+        entry.capability_id: entry.diagnostic.code if entry.diagnostic else None
+        for entry in discover_capabilities().entries
+        if entry.capability_id in bundle_ids
+    }
+
+
+def test_bare_environment_serves_the_release_surface_with_an_advisory_diagnostic(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A bare environment still gets exactly the residual catalog operations."""
+    """First-party verification is advisory: no record still serves all 20.
+
+    The missing record is kept as a diagnostic on each admitted bundle, not
+    silently dropped.
+    """
 
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "empty-home"))
 
     ids = {spec.operation_id for spec in _fresh_release_registry().list()}
-    assert ids == RESIDUAL_CATALOG_IDS
+    assert release_operation_ids() <= ids
+    assert set(_release_bundle_diagnostics().values()) == {"capability.verification_missing"}
 
 
 def test_verified_release_bundles_complete_the_release_surface(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Once verified, the 16 bundles and the residual ops together serve all 20."""
+    """Once verified, all 20 are served and the advisory diagnostic is gone."""
 
     home = tmp_path / "home"
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(home))
     verify_release_bundles(home)
 
     ids = {spec.operation_id for spec in _fresh_release_registry().list()}
-    assert ids == set(release_bundle_ids()) | RESIDUAL_CATALOG_IDS
+    assert release_operation_ids() <= ids
+    diagnostics = _release_bundle_diagnostics()
+    assert len(diagnostics) == 16
+    assert "capability.verification_missing" not in diagnostics.values()
 
 
 def test_bundle_discovery_does_not_import_implementations() -> None:
@@ -108,20 +128,15 @@ def _cold_interpreter(script: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_residual_catalog_loads_only_four_operations_in_a_bare_environment() -> None:
+def test_bare_environment_serves_the_release_surface_in_a_cold_interpreter() -> None:
     script = (
         "import os, sys, tempfile\n"
         "os.environ['ORGANELLEVERSE_HOME'] = tempfile.mkdtemp()\n"
         "from organelleverse.operations.registry import registry\n"
         "ids = sorted(spec.operation_id for spec in registry.list())\n"
         "print(ids)\n"
-        "expected = [\n"
-        "    'annotation.annotate',\n"
-        "    'assembly.assemble',\n"
-        "    'assembly.pmat_graph_build',\n"
-        "    'io.read_long_reads',\n"
-        "]\n"
-        "sys.exit(0 if ids == expected else 1)\n"
+        f"expected = {sorted(release_operation_ids())!r}\n"
+        "sys.exit(0 if set(expected) <= set(ids) else 1)\n"
     )
     completed = _cold_interpreter(script)
     assert completed.returncode == 0, (

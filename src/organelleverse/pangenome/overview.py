@@ -19,7 +19,7 @@ from ..core.errors import OrganelleDependencyError, OrganelleExecutionError, Org
 from ._contract import utc_now
 from ._gfa import _exact_overlap
 from ._runner import run_command
-from .graph import graph_statistics, load_gfa, path_sequences
+from .graph import _graph_statistics, _path_sequences, load_gfa
 from .graph_formats import _check_encoding, _fingerprint, circular_paths
 from .odgi_names import numeric_gfa, write_name_table
 
@@ -80,7 +80,11 @@ def render_odgi_overview(
             code="pangenome.overview_overlaps",
             message="ODGI overview supports zero-overlap graphs only",
         )
-    expected = _fingerprint(source)  # Also rejects absent stored segment sequence.
+    if any(segment.sequence is None for segment in graph.segments.values()):
+        raise OrganelleInputError(
+            code="pangenome.conversion_missing_sequence",
+            message="Binary conversion requires stored segment sequences",
+        )
     executable = shutil.which("odgi")
     if not executable:
         raise OrganelleDependencyError(
@@ -188,7 +192,7 @@ def render_odgi_overview(
                 code="pangenome.overview_not_compacted",
                 message="ODGI sorting did not compact graph node IDs",
             )
-        if path_sequences(source) != path_sequences(paths["graph.sorted.gfa"]):
+        if _path_sequences(graph) != _path_sequences(sorted_graph):
             raise OrganelleExecutionError(
                 code="pangenome.overview_sort_changed_paths",
                 message="ODGI sorting changed path names or spelled sequences",
@@ -196,7 +200,7 @@ def render_odgi_overview(
         evidence["validation"].update(
             {"sorted_ids_compact": True, "sorted_path_sequences_equivalent": True}
         )
-        stats = graph_statistics(paths["graph.sorted.gfa"])
+        stats = _graph_statistics(sorted_graph)
         evidence["graph_statistics"] = {
             key: stats[key] for key in ("nodes", "edges", "paths", "components", "total_bp")
         }

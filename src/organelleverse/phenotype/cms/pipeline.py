@@ -7,6 +7,8 @@ This screen does not test chimerism or establish CMS causality.
 
 from __future__ import annotations
 
+from organelleverse._public_validation import validated_public
+
 import hashlib
 import json
 import os
@@ -14,8 +16,6 @@ from collections.abc import Mapping
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
-
-from organelleverse._public_validation import validated_public
 
 from ..._bio import read_fasta
 from ..._sequtil import reverse_complement
@@ -33,14 +33,23 @@ def cms(
     genome_fasta: str | Path | Sequences,
     *,
     min_orf_aa: int = 50,
-    tm_window: int = 21,
-    tm_threshold: float = 0.5,
+    tm_window: int = 19,
+    tm_threshold: float = 1.6,
 ) -> OrganelleResult:
     """Predict CMS candidate genes from a mitochondrial FASTA.
 
     A candidate is a long ORF (>= min_orf_aa) with a hydrophobic stretch
     (transmembrane hint). No chimerism, homology, or CMS causality is tested. Compute-only;
     persist candidates through an explicit writer (e.g. ``ov.write``).
+
+    The hint is a Kyte-Doolittle window mean of at least ``tm_threshold`` over
+    ``tm_window`` residues; the defaults are Kyte & Doolittle's transmembrane
+    rule (19 residues, 1.6). Checked on 2026-10-25/26 against the originally
+    reported sequences of 9 CMS proteins (orf288 translated from the hau CMS
+    mitogenome KF736092, which does not annotate it) and the 4,046 ORFs
+    (>= 50 codons) of five plant mitochondrial genomes: it keeps 8 of the 9
+    (misses orf108, window maximum 1.02) and passes 11% of intergenic ORFs. The
+    former default (21, 0.5) passed 66% of them.
     """
     genome_fasta = as_path(genome_fasta)
     seqs = read_fasta(Path(genome_fasta))

@@ -142,6 +142,48 @@ def test_a_split_document_passes_canonical_validation():
     assert not validate_document(split).errors
 
 
+def test_parts_around_a_part_on_another_contig_become_two_pieces():
+    # nad5-like: exons 1, 2, 4 and 5 on ctgA, exon 3 on ctgB (Quercus acutissima ON398339/ON398338).
+    # One ctgA piece holding exons 1, 2, 4, 5 had no open end and lost exon 3's 100 bases from its
+    # frame, so canonical validation rejected the whole annotation.
+    from organelleverse.annotation.validation import validate_document
+
+    cds = "ATG" + "GCT" * 98 + "TAA"  # 300 bases
+    # 50 + 50 + 100 + 50 + 50 bases; the third part lies on ctgB
+    spans = [(100, 150), (200, 250), (1300, 1400), (400, 450), (500, 550)]
+    merged = ["C"] * 2200
+    cursor = 0
+    for start, end in spans:
+        merged[start:end] = cds[cursor : cursor + end - start]
+        cursor += end - start
+    layout = [("ctgA", 0, 1000), ("ctgB", 1200, 1000)]
+    gene = _feature(0, "CDS", [(s, e, 1) for s, e in spans], gene=["nad5"], codon_start=["1"])
+    record = AnnotationRecord(
+        seqid="merged", name="merged", description="d", sequence="".join(merged), features=(gene,)
+    )
+    doc = AnnotationDocument(
+        backend="mitochondrion",
+        requested_stages=("pcg",),
+        completed_stages=("pcg",),
+        records=(record,),
+    )
+    split = split_document_by_contigs(doc, layout)
+    on_a, on_b = (r.features for r in split.records)
+    assert [[(p.start, p.end) for p in f.parts] for f in on_a] == [
+        [(100, 150), (200, 250)],
+        [(400, 450), (500, 550)],
+    ]
+    assert [(p.start, p.end) for p in on_b[0].parts] == [(100, 200)]
+    # frames inside the whole gene: 0, 200 and 100 bases precede the pieces
+    assert [f.qualifier_values("codon_start") for f in on_a] == [("1",), ("2",)]
+    assert on_b[0].qualifier_values("codon_start") == ("3",)
+    assert on_a[0].parts[-1].end_status == "after" and on_a[1].parts[0].start_status == "before"
+    assert on_a[0].parts[0].start_status == "exact" and on_a[1].parts[-1].end_status == "exact"
+    assert all(f.qualifier_values("partial") for f in (*on_a, *on_b))
+    assert list(split.source_metadata["cross_contig_features"][0]["contigs"]) == ["ctgA", "ctgB"]
+    assert not validate_document(split).errors
+
+
 def test_the_contig_map_is_recorded_in_merged_coordinates():
     doc = split_document_by_contigs(_document([_feature(0, "CDS", [(1300, 1500, 1)])]), _LAYOUT)
     contig_map = doc.source_metadata["contig_map"]

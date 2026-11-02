@@ -8,9 +8,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from organelleverse.heteroplasmy import quantify_variant_fractions
 
 from organelleverse import heteroplasmy
-from organelleverse.heteroplasmy import quantify_variant_fractions
+from tests.bam_fixtures import bam_header
 
 mappy = pytest.importorskip("mappy")
 
@@ -38,26 +39,28 @@ def _diverge(sequence: str, every: int) -> str:
 
 def _bam(path: Path, groups: list[tuple[int, list[str]]]) -> Path:
     """Reads of 20 bp whose 10th base is the tested base: site position = start0 + 10."""
-    pysam = pytest.importorskip("pysam")
+    rubam = pytest.importorskip("rubam")
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": CONTIG, "LN": LENGTH}]}
     unsorted = path.with_suffix(".unsorted.bam")
-    with pysam.AlignmentFile(str(unsorted), "wb", header=header) as out:
+    with rubam.AlignmentFile(
+        str(unsorted), "wb", header=bam_header(header, Path(unsorted).parent)
+    ) as out:
         n = 0
         for start0, bases in groups:
             for base in bases:
-                read = pysam.AlignedSegment()
+                read = rubam.AlignedSegment()
                 read.query_name = f"r{n}"
                 read.query_sequence = "A" * 9 + base + "A" * 10
                 read.flag = 0
                 read.reference_id = 0
                 read.reference_start = start0
                 read.mapping_quality = 60
-                read.cigar = [(0, 20)]
-                read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+                read.cigartuples = [(0, 20)]
+                read.query_qualities = rubam.qualitystring_to_array("I" * 20)
                 out.write(read)
                 n += 1
-    pysam.sort("-o", str(path), str(unsorted))
-    pysam.index(str(path))
+    rubam.sort(str(unsorted), str(path))
+    rubam.index(str(path))
     return path
 
 
@@ -74,9 +77,7 @@ class _World:
         self.reference = tmp_path / "mito.fa"
         self.reference.write_text(f">{CONTIG}\n{self.mito}\n", encoding="utf-8")
         self.nuclear = tmp_path / "nuclear.fa"
-        self.nuclear.write_text(
-            f">chr1\n{chr1}\n>chr2\n{chr2}\n{extra_records}", encoding="utf-8"
-        )
+        self.nuclear.write_text(f">chr1\n{chr1}\n>chr2\n{chr2}\n{extra_records}", encoding="utf-8")
         self.bam = _bam(
             tmp_path / "reads.bam",
             [
@@ -142,7 +143,9 @@ def test_the_minimum_length_decides_which_copies_count(tmp_path: Path) -> None:
 def test_a_nuclear_record_named_like_the_reference_is_skipped(tmp_path: Path) -> None:
     probe_dir = tmp_path / "probe"
     probe_dir.mkdir()
-    own = f">{CONTIG}\n{_World(probe_dir).mito}\n"  # the organelle itself, left in the nuclear FASTA
+    own = (
+        f">{CONTIG}\n{_World(probe_dir).mito}\n"  # the organelle itself, left in the nuclear FASTA
+    )
     world = _World(tmp_path, extra_records=own)
     result = world.run(nuclear_reference_fasta=world.nuclear)
     rows = _rows(result)
@@ -201,7 +204,9 @@ def test_the_search_is_cached_and_refreshed_when_the_nuclear_file_changes(
 
     monkeypatch.setattr(mappy, "Aligner", counting)
     for _ in range(3):
-        assert _rows(world.run(nuclear_reference_fasta=world.nuclear))["exact"]["status"] == "masked"
+        assert (
+            _rows(world.run(nuclear_reference_fasta=world.nuclear))["exact"]["status"] == "masked"
+        )
     assert len(built) == 1  # one index and scan for three BAMs sharing both references
     with world.nuclear.open("a", encoding="utf-8") as handle:
         handle.write(">extra\nACGTACGTAC\n")  # a different file now
@@ -225,7 +230,9 @@ def test_nuclear_plastid_and_bed_masks_combine_with_their_own_sources(
         lambda *a, **k: SimpleNamespace(
             status="ok",
             summary_text="",
-            metrics={"candidates": [{"nuclear_seqid": CONTIG, "nuclear_start": 495, "nuclear_end": 510}]},
+            metrics={
+                "candidates": [{"nuclear_seqid": CONTIG, "nuclear_start": 495, "nuclear_end": 510}]
+            },
             provenance=SimpleNamespace(software_versions={"losat": "0.1.0"}),
         ),
     )

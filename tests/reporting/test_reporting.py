@@ -15,6 +15,7 @@ import pytest
 
 import organelleverse as ov
 from organelleverse.core.artifacts import ArtifactRef
+from organelleverse.core.errors import OrganelleInputError
 from organelleverse.core.frozen import FrozenMap
 from organelleverse.core.genome import OrganelleGenome, OrganelleMetadata
 from organelleverse.core.result import ErrorDetail, OrganelleResult, ResultStatus
@@ -111,8 +112,8 @@ def test_write_requires_a_built_report(tmp_path: Path) -> None:
 # -- materialization: default backend ------------------------------------
 
 
-def test_write_default_backend_is_multiqc_or_jinja(tmp_path: Path) -> None:
-    """Default backend is MultiQC when installed, else Jinja2."""
+def test_write_default_backend_is_the_in_tree_report(tmp_path: Path) -> None:
+    """The default backend renders the self-contained in-tree HTML report."""
     g = _genome(tmp_path)
     r1 = _result(
         "qc.run",
@@ -124,7 +125,7 @@ def test_write_default_backend_is_multiqc_or_jinja(tmp_path: Path) -> None:
     report = ov.report.build(g, [r1], title="Test Report")
     r = ov.report.write(report, output=out)
     assert r.status == "ok"
-    assert r.metrics["backend"] in ("multiqc", "jinja2")
+    assert r.metrics["backend"] == "jinja2"
     assert r.metrics["results_count"] == 1
     assert out.exists()
 
@@ -142,7 +143,7 @@ def test_generic_write_dispatches_built_report(tmp_path: Path) -> None:
 
 
 def test_write_jinja_backend_forced(tmp_path: Path) -> None:
-    """backend='jinja' forces the in-tree template even with MultiQC installed."""
+    """backend='jinja' selects the in-tree template explicitly."""
     g = _genome(tmp_path)
     r1 = _result("qc.run", summary_text="ok")
     out = tmp_path / "report.html"
@@ -154,47 +155,12 @@ def test_write_jinja_backend_forced(tmp_path: Path) -> None:
     assert "<section" in html  # one section per result
 
 
-def test_write_multiqc_backend_forced(tmp_path: Path) -> None:
-    """backend='multiqc' produces a MultiQC report (skips if MultiQC missing)."""
-    pytest.importorskip("multiqc")
-    g = _genome(tmp_path)
-    r1 = _result("qc.run", summary_text="ok", metrics={"gc": 0.45})
-    out = tmp_path / "mqc.html"
-    report = ov.report.build(g, [r1], backend="multiqc")
-    r = ov.report.write(report, output=out)
-    assert r.metrics["backend"] == "multiqc"
-    assert out.exists()
-    assert "multiqc" in out.read_text().lower()
-
-
-def test_write_multiqc_missing_fails_when_forced(tmp_path: Path, monkeypatch) -> None:
-    """backend='multiqc' with MultiQC missing -> failed result, not silent fallback."""
-    g = _genome(tmp_path)
-    out = tmp_path / "report.html"
-    import sys
-
-    monkeypatch.setitem(sys.modules, "multiqc", None)
-    report = ov.report.build(g, [], backend="multiqc")
-    r = ov.report.write(report, output=out)
-    assert r.status == "failed"
-    assert r.errors[0].code == "reporting.multiqc_missing"
-    assert not out.exists(), "a failed forced-multiqc build left a partial destination"
-
-
-def test_write_multiqc_embeds_figures(tmp_path: Path) -> None:
-    """MultiQC report embeds base64 figures referenced in artifacts."""
-    pytest.importorskip("multiqc")
-    g = _genome(tmp_path)
-    png = _png(tmp_path)
-    r1 = _result(
-        "viz.plot",
-        artifacts=(ArtifactRef.from_path(png, kind="figure", format="png"),),
-        summary_text="Plot attached.",
-    )
-    out = tmp_path / "report.html"
-    report = ov.report.build(g, [r1], backend="multiqc")
-    ov.report.write(report, output=out)
-    assert "data:image/png;base64," in out.read_text()
+@pytest.mark.parametrize("backend", ["multiqc", "pdf"])
+def test_build_refuses_a_removed_or_unknown_backend(tmp_path: Path, backend: str) -> None:
+    """The MultiQC backend was removed; it is refused at construction, not ignored."""
+    with pytest.raises(OrganelleInputError) as excinfo:
+        ov.report.build(_genome(tmp_path), [], backend=backend)
+    assert excinfo.value.code == "reporting.unknown_backend"
 
 
 def test_write_multiple_results(tmp_path: Path) -> None:
@@ -356,21 +322,3 @@ def test_write_jinja_header_embeds_the_desktop_logo(tmp_path: Path) -> None:
     ov.report.write(ov.report.build(_genome(tmp_path), [], backend="jinja"), output=out)
     html = out.read_text()
     assert "class='ov-brand'><img src='data:image/png;base64," in html
-
-
-def test_write_multiqc_uses_report_layout_logo_and_single_summary(tmp_path: Path) -> None:
-    """MultiQC output carries the OV stylesheet and logo; each summary appears once."""
-    pytest.importorskip("multiqc")
-    g = _genome(tmp_path)
-    results = [
-        _result("qc.run", summary_text="QC summary sentence.", metrics={"gc": 0.45}),
-        _result("annotation.trna", status="failed", summary_text="tRNAscan-SE missing."),
-    ]
-    out = tmp_path / "mqc.html"
-    ov.report.write(ov.report.build(g, results, backend="multiqc"), output=out)
-    html = out.read_text()
-    assert 'class="custom_logo' in html
-    assert ".ov-mqc .metrics" in html  # stylesheet included via custom_css_files
-    assert "ov-stats" in html  # overview module
-    assert html.count("QC summary sentence.") == 1
-    assert "test.failed" in html

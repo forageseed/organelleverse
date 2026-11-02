@@ -37,9 +37,9 @@ def test_v2_optimization_parameter_names_are_unique() -> None:
         PluginCapabilityBundle.model_validate(payload)
 
 
-def test_descriptor_treats_non_output_path_bindings_as_file_inputs() -> None:
+def test_non_output_path_bindings_retain_scientific_input_roles() -> None:
     from organelleverse.capabilities.models import PluginCapabilityBundle
-    from organelleverse.capabilities.plugin_descriptor import describe_plugin
+    from organelleverse.operations.spec import ParameterCodec, ParameterSource
 
     payload = v2_payload()
     contract = cast(dict[str, object], payload["contract"])
@@ -54,10 +54,15 @@ def test_descriptor_treats_non_output_path_bindings_as_file_inputs() -> None:
         },
     )
 
-    descriptor = describe_plugin(PluginCapabilityBundle.model_validate(payload))
-
-    assert [field.name for field in descriptor.inputs] == ["images", "labels", "metadata_file", "source_file"]
-    assert [field.name for field in descriptor.parameters] == ["confidence_threshold"]
+    bundle = PluginCapabilityBundle.model_validate(payload)
+    bindings = {field.name: field for field in bundle.contract.binding.parameters}
+    outputs = {output.parameter for output in bundle.contract.outputs}
+    assert bindings["metadata_file"].codec is ParameterCodec.PATH
+    assert bindings["metadata_file"].source is ParameterSource.AGENT
+    assert "metadata_file" not in outputs
+    assert outputs == {"masks_dir", "report_path"}
+    assert bundle.contract.optimization is not None
+    assert bundle.contract.optimization.parameters == ("confidence_threshold",)
 
 
 def test_v2_output_name_is_a_safe_artifact_identifier() -> None:

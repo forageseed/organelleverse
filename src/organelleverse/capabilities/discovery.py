@@ -192,7 +192,21 @@ def _scan_roots(
     entries: list[CapabilityEntry] = []
     diagnostics: list[CapabilityDiagnostic] = []
     for root in roots:
-        for path, origin in _bundle_paths(root):
+        try:
+            bundles = _bundle_paths(root)
+        except OSError as error:
+            # A failing disk under one search root (EIO on ~/.organelleverse, 2026-10-29) drops that
+            # root with a diagnostic; it must not stop discovery, and with it the compute provider.
+            diagnostics.append(
+                _diagnostic(
+                    code="capability.search_root_unreadable",
+                    message="capability discovery could not read this search root",
+                    origin=_origin(root.channel, root.root, root.search_root),
+                    details={"path": str(root.root), "error": f"{type(error).__name__}: {error}"},
+                )
+            )
+            continue
+        for path, origin in bundles:
             if path.is_symlink():
                 diagnostics.append(
                     _diagnostic(

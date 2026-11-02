@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Tcs Connection Limit"
-description = "Maximum connection distance for the 95% parsimony criterion."
+description = "Templeton et al. (1992), equations 6\u20138, nucleotide parsimony limit."
 keywords = ["analyze", "connection", "limit", "phylogeny", "restored", "result", "tcs"]
 execution_mode = "inline"
 stage = "analyze"

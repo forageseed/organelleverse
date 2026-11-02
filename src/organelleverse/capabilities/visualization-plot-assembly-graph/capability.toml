@@ -61,6 +61,10 @@ name = "plastid"
 codec = "path"
 
 [[contract.binding.parameters]]
+name = "sequences"
+codec = "path"
+
+[[contract.binding.parameters]]
 name = "organelle"
 codec = "json"
 

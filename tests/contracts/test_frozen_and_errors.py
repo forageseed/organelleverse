@@ -92,6 +92,46 @@ def test_frozen_map_exposes_no_mutable_backing_store() -> None:
     assert hash(frozen) == original_hash
 
 
+def test_frozen_map_serializes_with_plain_json_dumps() -> None:
+    # Agents write json.dumps(result.metrics, default=str); a non-dict Mapping
+    # fell through to default=str and came back as one string.
+    frozen = freeze_json({"b": [1, {"x": 1.5}], "a": {"z": None}})
+    assert json.dumps(frozen) == '{"a": {"z": null}, "b": [1, {"x": 1.5}]}'
+    assert json.loads(json.dumps(frozen, default=str)) == thaw_json(frozen)
+    assert isinstance(frozen, dict) and isinstance(frozen, Mapping)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda m: m.__setitem__("c", 1),
+        lambda m: m.__delitem__("a"),
+        lambda m: m.update(c=1),
+        lambda m: m.pop("a"),
+        lambda m: m.popitem(),
+        lambda m: m.setdefault("c", 1),
+        lambda m: m.clear(),
+        lambda m: m.__ior__({"c": 1}),
+    ],
+)
+def test_frozen_map_rejects_every_dict_mutator(mutate: Any) -> None:
+    frozen = freeze_json({"a": 1, "b": 2})
+    with pytest.raises(TypeError):
+        mutate(frozen)
+    assert frozen == {"a": 1, "b": 2}
+
+
+def test_frozen_map_survives_pickle_and_copy() -> None:
+    import copy
+    import pickle
+
+    frozen = freeze_json({"b": [1, {"x": 1.5}], "a": {"z": None}})
+    for clone in (pickle.loads(pickle.dumps(frozen)), copy.deepcopy(frozen), copy.copy(frozen)):
+        assert type(clone) is FrozenMap and clone == frozen and hash(clone) == hash(frozen)
+        with pytest.raises(TypeError):
+            clone["c"] = 1  # type: ignore[index]
+
+
 def test_frozen_map_constructor_recursively_freezes_mutable_values() -> None:
     source = {"genes": ["cox1"]}
     frozen = FrozenMap.from_json(source)

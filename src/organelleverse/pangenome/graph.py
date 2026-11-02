@@ -24,18 +24,21 @@ from ._gfa import (
 )
 
 
-def _overlaps(graph: GFAGraph, path: GraphPath) -> list[int]:
+def _overlaps(graph: GFAGraph, path: GraphPath, implied: dict | None = None) -> list[int]:
+    """Exact overlap before each step; ``implied`` may be shared across paths."""
     result = []
+    implied = {} if implied is None else implied
     for index, pair in enumerate(pairwise(path.steps)):
         explicit = path.overlaps[index] if path.overlaps is not None else "*"
         if explicit != "*":
             result.append(_exact_overlap(explicit))
             continue
-        values = graph.transitions[pair]
-        exact = {_exact_overlap(c) for c in values}
-        if len(exact) != 1:
-            raise ValueError(f"ambiguous overlap for path {path.name}: {pair}")
-        result.append(exact.pop())
+        if pair not in implied:
+            exact = {_exact_overlap(c) for c in graph.transitions[pair]}
+            if len(exact) != 1:
+                raise ValueError(f"ambiguous overlap for path {path.name}: {pair}")
+            implied[pair] = exact.pop()
+        result.append(implied[pair])
     return result
 
 
@@ -100,7 +103,10 @@ def _sequence(graph: GFAGraph, path: GraphPath) -> str:
 
 def path_sequences(path: str | Path) -> dict[str, str]:
     """Spell every stored P/W independently; never join molecules or W intervals."""
-    graph = load_gfa(path)
+    return _path_sequences(load_gfa(path))
+
+
+def _path_sequences(graph: GFAGraph) -> dict[str, str]:
     if not graph.paths:
         raise ValueError("GFA has no paths to convert; segment sequences are not sample genomes")
     return {name: _sequence(graph, record) for name, record in graph.paths.items()}
@@ -175,7 +181,10 @@ def graph_statistics(path: str | Path) -> dict[str, Any]:
     Components ignore orientation. Path coverage is distinct-path incidence per
     node, not sequencing read depth. Length metrics are null if unavailable.
     """
-    graph = load_gfa(path)
+    return _graph_statistics(load_gfa(path))
+
+
+def _graph_statistics(graph: GFAGraph) -> dict[str, Any]:
     adjacency: dict[str, set[str]] = {n: set() for n in graph.segments}
     degree = dict.fromkeys(graph.segments, 0)
     for link in graph.links:

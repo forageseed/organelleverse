@@ -216,6 +216,7 @@ def test_managed_build_graph_hides_paths_and_uses_deterministic_workspace(
         "recommendation",
         "auto_adopt_recommendation",
         "reference_index",
+        "sparse_mapping",
     )
     forbidden = {"output_dir", "workspace", "executor", "runner"}
     assert forbidden.isdisjoint(signature.parameters)
@@ -467,6 +468,9 @@ def test_managed_build_graph_rejects_unimplemented_backend_and_invalid_ranges(
     with pytest.raises(OrganelleInputError) as unsupported:
         service.build_graph(genomes, method="unknown")  # type: ignore[arg-type]
     assert unsupported.value.code == "pangenome.unsupported_method"
+    # PanTools has been supported since 6fc9087e; the message names every
+    # managed backend instead of the old "path mapping not verified" note.
+    assert all(name in str(unsupported.value) for name in ("minigraph", "pggb", "pantools"))
 
     invalid_calls = (
         {"threads": 0},
@@ -476,6 +480,7 @@ def test_managed_build_graph_rejects_unimplemented_backend_and_invalid_ranges(
         {"reference_index": -1},
         {"reference_index": len(genomes)},
         {"n_haplotypes": 0},
+        {"sparse_mapping": True},
     )
     for parameters in invalid_calls:
         with pytest.raises(OrganelleInputError) as invalid:

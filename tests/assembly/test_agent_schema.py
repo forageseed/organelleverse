@@ -833,7 +833,8 @@ def test_himt_agent_json_preserves_structured_backend_parameters(
             granted_side_effects=set(ASSEMBLE_SPEC.side_effects),
         )
 
-    assert response == {
+    assert cast(dict[str, object], response["agent_advice"])["result_id"] == result.object_id
+    assert {key: response[key] for key in ("ok", "operation_id", "result")} == {
         "ok": True,
         "operation_id": "assembly.assemble",
         "result": result.model_dump(mode="json"),

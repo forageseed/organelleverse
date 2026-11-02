@@ -254,7 +254,7 @@ def test_public_exports_and_capability_contracts():
 
     assert annotation.find_orfs is find_orfs
     assert annotation.write_orfs is write_orfs
-    root = Path(__file__).parents[2] / "src/organelleverse/capabilities"
+    root = Path(__file__).parents[2] / "src/capabilities"
     discover = parse_capability_bundle(root / "annotation-find-orfs/capability.toml")
     writer = parse_capability_bundle(root / "annotation-write-orfs/capability.toml")
     assert discover.capability.id == "annotation.find_orfs"
@@ -269,7 +269,7 @@ def test_capability_binding_exposes_options_and_executes_both_operations(tmp_pat
     from organelleverse.operations.python_binding import bind_python_capability
 
     monkeypatch.setenv("ORGANELLEVERSE_CACHE_ROOT", str(tmp_path / "cache"))
-    root = Path(__file__).parents[2] / "src/organelleverse/capabilities"
+    root = Path(__file__).parents[2] / "src/capabilities"
     compute_bundle = parse_capability_bundle(root / "annotation-find-orfs/capability.toml")
     writer_bundle = parse_capability_bundle(root / "annotation-write-orfs/capability.toml")
     # None is permitted for verification-stage binding; admission still requires
@@ -323,7 +323,7 @@ def test_real_reference_fixture_verification_and_admission(tmp_path, monkeypatch
     assert bound is not None
     source = (
         Path(__file__).parents[2]
-        / "src/organelleverse/capabilities/annotation-find-orfs/fixtures/psba-negative.fasta"
+        / "src/capabilities/annotation-find-orfs/fixtures/psba-negative.fasta"
     )
     result = bound.invoke(
         None, {"genome_fasta": str(source), "genetic_code": 11, "min_aa": 300, "strand": "-"}

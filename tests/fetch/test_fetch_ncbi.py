@@ -353,6 +353,42 @@ def test_a_genbank_tier_filter_pulls_genbank_metadata_automatically(
     assert manifest_of(data)["scope"]["genbank_metadata"] is True
 
 
+def test_entrez_query_takes_the_registered_filters_as_keywords(tmp_path: Path) -> None:
+    """The public call accepts the filters ``fetch.entrez_query`` registers."""
+    by_length = entrez_query(
+        organelle="plastid", dest=tmp_path / "len", transport=FakeTransport(), max_length=140_000
+    )
+    assert list(manifest_of(by_length)["accessions"]) == ["OP474144.1"]
+
+    by_keyword = entrez_query(
+        organelle="plastid",
+        dest=tmp_path / "kw",
+        transport=FakeTransport(),
+        min_gene_count=2,
+        page_size=10,
+    )
+    by_filters = entrez_query(
+        organelle="plastid",
+        dest=tmp_path / "obj",
+        transport=FakeTransport(),
+        filters=FetchFilters(min_gene_count=2),
+        page_size=10,
+    )
+    assert manifest_of(by_keyword)["accessions"] == manifest_of(by_filters)["accessions"]
+    assert manifest_of(by_keyword)["scope"] == manifest_of(by_filters)["scope"]
+
+
+def test_entrez_query_refuses_a_keyword_that_contradicts_filters(tmp_path: Path) -> None:
+    with pytest.raises(OrganelleParameterError, match="max_length"):
+        entrez_query(
+            organelle="plastid",
+            dest=tmp_path,
+            transport=FakeTransport(),
+            filters=FetchFilters(max_length=150_000),
+            max_length=140_000,
+        )
+
+
 def test_genbank_metadata_reaches_the_records(tmp_path: Path) -> None:
     data = entrez_query(
         organelle="plastid",
@@ -460,3 +496,66 @@ def test_an_uncapped_query_is_not_truncated(tmp_path: Path) -> None:
     m = manifest_of(data)
     assert m["truncated"] is False
     assert m["examined"] == m["hits_before_filter"] == 2
+
+
+# ─────────────────────────────────────────────────────────────
+# Mitochondrion fragments go before the multipartite check (2026-10-16)
+# ─────────────────────────────────────────────────────────────
+
+MITO_ESUMMARY_V2 = """<eSummaryResult><DocumentSummarySet status="OK">
+<DocumentSummary uid="1"><Title>Oryza sativa Japonica Group mitochondrion, complete genome</Title><TaxId>39947</TaxId><Slen>490520</Slen><Organism>Oryza sativa Japonica Group</Organism><AccessionVersion>NC_011033.1</AccessionVersion></DocumentSummary>
+<DocumentSummary uid="2"><Title>Oryza sativa Japonica Group mitochondrial DNA, complete genome</Title><TaxId>39947</TaxId><Slen>490520</Slen><Organism>Oryza sativa Japonica Group</Organism><AccessionVersion>BA000029.3</AccessionVersion></DocumentSummary>
+<DocumentSummary uid="3"><Title>Oryza sativa Japonica Group mitochondrial gene for tRNA-Cys, complete sequence, clone: pMTVSCT1</Title><TaxId>39947</TaxId><Slen>2177</Slen><Organism>Oryza sativa Japonica Group</Organism><AccessionVersion>D13097.1</AccessionVersion></DocumentSummary>
+<DocumentSummary uid="4"><Title>Stipa sibirica isolate A_2_1 chromosome 29 mitochondrion, partial sequence</Title><TaxId>492770</TaxId><Slen>6648</Slen><Organism>Stipa sibirica</Organism><AccessionVersion>PQ492199.1</AccessionVersion></DocumentSummary>
+</DocumentSummarySet></eSummaryResult>"""
+
+
+class MitoTransport(FakeTransport):
+    def get(self, url: str, *, timeout: float = 0.0) -> bytes:
+        if "esummary" in url:
+            self.calls.append(url)
+            return MITO_ESUMMARY_V2.encode()
+        return super().get(url, timeout=timeout)
+
+
+def test_mitochondrion_fragments_are_dropped_before_the_multipartite_check(
+    tmp_path: Path,
+) -> None:
+    transport = MitoTransport(hits=4)
+    data = entrez_query(organelle="mitochondrion", dest=tmp_path, transport=transport)
+
+    manifest = manifest_of(data)
+    assert manifest["examined"] == 4
+    assert sorted(transport.posted) == ["BA000029.3", "NC_011033.1"]
+    # Neither the tRNA clone nor the partial chromosome reached the
+    # multipartite check, so no GenBank XML was bought for them.
+    assert manifest["scope"]["multipartite_detected"] is False
+    assert not transport.urls_matching("retmode=xml")
+    assert all("version=2.0" in url for url in transport.urls_matching("esummary"))
+    assert {r["organism"] for r in data.payload["records"]} == {"Oryza sativa Japonica Group"}
+
+
+def test_a_partial_molecule_is_kept_when_completeness_is_not_asked_for(tmp_path: Path) -> None:
+    transport = MitoTransport(hits=4)
+    entrez_query(
+        organelle="mitochondrion", dest=tmp_path, transport=transport, complete_only=False
+    )
+    assert "PQ492199.1" in transport.posted
+    assert "D13097.1" not in transport.posted  # still a gene record
+
+
+def test_refseq_snapshot_streams_large_files_through_disk(tmp_path: Path) -> None:
+    class StreamingTransport(FakeTransport):
+        downloads: list[str] = []
+
+        def download_to_path(self, url: str, dest: Path, *, timeout: float = 0.0, **_: object) -> int:
+            self.downloads.append(url)
+            dest.write_bytes(self.get(url))
+            return 200
+
+    transport = StreamingTransport()
+    data = refseq_snapshot(organelle="plastid", dest=tmp_path, transport=transport)
+    plain = refseq_snapshot(organelle="plastid", dest=tmp_path / "plain", transport=FakeTransport())
+    assert transport.downloads and all(url.endswith(".gbff.gz") for url in transport.downloads)
+    assert manifest_of(data)["accessions"] == manifest_of(plain)["accessions"]
+    assert not list(tmp_path.glob("*.part"))

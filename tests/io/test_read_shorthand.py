@@ -178,3 +178,13 @@ def test_missing_reads_file_is_reported(tmp_path: Path) -> None:
         ov.read(tmp_path / "absent.fastq", technology="auto")
 
     assert caught.value.code == "input.missing_artifact"
+
+
+@pytest.mark.parametrize("name", ["x.fastq.gz", "x.fq", "X.FASTQ", "x.fq.gz"])
+def test_a_fastq_without_technology_asks_for_it(tmp_path, name):
+    path = tmp_path / name
+    path.write_text("@r\nACGT\n+\nIIII\n")
+    with pytest.raises(OrganelleInputError) as refused:
+        ov.read(path)
+    assert refused.value.code == "input.technology_required"
+    assert "technology=" in refused.value.message

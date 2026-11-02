@@ -46,9 +46,11 @@ def run_coevolution(
     threads: int = 8,
     executor: Callable[[list[str]], Any] | None = None,
     results_dir: str | Path | None = None,
-    transform: str = "sqrt",
+    transform: str | None = None,
     fdr_threshold: float = 0.05,
     r_threshold: float = 0.5,
+    reconciliation: str = 'lca',
+    dlcpar_dir: str | Path | None = None,
 ) -> OrganelleResult:
     """Plan or run the coevolution workflow in a managed run directory."""
     from .coevolution import run_coevolution as _run
@@ -63,4 +65,6 @@ def run_coevolution(
         transform=transform,
         fdr_threshold=fdr_threshold,
         r_threshold=r_threshold,
+        reconciliation=reconciliation,
+        dlcpar_dir=dlcpar_dir,
     )

@@ -56,15 +56,10 @@ if TYPE_CHECKING:
         SuccessiveHalvingConfig,
     )
     from .strategy_registry import StrategyRegistry
-    from .study_engine import AdaptiveStudyEngine
     from .study_models import AdoptedStudyIdentity, EvaluationRequest, EvaluatorRunner
 
 
 def __getattr__(name: str) -> object:
-    if name == "AdaptiveStudyEngine":
-        from .study_engine import AdaptiveStudyEngine
-
-        return AdaptiveStudyEngine
     if name in {"AdoptedStudyIdentity", "EvaluationRequest", "EvaluatorRunner"}:
         from .study_models import AdoptedStudyIdentity, EvaluationRequest, EvaluatorRunner
 
@@ -100,7 +95,6 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
-    "AdaptiveStudyEngine",
     "AdaptiveStudyRequest",
     "AdoptedStudyIdentity",
     "AdoptionPolicyV3",

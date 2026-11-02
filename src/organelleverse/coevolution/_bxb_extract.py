@@ -1,8 +1,11 @@
 """Branch-by-Branch (BXB) branch-length extraction — typed core.
 
-Faithfully re-implements the official ERCnet ``Branch_length_reconciliation.R``
-logic in pure Python 3 (no ape/phytools/DLCpar dependency required for the
-``lca`` reconciliation source).
+Patristic extraction, missing-value handling and normalization follow the
+ERCnet reference given a reconciled gene-node/species-node mapping. The
+``lca`` source supplies a standard SDI mapping; it is an alternative to, and
+is not equivalent to, DLCpar locus/coalescent reconciliation. The explicit
+``dlcpar`` source consumes its real reconciliation files. A real DLCpar
+biological workflow is a separate acceptance step.
 
 The BXB method uses the **species tree as a common denominator**: each gene-tree
 branch is mapped to the species-tree branch it evolved along, so branch lengths
@@ -19,7 +22,7 @@ bioRxiv 2024.08.06.606904):
      in a species tree branch (e.g. the gene was lost), meaning the branch
      length is NA."
 
-Pipeline (mirrors the R script stage-for-stage):
+Extraction stages (the reconciliation source is selected explicitly):
 
 1. ``species_tree_edges`` — enumerate species-tree edges as ``"{anc}_to_{desc}"``.
 2. ``bxb_lengths_lca`` / ``bxb_lengths_dlcpar`` — extract per-edge branch
@@ -32,9 +35,11 @@ Pipeline (mirrors the R script stage-for-stage):
    mean (R script lines 217-219; the "genome-wide average" normalization).
 
 All functions are pure **data-in → data-out** (OmicVerse-style typed cores).
-Missing data is represented as ``float("nan")`` throughout; a true ``0.0`` is a
-valid branch length and is *not* treated as missing (consistent with
-``coevolution._is_missing``).
+Missing data is represented as ``None`` (JSON null). BXB follows the official
+ERCnet policy: compute complete patristic distances, set distances <1e-5 to
+zero, then treat a final zero BXB measurement as unresolved. This policy belongs
+to BXB extraction; zero remains a valid observation in generic numerical
+branch-length matrices and their normalization/correlation functions.
 """
 
 from __future__ import annotations
@@ -58,7 +63,7 @@ __all__ = [
     "normalize_edge_mean",
 ]
 
-_NAN = float("nan")
+_NAN = None  # public missing-value representation is finite JSON null
 # R script line 109: "fix very small branches inferred by raxml … < 1e-5 -> 0"
 _MIN_BL = 1e-5
 # R script lines 160-164: longest edge > 10x second-longest -> drop whole tree
@@ -125,7 +130,8 @@ def _dist_nodes(tree: TreeNode) -> dict[tuple[int, int], float]:
 
     Mirrors ape's ``dist.nodes(tree)``: a full distance matrix where entry
     (i, j) is the patristic distance between nodes i and j along the tree.
-    Branch lengths < ``_MIN_BL`` are floored to 0 (R script line 109).
+    Complete patristic distances < ``_MIN_BL`` are set to 0, after summation
+    (the official R code thresholds dist.nodes, not the constituent edges).
     """
     nodes = list(tree.traverse())
     # path length from root to each node
@@ -135,8 +141,6 @@ def _dist_nodes(tree: TreeNode) -> dict[tuple[int, int], float]:
         cur: TreeNode | None = n
         while cur is not None and cur.parent is not None:
             bl = cur.branch_length if cur.branch_length else 0.0
-            if bl < _MIN_BL:
-                bl = 0.0
             d += bl
             cur = cur.parent
         depth[id(n)] = d
@@ -153,7 +157,8 @@ def _dist_nodes(tree: TreeNode) -> dict[tuple[int, int], float]:
                 continue
             lca = _find_lca(tree, [a, b])
             lca_d = depth.get(id(lca), 0.0) if lca is not None else 0.0
-            dist[key] = depth[id(a)] + depth[id(b)] - 2 * lca_d
+            distance = depth[id(a)] + depth[id(b)] - 2 * lca_d
+            dist[key] = 0.0 if distance < _MIN_BL else distance
     return dist
 
 
@@ -162,7 +167,7 @@ def bxb_lengths_lca(
     species_tree_newick: str,
     edges: list[str],
     species_map: dict[str, str] | None = None,
-) -> dict[str, float]:
+) -> dict[str, float | None]:
     """Extract BXB branch lengths for one gene tree via LCA/SDI reconciliation.
 
     The pure-Python alternative to DLCpar. ``reconcile_trees`` maps each
@@ -188,7 +193,7 @@ def bxb_lengths_lca(
 
     Returns
     -------
-    dict[str, float]
+    dict[str, float | None]
         ``{edge_key: branch_length_or_nan}``. Edges with no mapped gene-tree
         branch get ``nan``. Values of 0 are converted to ``nan`` (R line 151:
         "Change any BL=0 branches to NA").
@@ -251,7 +256,7 @@ def bxb_lengths_lca(
     # descendant get NaN (mean(numeric(0))) and are dropped by na.omit. Each
     # ancestor contributes ONE equally-weighted distance — not each (anc,desc)
     # pair. We reproduce that exactly.
-    result: dict[str, float] = {}
+    result: dict[str, float | None] = {}
     for edge in edges:
         anc_label, desc_label = edge.split("_to_", 1)
         anc_genes = nodes_by_species.get(anc_label, [])
@@ -303,16 +308,9 @@ def _reconcile_lca(
         else:
             mapped_node = species_tree
         mapping[id(node)] = mapped_node
-        # Duplication test (SDI/LCA). The naive ``mapped_node in child_maps``
-        # over-counts duplications on *partial* gene trees (where many species
-        # are missing): two subtrees can legitimately map to the same species
-        # subtree via deep coalescence without any duplication. We use the
-        # stricter test used by ETE/DLCpar's LCA mode: a node is a duplication
-        # only when ≥2 children map to the *same species node* that is NOT their
-        # species-tree LCA — i.e. at least one child's mapping is strictly
-        # within (descendant of) the parent's mapping, indicating a second copy
-        # in the same lineage. On single-copy gene trees (ERC45's HOG-filtered
-        # data), this correctly yields 0% duplications, matching DLCpar.
+        # Standard SDI: a parent mapping equal to any child mapping is a
+        # duplication under this model. DLCpar's duplication/loss/coalescent
+        # reconciliation is a separate explicit backend, not an LCA heuristic.
         is_dup = _is_duplication(mapped_node, child_maps, species_tree)
         events[id(node)] = "dup" if is_dup else "spec"
 
@@ -322,53 +320,8 @@ def _is_duplication(
     child_maps: list[TreeNode | None],
     species_tree: TreeNode,
 ) -> bool:
-    """SDI duplication test that does not over-count on partial gene trees.
-
-    A gene-tree node is a duplication iff at least one child maps to the *same*
-    species-tree node as the parent **and** that child has a sibling whose
-    mapping is a strict descendant of that same node (i.e. two distinct lineages
-    pass through one species node — a true second copy). Equivalently for the
-    common bifurcating case: duplication iff both children map to the same
-    species node (one being a strict self-map), which requires the species node
-    to appear ≥2 times among child maps that are equal to (or descendants of)
-    the parent map.
-
-    On single-copy gene trees this never fires, matching DLCpar.
-    """
-    if parent_map is None:
-        return False
-    # Count children whose species-map is the parent map itself or a descendant.
-    relevant = [
-        m
-        for m in child_maps
-        if m is not None and _is_equal_or_descendant(m, parent_map, species_tree)
-    ]
-    if len(relevant) < 2:
-        return False
-    # If ≥2 children map into the same species lineage, at least one must be a
-    # strict duplicate (mapped to the parent node itself, not a distinct leaf),
-    # OR two children map to the same node.
-    # The unambiguous signal: any species node appears ≥2 times among child maps.
-    seen: set[int] = set()
-    for m in child_maps:
-        if m is None:
-            continue
-        if id(m) in seen:
-            return True
-        seen.add(id(m))
-    return False
-
-
-def _is_equal_or_descendant(node: TreeNode, ancestor: TreeNode, species_tree: TreeNode) -> bool:
-    """True if ``node`` is ``ancestor`` or a descendant of it in the species tree."""
-    if node is ancestor:
-        return True
-    cur: TreeNode | None = node
-    while cur is not None:
-        if cur is ancestor:
-            return True
-        cur = cur.parent
-    return False
+    """SDI duplication iff the parent maps to the same node as any child."""
+    return parent_map is not None and any(m is parent_map for m in child_maps)
 
 
 def _post_order_list(root: TreeNode) -> list[TreeNode]:
@@ -402,7 +355,7 @@ def bxb_lengths_dlcpar(
     locus_recon_path: str | Path,
     coal_recon_path: str | Path,
     edges: list[str],
-) -> dict[str, float]:
+) -> dict[str, float | None]:
     """Extract BXB branch lengths from DLCpar reconciliation output.
 
     This is the exact-reproduction path: it reads the same files the R script
@@ -428,7 +381,7 @@ def bxb_lengths_dlcpar(
 
     Returns
     -------
-    dict[str, float]
+    dict[str, float | None]
         ``{edge_key: branch_length_or_nan}``.
     """
     gene_tree = parse_newick(gene_tree_newick)
@@ -488,7 +441,7 @@ def bxb_lengths_dlcpar(
     # R script: for each ancestor gene node a, store mean(dist[a, desc∩kids(a)]);
     #           BL[edge] = mean(na.omit(store_wt_av)). Each ancestor contributes
     # ONE equally-weighted distance — not each (anc,desc) pair.
-    result: dict[str, float] = {}
+    result: dict[str, float | None] = {}
     for edge in edges:
         anc_label, desc_label = edge.split("_to_", 1)
         # R line 125-126: gene nodes mapped to this species ancestor/descendant
@@ -523,9 +476,9 @@ def bxb_lengths_dlcpar(
 
 
 def filter_outlier_tree(
-    edge_lengths: dict[str, float],
+    edge_lengths: dict[str, float | None],
     max_ratio: float = _OUTLIER_RATIO,
-) -> dict[str, float] | None:
+) -> dict[str, float | None] | None:
     """Return ``None`` if the gene tree is an outlier, else the input unchanged.
 
     R script (lines 160-164):
@@ -564,18 +517,18 @@ def filter_outlier_tree(
 
 
 def normalize_gene_sum(
-    matrix: dict[str, dict[str, float]],
-) -> dict[str, dict[str, float]]:
+    matrix: dict[str, dict[str, float | None]],
+) -> dict[str, dict[str, float | None]]:
     """Normalize each gene's BXB vector by its non-missing branch-length sum.
 
     This keeps every gene on the same total scale before cross-gene ERC
     correlation, preventing genes with larger absolute tree lengths from
     dominating the analysis. Missing values remain NaN.
     """
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, float | None]] = {}
     for gene, row in matrix.items():
         denom = sum(v for v in row.values() if not _is_missing(v))
-        new_row: dict[str, float] = {}
+        new_row: dict[str, float | None] = {}
         for edge, val in row.items():
             if _is_missing(val) or denom == 0.0:
                 new_row[edge] = _NAN
@@ -591,8 +544,8 @@ def normalize_gene_sum(
 
 
 def normalize_edge_mean(
-    matrix: dict[str, dict[str, float]],
-) -> dict[str, dict[str, float]]:
+    matrix: dict[str, dict[str, float | None]],
+) -> dict[str, dict[str, float | None]]:
     """Normalize each species-tree edge by its cross-gene mean.
 
     R script (lines 217-219):
@@ -625,14 +578,14 @@ def normalize_edge_mean(
     for row in matrix.values():
         all_edges.update(row.keys())
 
-    edge_means: dict[str, float] = {}
+    edge_means: dict[str, float | None] = {}
     for edge in all_edges:
         vals = [row[edge] for row in matrix.values() if edge in row and not _is_missing(row[edge])]
         edge_means[edge] = sum(vals) / len(vals) if vals else _NAN
 
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, float | None]] = {}
     for gene, row in matrix.items():
-        new_row: dict[str, float] = {}
+        new_row: dict[str, float | None] = {}
         for edge, val in row.items():
             mean = edge_means.get(edge, _NAN)
             if _is_missing(val) or _is_missing(mean) or mean == 0.0:
@@ -648,6 +601,6 @@ def normalize_edge_mean(
 # ===========================================================================
 
 
-def _is_missing(v: float) -> bool:
+def _is_missing(v: float | None) -> bool:
     """True if ``v`` is NaN. (Mirrors ``coevolution._is_missing``.)"""
-    return v != v
+    return v is None or v != v

@@ -22,6 +22,9 @@ Recommendation = dict[str, RecommendationValue]
 # tested families as monophyletic; the repeat-derived s500 did not.
 PLASTID_SEGMENT_MINIMUM = 5000
 SEGMENT_POLICY_SOURCE = "Poales 192 plastomes benchmark, 2026-09-24; p84+s5000"
+# Policy ids stored in recommendation records written before v3; still accepted
+# so those records validate. New recommendations never emit them.
+_LEGACY_POLICY_VERSIONS = frozenset({"minegraph-compatible.v1", "sample-mash-minegraph-prior.v2"})
 
 
 def protected_segment_length(genomes: list[OrganelleGenome], proposed: int) -> int:
@@ -78,7 +81,7 @@ def estimate_identity(
     minimum: float = 50,
     maximum: float = 100,
 ) -> float:
-    """Apply MineGraph's pinned maximum-Mash-distance identity policy."""
+    """Identity just below the most divergent sample pair's Mash identity."""
     if (
         not distances
         or any(not math.isfinite(value) or not 0 <= value <= 1 for value in distances)
@@ -332,8 +335,7 @@ def validate_recommendation(
         if raw["schema_version"] != "organelleverse.pangenome.recommendation.v1":
             raise ValueError("schema version")
         if raw["policy_version"] not in {
-            "minegraph-compatible.v1",
-            "sample-mash-minegraph-prior.v2",
+            *_LEGACY_POLICY_VERSIONS,
             "sample-mash-plastid-floor.v3",
             "sample-mash-mitochondrial.v3",
         }:

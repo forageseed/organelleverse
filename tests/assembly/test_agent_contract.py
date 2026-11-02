@@ -879,7 +879,8 @@ def test_direct_registry_and_agent_json_share_the_canonical_callable(tmp_path: P
 
     assert direct is result
     assert registered == result
-    assert response == {
+    assert cast(dict[str, object], response["agent_advice"])["result_id"] == result.object_id
+    assert {key: response[key] for key in ("ok", "operation_id", "result")} == {
         "ok": True,
         "operation_id": "assembly.assemble",
         "result": result.model_dump(mode="json"),
@@ -919,7 +920,8 @@ def test_agent_invocation_returns_the_scientific_result() -> None:
             granted_side_effects=set(ASSEMBLE_SPEC.side_effects),
         )
 
-    assert response == {
+    assert cast(dict[str, object], response["agent_advice"])["result_id"] == result.object_id
+    assert {key: response[key] for key in ("ok", "operation_id", "result")} == {
         "ok": True,
         "operation_id": "assembly.assemble",
         "result": result.model_dump(mode="json"),
@@ -1010,7 +1012,8 @@ def test_himt_agent_paths_reach_canonical_callable_with_structured_parameters(
 
     assert direct is result
     assert registered == result
-    assert response == {
+    assert cast(dict[str, object], response["agent_advice"])["result_id"] == result.object_id
+    assert {key: response[key] for key in ("ok", "operation_id", "result")} == {
         "ok": True,
         "operation_id": "assembly.assemble",
         "result": result.model_dump(mode="json"),

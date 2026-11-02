@@ -84,7 +84,11 @@ def orgseg_local_paths(environ=None):
     if not root:
         root = DEFAULT_ORGSEG_LOCAL_ROOT
         python = python or DEFAULT_ORGSEG_LOCAL_PYTHON
-    if not (Path(root).is_dir() and Path(python).exists()):
+    try:
+        present = Path(root).is_dir() and Path(python).exists()
+    except OSError:  # an unreadable home (failing disk) means "not deployed", not a crash
+        present = False
+    if not present:
         return None
     return {
         "root": root,

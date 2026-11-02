@@ -87,4 +87,23 @@ def test_run_trnascan_se_uses_organelle_mode_and_patched_infernal(tmp_path: Path
     assert "--format" not in captured["cmd"]
     assert captured["timeout"] == 900
     conf_path = Path(captured["cmd"][captured["cmd"].index("-c") + 1])
-    assert "infernal_dir: /usr/bin" in conf_path.read_text()
+    assert f"infernal_dir: {Path('/usr/bin/cmsearch').parent}" in conf_path.read_text()
+
+
+def test_patched_conf_keeps_backslashes_in_the_infernal_dir(tmp_path: Path):
+    r"""Windows paths (and POSIX names) may contain backslashes like ``\u``.
+
+    They must reach the config verbatim instead of being parsed as regex
+    replacement escapes.
+    """
+    from organelleverse.annotation.mitochondrion import trna
+
+    tool = tmp_path / "tRNAscan-SE"
+    tool.write_text("")
+    (tmp_path / "tRNAscan-SE.conf").write_text("bin_dir: /tool/bin\ninfernal_dir: {bin_dir}\n")
+    cmsearch = r"/opt/odd\user/bin/cmsearch"
+
+    patched = trna._patched_trnascan_conf(tool, tmp_path, cmsearch_path=cmsearch)
+
+    assert patched is not None
+    assert f"infernal_dir: {Path(cmsearch).parent}\n" in patched.read_text()

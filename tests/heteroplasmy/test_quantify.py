@@ -3,29 +3,32 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from organelleverse.heteroplasmy import quantify_variant_fractions
+
+from tests.bam_fixtures import bam_header
 
 
 def _bam(path: Path, bases: list[str]) -> Path:
-    pysam = pytest.importorskip(chr(112)+chr(121)+chr(115)+chr(97)+chr(109))
+    rubam = pytest.importorskip("rubam")
     header = {"HD": {"VN": "1.6", "SO": "coordinate"}, "SQ": [{"SN": "MT", "LN": 40}]}
     unsorted = path.with_suffix(".unsorted.bam")
-    with pysam.AlignmentFile(str(unsorted), "wb", header=header) as out:
+    with rubam.AlignmentFile(
+        str(unsorted), "wb", header=bam_header(header, Path(unsorted).parent)
+    ) as out:
         for i, base in enumerate(bases):
-            read = pysam.AlignedSegment()
+            read = rubam.AlignedSegment()
             read.query_name = f"r{i}"
             read.query_sequence = "A" * 9 + base + "A" * 10
             read.flag = 0
             read.reference_id = 0
             read.reference_start = 0
             read.mapping_quality = 60
-            read.cigar = [(0, 20)]
-            read.query_qualities = pysam.qualitystring_to_array("I" * 20)
+            read.cigartuples = [(0, 20)]
+            read.query_qualities = rubam.qualitystring_to_array("I" * 20)
             out.write(read)
     sorted_bam = path
-    pysam.sort("-o", str(sorted_bam), str(unsorted))
-    pysam.index(str(sorted_bam))
+    rubam.sort(str(unsorted), str(sorted_bam))
+    rubam.index(str(sorted_bam))
     return sorted_bam
 
 

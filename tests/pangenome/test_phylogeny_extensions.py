@@ -6,7 +6,9 @@ from organelleverse.pangenome.sequence_phylogeny import RaxmlOptions, alignment_
 from organelleverse.pangenome.streaming_phylogeny import (
     _convergence,
     _distance,
+    _PatternStore,
     batch_node_pav_tree,
+    superbubble_blocks,
 )
 
 
@@ -19,6 +21,57 @@ def test_streamed_distance_matches_dense_without_materializing_all_batches():
     assert np.allclose(_distance(source, 4, 3), jaccard_distances(["a", "b", "c"], values))
     tree = batch_node_pav_tree(["a", "b", "c"], 4, source, bootstrap_replicates=15, seed=17)
     assert tree == batch_node_pav_tree(["a", "b", "c"], 4, source, bootstrap_replicates=15, seed=17)
+
+
+def test_pattern_store_reproduces_streamed_replicates_exactly_and_reads_once():
+    rng = np.random.default_rng(3)
+    values = rng.integers(0, 2, (240, 7)).astype(bool)
+    values[100:140] = values[0]  # duplicated patterns across batches
+    reads = []
+
+    def source():
+        reads.append(1)
+        return iter([values[:50], values[50:173], values[173:]])
+
+    store = _PatternStore(source, 240, 7)
+    assert len(reads) == 1 and len(store.patterns) < 240
+    assert np.array_equal(store.distance(), _distance(source, 240, 7))
+    old_rng, new_rng = np.random.default_rng(11), np.random.default_rng(11)
+    for _ in range(5):
+        assert np.array_equal(store.distance(new_rng), _distance(source, 240, 7, old_rng))
+
+
+def test_superbubble_blocks_merge_nested_interiors_but_not_shared_boundaries():
+    bubbles = [
+        {"entrance": {"node_id": "1"}, "exit": {"node_id": "5"}, "node_ids": ["1", "2", "3", "4", "5"]},
+        {"entrance": {"node_id": "2"}, "exit": {"node_id": "4"}, "node_ids": ["2", "3", "4"]},
+        {"entrance": {"node_id": "5"}, "exit": {"node_id": "8"}, "node_ids": ["5", "6", "7", "8"]},
+    ]
+    blocks = superbubble_blocks([str(i) for i in range(1, 10)], bubbles)
+    groups = {}
+    for node, block in zip(range(1, 10), blocks, strict=True):
+        groups.setdefault(int(block), set()).add(node)
+    assert sorted(map(sorted, groups.values())) == [[1], [2, 3, 4], [5], [6, 7], [8], [9]]
+
+
+def test_block_bootstrap_draws_whole_blocks_and_requires_labels():
+    values = np.array([[1, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 0]], dtype=bool)
+    blocks = np.array([0, 0, 1, 2])
+    store = _PatternStore(lambda: iter([values]), 4, 3, blocks)
+    rng = np.random.default_rng(5)
+    expected_rng = np.random.default_rng(5)
+    draws = np.bincount(expected_rng.integers(0, 3, 3), minlength=3)
+    rows = np.repeat(np.arange(4), draws[blocks])
+    assert np.allclose(store.distance(rng), jaccard_distances(["a", "b", "c"], values[rows]))
+    tree = batch_node_pav_tree(
+        ["a", "b", "c"], 4, lambda: iter([values]), bootstrap_method="superbubble_block",
+        bootstrap_replicates=20, seed=1, node_blocks=blocks,
+    )
+    assert tree["resampling_unit"] == "superbubble_block" and tree["block_count"] == 3
+    with pytest.raises(ValueError, match="Block labels"):
+        batch_node_pav_tree(
+            ["a", "b", "c"], 4, lambda: iter([values]), bootstrap_method="superbubble_block"
+        )
 
 
 def test_weighted_bootstrap_is_exact_explicit_resampling_distance():

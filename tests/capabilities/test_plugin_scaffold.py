@@ -15,7 +15,6 @@ from organelleverse.capabilities.admission import admit_capabilities
 from organelleverse.capabilities.discovery import discover_capabilities
 from organelleverse.capabilities.models import PluginCapabilityBundle
 from organelleverse.capabilities.parser import parse_capability_bundle
-from organelleverse.capabilities.plugin_descriptor import describe_plugin
 from organelleverse.capabilities.trust import TrustStore, trust
 from organelleverse.capabilities.verification import (
     LocalVerificationEnvironment,
@@ -25,11 +24,11 @@ from organelleverse.capabilities.verification import (
 from organelleverse.capabilities.worker import OneShotBundleWorkerExecutor
 from organelleverse.core.result import OrganelleResult
 from organelleverse.operations.registry import OperationRegistry
-from organelleverse.operations.spec import PluginOperationSpec
+from organelleverse.operations.spec import ParameterCodec, PluginOperationSpec
 from tests._paths import PROJECT_ROOT
 
 
-def test_scaffold_plugin_generates_a_valid_v2_bundle_and_its_form(tmp_path: Path) -> None:
+def test_scaffold_plugin_generates_a_valid_scientific_v2_bundle(tmp_path: Path) -> None:
     root = scaffold_plugin(
         tmp_path / "plugin",
         capability_id="demo.segment",
@@ -41,11 +40,14 @@ def test_scaffold_plugin_generates_a_valid_v2_bundle_and_its_form(tmp_path: Path
     bundle = parse_capability_bundle(root / "capability.toml")
 
     assert isinstance(bundle, PluginCapabilityBundle)
-    descriptor = describe_plugin(bundle)
-    assert [field.name for field in descriptor.inputs] == ["input_dir"]
-    assert [field.name for field in descriptor.outputs] == ["results"]
-    assert [field.name for field in descriptor.parameters] == ["threshold"]
-    assert descriptor.optimization is not None
+    bindings = {field.name: field for field in bundle.contract.binding.parameters}
+    assert bindings["input_dir"].codec is ParameterCodec.DIRECTORY
+    assert bindings["input_dir"].path_role == "input"
+    assert [(field.name, field.parameter) for field in bundle.contract.outputs] == [("results", "results_dir")]
+    assert bindings["results_dir"].path_role == "output"
+    assert bindings["threshold"].json_schema["type"] == "number"
+    assert bundle.contract.optimization is not None
+    assert bundle.contract.optimization.parameters == ("threshold",)
     assert (root / "code" / "demo_segment_plugin" / "plugin.py").is_file()
     assert (root / "tests" / "test_plugin.py").is_file()
 

@@ -246,6 +246,21 @@ def test_missing_sequence_artifact_fails_before_backend(tmp_path: Path) -> None:
     assert not (tmp_path / "workspace" / "runs").exists()
 
 
+def test_a_genbank_read_genome_is_refused_with_the_fasta_route() -> None:
+    """annotate starts from FASTA by design; a GenBank read says how to get one."""
+    import organelleverse as ov
+
+    genbank = Path(__file__).resolve().parents[1] / "data" / "Arabidopsis_thaliana.gb"
+    genome = ov.read(genbank, organelle="mitochondrion", species="Arabidopsis thaliana")
+    assert genome.sequence is None and genome.annotation is not None
+
+    result = ov.annotation.annotate(genome)
+
+    assert result.status == "failed"
+    assert result.errors[0].code == "input.missing_sequence_artifact"
+    assert "genbank_to_fasta" in result.errors[0].message
+
+
 def test_failed_preflight_preserves_dependency_error_and_no_final_artifact(
     tmp_path: Path,
 ) -> None:
@@ -463,12 +478,14 @@ def test_mitochondrial_adapter_injects_preflighted_tools_and_fixed_engines(
     combined_hmm = database_root / "hmm" / "combined.hmm"
     gene_info = database_root / "gene_info"
     blast_refs = database_root / "blast_refs"
+    boundary_refs = database_root / "boundary_refs"
     exon_refs = database_root / "exon_refs"
     rrna_refs = database_root / "rrna_refs"
     for path in (
         combined_hmm,
         gene_info / "genes.json",
         blast_refs / "pcg.fa",
+        boundary_refs / "ccmB.Protein.fasta",
         exon_refs / "exon.fa",
         rrna_refs / "rrna.fa",
     ):
@@ -480,6 +497,7 @@ def test_mitochondrial_adapter_injects_preflighted_tools_and_fixed_engines(
             self.combined_hmm = combined_hmm
             self.gene_info_dir = gene_info
             self.blast_ref_dir = blast_refs
+            self.boundary_ref_dir = boundary_refs
             self.exon_ref_dir = exon_refs
             self.rrna_ref_dir = rrna_refs
 
@@ -579,6 +597,8 @@ def test_mitochondrial_adapter_injects_preflighted_tools_and_fixed_engines(
     assert first_rejected["gene_name"] == "nad5"
     assert first_rejected["issue_codes"] == ("premature_stop",)
     assert backend_run.database_hashes["mitochondrion_hmm"]
+    if "mitochondrion_pcg_blast_refs" in backend_run.database_hashes:
+        assert len(backend_run.database_hashes["mitochondrion_boundary_refs"]) == 64
 
 
 def test_mitochondrial_adapter_checks_packaged_database_before_tools(
@@ -670,3 +690,31 @@ def test_mitochondrial_preflight_prefers_losat_and_keeps_available_ncbi_tools(
     assert requested == [("losat",), ("blastn",)]
     assert tool_paths == {"losat": "/opt/losat/LOSAT", "blastn": "/tools/blastn"}
     assert versions == {"losat": "losat 1.0", "blastn": "blastn 1.0"}
+
+
+def test_allow_partial_reports_the_empty_stage_instead_of_failing(tmp_path: Path) -> None:
+    document = annotation_document(include_trna=False)
+    strict = run_annotation(
+        genome_fixture(tmp_path),
+        request(tmp_path / "strict"),
+        adapters={"mitochondrion": FakeBackend(document)},
+    )
+    partial = run_annotation(
+        genome_fixture(tmp_path),
+        AnnotationRequest(
+            backend="mitochondrion",
+            workspace=tmp_path / "partial",
+            threads=2,
+            stages=("pcg", "trna", "rrna"),
+            allow_partial=True,
+        ),
+        adapters={"mitochondrion": FakeBackend(document)},
+    )
+
+    assert strict.status == "failed"
+    assert partial.status == "warning"
+    assert "partial_annotation" in partial.flags
+    assert partial.metrics["stages_without_features"] == ("trna",)
+    assert "no features from trna" in partial.summary_text
+    # the persisted annotation carries the marker, so later re-validation accepts it the same way
+    assert "stages_without_features" in partial.artifacts[0].resolve().read_text()

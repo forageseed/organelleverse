@@ -9,14 +9,16 @@ from __future__ import annotations
 
 __all__ = ["COMP", "reverse_complement"]
 
-#: IUPAC complement table (ACGTN, case-preserving) for ``str.translate``.
-COMP = str.maketrans("ACGTNacgtn", "TGCANtgcan")
+#: IUPAC complement table (case-preserving) for ``str.translate``. Ambiguity codes
+#: complement too (K<->M, R<->Y, B<->V, D<->H; S, W and N are their own complement),
+#: as in Biopython: a minus-strand M is a K, not an M.
+COMP = str.maketrans("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "TGCAYRSWMKVHDBNtgcayrswmkvhdbn")
 
 
 def reverse_complement(seq: str) -> str:
     """Return the reverse complement of a nucleotide string.
 
-    Complements ACGTN (case-preserving); any other character is left as-is and
-    only reversed, matching the previous per-module behaviour.
+    Complements every IUPAC nucleotide code (case-preserving); any other character
+    (gaps, ``*``) is left as-is and only reversed.
     """
     return seq.translate(COMP)[::-1]

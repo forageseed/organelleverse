@@ -289,7 +289,7 @@ def test_capability_bindings_and_admission(tmp_path, monkeypatch):
     from organelleverse.operations.python_binding import bind_python_capability
 
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "home"))
-    root = Path(__file__).parents[2] / "src/organelleverse/capabilities"
+    root = Path(__file__).parents[2] / "src/capabilities"
     for name, function in [
         ("phenotype.assess_cms_annotation", assess_cms_annotation),
         ("phenotype.predict_cms_topology", predict_cms_topology),
@@ -383,7 +383,7 @@ def test_annotation_binding_invokes_full_consumer(tmp_path, monkeypatch):
     original, _ = source(tmp_path)
     bundle = parse_capability_bundle(
         Path(__file__).parents[2]
-        / "src/organelleverse/capabilities/phenotype-assess-cms-annotation/capability.toml"
+        / "src/capabilities/phenotype-assess-cms-annotation/capability.toml"
     )
     bound = bind_python_capability(bundle, assess_cms_annotation, None)
     result = bound.invoke(

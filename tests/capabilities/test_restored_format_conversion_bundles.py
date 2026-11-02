@@ -1,7 +1,7 @@
 """Capability Plan 03, Task 3: the restored ``format_conversion`` bundles, for real.
 
 ``scripts/capabilities/build_restored_bundles.py`` generated the three
-bundles under ``src/organelleverse/capabilities/format-conversion-*`` from
+bundles under ``src/capabilities/format-conversion-*`` from
 ``docs/operations/restored-capabilities.toml`` - see the generator's and
 ``organelleverse.capabilities.adapters.format_conversion``'s module
 docstrings for why ``format_conversion`` was chosen (smallest domain that
@@ -21,7 +21,7 @@ these tests construct a ``CapabilityEntry`` with ``status="admitted"``, a
 Unlike ``test_core_admission.py``, discovery here is **not** routed to an
 isolated ``tmp_path`` package root: ``importlib.resources.files("organelleverse")``
 is left untouched, so the ``"core"`` channel resolves to the real, installed
-``src/organelleverse/`` tree - exactly where the generator wrote these
+``src/`` tree - exactly where the generator wrote these
 bundles. Only the *other* standard roots (``ORGANELLEVERSE_HOME``, the
 project-local ``.organelleverse/capabilities``, and package entry points)
 are isolated, so a real verification store write and a real project
@@ -64,7 +64,7 @@ _CP_GBK = PROJECT_ROOT / "tests" / "data" / "cp.gbk"
 
 _GENERATOR_PATH = PROJECT_ROOT / "scripts" / "capabilities" / "build_restored_bundles.py"
 _LEDGER_PATH = PROJECT_ROOT / "docs" / "operations" / "restored-capabilities.toml"
-_CURRENT_ROOT = PROJECT_ROOT / "src" / "organelleverse"
+_CURRENT_ROOT = PROJECT_ROOT / "src"
 _BUNDLE_ROOT = _CURRENT_ROOT / "capabilities"
 _EXPECTED_BUNDLE_DIRS = {
     "format-conversion-convert",
@@ -96,7 +96,7 @@ def _isolate_non_core_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     ``ORGANELLEVERSE_HOME``/project/entry-point isolation, but deliberately
     does **not** monkeypatch ``importlib.resources.files``: the whole point
     of this module is to prove the bundles actually committed under
-    ``src/organelleverse/capabilities/`` are discoverable and admittable
+    ``src/capabilities/`` are discoverable and admittable
     through the real "core" channel, not a synthetic stand-in for it.
     """
     home = tmp_path / "home"
@@ -144,7 +144,7 @@ def test_the_generator_produces_exactly_these_ids_and_skips_write_conversion(
     of the generator's fail-closed boundary, the exact skip reason code for
     the one capability it refuses to bind, and that the generated set is
     exactly what is committed on disk under
-    ``src/organelleverse/capabilities/format-conversion-*`` - so a bundle
+    ``src/capabilities/format-conversion-*`` - so a bundle
     deleted from the tree without regenerating, or regenerated with a
     different id, also fails here.
     """
@@ -196,7 +196,11 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
 
     discovered = discover_capabilities()
     for capability_id in _RESTORED_IDS:
-        assert discovered.describe(capability_id).status is CapabilityStatus.REJECTED
+        unverified = discovered.describe(capability_id)
+        # Verification is advisory for first-party code: admitted, with a diagnostic.
+        assert unverified.status is CapabilityStatus.ADMITTED
+        assert unverified.diagnostic is not None
+        assert unverified.diagnostic.code == "capability.verification_missing"
 
     store = VerificationStore(home / "verifications")
     for capability_id in _RESTORED_IDS:
@@ -216,7 +220,8 @@ def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
         entry = admitted.describe(capability_id)
         assert entry.status is CapabilityStatus.ADMITTED, entry.diagnostic
     admitted_ids = {item.capability_id for item in admitted.list()}
-    assert admitted_ids == set(_RESTORED_IDS)
+    # Other first-party capabilities are admitted without a record too.
+    assert set(_RESTORED_IDS) <= admitted_ids
 
 
 def _admit_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

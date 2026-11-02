@@ -78,3 +78,24 @@ def test_checksum_mismatch_is_not_retried_or_published(tmp_path, monkeypatch):
         environments._DefaultDownloader().download("https://example.org/db", path, "a" * 64)
     assert len(calls) == 1
     assert not path.exists()
+
+
+def test_offline_name_resolution_failure_is_not_retried(tmp_path, monkeypatch):
+    import socket
+
+    calls, sleeps = [], []
+
+    def open_url(url, *, timeout):
+        calls.append(url)
+        raise urllib.error.URLError(socket.gaierror(-3, "Temporary failure in name resolution"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(environments.time, "sleep", sleeps.append)
+    with pytest.raises(OrganelleDependencyError) as exc:
+        environments._DefaultDownloader().download("https://example.org/db", tmp_path / "db", "a" * 64)
+    assert len(calls) == 1 and sleeps == []
+    assert exc.value.details["attempts"] == 1
+    # offline is not a transient failure: the message must not tell the caller to retry
+    assert "no network" in exc.value.message
+    assert "ORGANELLEVERSE_CACHE_ROOT" in exc.value.message
+    assert "retry the managed installation" not in exc.value.message

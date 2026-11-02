@@ -106,6 +106,7 @@ def test_canonical_annotate_builds_strict_released_request(
             workspace=managed_runs_root() / "annotation.annotate",
             threads=3,
             stages=("pcg", "rrna"),
+            call_orfs=True,
         )
     ]
 

@@ -154,3 +154,18 @@ def test_electron_density_uses_gaussian_peaks_when_fittable() -> None:
     # peak-based ratio should be near the mean-based one for Gaussian data
     assert abs(row["electron_density_ratio"] - 0.6) < 0.03
     assert abs(row["electron_density_ratio_mean"] - 0.6) < 0.03
+
+
+def test_gaussian_peak_rejects_unphysical_or_underdetermined_fits() -> None:
+    """A histogram fit is only used when it can mean something: enough pixels
+    and a peak inside the observed intensities. Otherwise callers fall back to
+    the mean (an 11-pixel object once produced a ratio of -1010)."""
+    from organelleverse.morphology.measure import _gaussian_peak
+
+    rng = np.random.default_rng(7)
+    assert _gaussian_peak(rng.normal(100, 5, size=11)) is None
+    bimodal_edges = np.concatenate([np.full(40, 10.0), np.full(40, 1000.0)])
+    peak = _gaussian_peak(bimodal_edges)
+    assert peak is None or 10.0 <= peak <= 1000.0
+    fitted = _gaussian_peak(rng.normal(100, 5, size=2000))
+    assert fitted is not None and abs(fitted - 100) < 1

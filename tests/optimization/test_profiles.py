@@ -13,12 +13,11 @@ from organelleverse.capabilities.index import (
     CapabilityStatus,
 )
 from organelleverse.capabilities.models import CapabilityBundle, PluginCapabilityBundle
-from organelleverse.capabilities.plugin_descriptor import PluginDescriptor, describe_plugin
 from organelleverse.core.errors import OrganelleContractError
+from organelleverse.operations.spec import ParameterCodec
 from organelleverse.optimization import contract_from_capability_entry
-from organelleverse.optimization import profiles as optimization_profiles
 from tests.capabilities.test_plugin_v2_models import v2_payload
-from tests.plugin_experiments.conftest import admit, build_plugin_entry
+from tests.support.scientific_plugin_fixtures import admit, build_plugin_entry
 
 _BUNDLE_HASH = "sha256:" + "c" * 64
 
@@ -288,24 +287,23 @@ def test_profile_rejects_plugin_without_optimization(tmp_path: Path) -> None:
     assert raised.value.code == "capability.optimization_not_declared"
 
 
-def test_profile_rejects_missing_descriptor_field(
+def test_profile_rejects_optimization_parameter_that_is_a_file_input(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     entry = _entry_with_optimization_schemas(
         tmp_path,
         {"threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0}},
     )
-    descriptor: PluginDescriptor = describe_plugin(cast(PluginCapabilityBundle, entry.bundle))
-
-    def descriptor_without_parameters(_bundle: PluginCapabilityBundle) -> PluginDescriptor:
-        return descriptor.model_copy(update={"parameters": ()})
-
-    monkeypatch.setattr(
-        optimization_profiles,
-        "describe_plugin",
-        descriptor_without_parameters,
+    bundle = cast(PluginCapabilityBundle, entry.bundle)
+    binding = bundle.contract.binding.model_copy(
+        update={"parameters": tuple(
+            field.model_copy(update={"codec": ParameterCodec.PATH, "json_schema": {"type": "string"}, "accepts": ("path",)})
+            if field.name == "threshold" else field
+            for field in bundle.contract.binding.parameters
+        )}
     )
+    contract = bundle.contract.model_copy(update={"binding": binding})
+    entry = entry.model_copy(update={"bundle": bundle.model_copy(update={"contract": contract})})
 
     with pytest.raises(OrganelleContractError) as raised:
         contract_from_capability_entry(entry)

@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from organelleverse.capabilities.discovery import discover_capabilities
 from organelleverse.capabilities.index import CapabilityStatus
 from organelleverse.capabilities.verification import (
@@ -21,12 +20,11 @@ from organelleverse.pangenome.graph import load_gfa, path_sequences
 from organelleverse.pangenome.graph_operations import convert_graph_result, extract_subgraph
 
 
-@pytest.fixture
-def source(tmp_path):
+@pytest.fixture(params=["\n", "\r\n"], ids=["lf", "crlf"])
+def source(tmp_path, request):
     path = tmp_path / "source.gfa"
-    path.write_text(
-        "S\t1\tACGT\nS\t2\tAA\nS\t3\tTT\nL\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nP\ta#1#1\t1+,2+\t*\nP\tb#1#1\t1+,3+\t*\n"
-    )
+    text = "S\t1\tACGT\nS\t2\tAA\nS\t3\tTT\nL\t1\t+\t2\t+\t0M\nL\t1\t+\t3\t+\t0M\nP\ta#1#1\t1+,2+\t*\nP\tb#1#1\t1+,3+\t*\n"
+    path.write_bytes(text.replace("\n", request.param).encode("utf-8"))
     return OrganelleResult(
         operation_id="pangenome.build_graph",
         scope="plastid",

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from organelleverse._ovasm import resolve_ovasm, run_evidence
+from organelleverse._ovasm import resolve_ovasm, run_evidence, run_unify
 
 pytestmark = pytest.mark.skipif(resolve_ovasm() is None, reason="ovasm binary not built")
 
@@ -47,3 +47,34 @@ def test_evidence_counts_links_branches_and_repeat_pairings(tmp_path: Path) -> N
     assert pairing["minority_fraction"] == pytest.approx(0.25)
     lo, hi = pairing["minority_ci95"]
     assert lo < 0.25 < hi
+
+
+def test_sr_api_supports_dense_overlap_without_claiming_repeat_phase(tmp_path: Path) -> None:
+    sequence = _dna(500, random.Random(173))
+    graph = tmp_path / "dense.gfa"
+    graph.write_text(
+        f"H\tVN:Z:1.0\nS\tA\t{sequence[:300]}\nS\tB\t{sequence[174:]}\n"
+        "L\tA\t+\tB\t+\t126M\n"
+    )
+    reads = tmp_path / "reads.fa"
+    reads.write_text(f">r1\n{sequence[160:310]}\n>r2\n{sequence[160:310]}\n")
+    report = run_evidence(
+        graph, [reads], out_json=tmp_path / "sr.json", preset="sr", min_anchor=40,
+        bootstrap=0,
+    )
+    assert report["links_supported"] == 0
+    assert report["adjacency_supported_links"] == 1
+    assert report["links"][0]["adjacency_reads"] == 2
+    assert report["traversals"] == []
+    assert report["phased_paths"] == []
+    unified = tmp_path / "organelle.gfa"
+    run_unify(
+        graph, out_gfa=unified, out_json=tmp_path / "unify.json", sample="sample",
+        backend="ovasm", organelle="mitochondrion", evidence_json=tmp_path / "sr.json",
+    )
+    links = [line for line in unified.read_text().splitlines() if line.startswith("L\t")]
+    assert any("\tev:i:0\taj:i:2" in line for line in links)
+    long_report = run_evidence(
+        graph, [reads], out_json=tmp_path / "hifi.json", min_anchor=40, bootstrap=0,
+    )
+    assert long_report["adjacency_supported_links"] == 0

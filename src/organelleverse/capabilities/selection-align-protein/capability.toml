@@ -8,7 +8,7 @@ implementation = "native"
 [contract]
 contract_version = "1.0"
 title = "Align Protein"
-description = "Align protein sequences (MAFFT subprocess or self-contained)."
+description = "Align proteins with the requested backend."
 keywords = ["align", "analyze", "protein", "restored", "result", "selection"]
 execution_mode = "inline"
 stage = "analyze"

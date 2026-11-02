@@ -93,7 +93,10 @@ def test_boundary_search(search_backend, tmp_path):
     result = boundary._refine_boundary_by_tblastn(
         ann,
         genome,
-        SimpleNamespace(blast_ref_dir=tmp_path),
+        SimpleNamespace(
+            blast_ref_dir=tmp_path,
+            boundary_reference=lambda gene: tmp_path / f"{gene}.Protein.fasta",
+        ),
         tool_paths=b.tools,
         command_runner=b.runner,
     )
@@ -204,7 +207,12 @@ def test_search_dependencies_fail_clearly(monkeypatch, tmp_path, kind):
     monkeypatch.setattr(_losat.shutil, "which", lambda name: None)
     (tmp_path / "rrn5.fasta").write_text(">rrn5\nAAAA\n")
     genome = GenomeSequence(seqid="genome", sequence="A" * 1000)
-    db = SimpleNamespace(rrna_ref_dir=tmp_path, trna_ref_dir=tmp_path, blast_ref_dir=tmp_path)
+    db = SimpleNamespace(
+        rrna_ref_dir=tmp_path,
+        trna_ref_dir=tmp_path,
+        blast_ref_dir=tmp_path,
+        boundary_reference=lambda gene: tmp_path / f"{gene}.Protein.fasta",
+    )
     with pytest.raises(OrganelleDependencyError, match="Install LOSAT or NCBI BLAST"):
         if kind == "boundary":
             ann = GeneAnnotation(

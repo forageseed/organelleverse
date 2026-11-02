@@ -108,6 +108,14 @@ BACKEND_INSTALL_INFO = install_info()
 # =========================================================================
 
 
+def _readable_dir(path: Path) -> bool:
+    """A directory that can be read; a failing disk (EIO under ~, 2026-10-29) counts as absent."""
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
 def _list_conda_envs() -> list[Path]:
     """Find all conda/micromamba environment bin/ directories.
 
@@ -124,7 +132,7 @@ def _list_conda_envs() -> list[Path]:
     def _add_env_bin(env_path: str | Path) -> None:
         bin_dir = Path(env_path) / "bin"
         key = str(bin_dir)
-        if bin_dir.is_dir() and key not in seen:
+        if key not in seen and _readable_dir(bin_dir):
             seen.add(key)
             env_bins.append(bin_dir)
 
@@ -179,12 +187,15 @@ def _list_conda_envs() -> list[Path]:
         home / "micromamba",
         home / ".conda",
     ]:
-        if candidate.is_dir():
+        if _readable_dir(candidate):
             _add_env_bin(candidate)  # base env
             envs_dir = candidate / "envs"
-            if envs_dir.is_dir():
-                for env_dir in envs_dir.iterdir():
-                    _add_env_bin(env_dir)
+            if _readable_dir(envs_dir):
+                try:
+                    for env_dir in envs_dir.iterdir():
+                        _add_env_bin(env_dir)
+                except OSError:
+                    pass
 
     return env_bins
 

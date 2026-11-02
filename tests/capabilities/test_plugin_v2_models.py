@@ -329,8 +329,7 @@ def test_v2_bundle_keeps_v1_parameter_vocabulary_and_adds_named_outputs() -> Non
             description="Segmentation quality and measurements report.",
         ),
     )
-    assert bundle.plugin.author == "Example Laboratory"
-    assert bundle.gui.page == "ui:page"
+    assert not {"plugin", "agent", "gui"}.intersection(bundle.model_dump())
     assert bundle.contract.optimization is not None
     assert bundle.contract.optimization.score_locator == "em_organelle.plugin:score"
 
@@ -459,34 +458,6 @@ def test_v1_bundle_serialization_stays_byte_for_byte_unchanged() -> None:
     assert bundle.model_dump(mode="json", by_alias=True) == _V1_EXPECTED_DOCUMENT
 
 
-def test_v2_plugin_metadata_defaults() -> None:
-    from organelleverse.capabilities.models import PluginCapabilityBundle
-
-    payload = v2_payload()
-    payload["plugin"].pop("icon", None)  # type: ignore[index]
-    payload["plugin"].pop("category", None)  # type: ignore[index]
-    payload["plugin"].pop("badge", None)  # type: ignore[index]
-
-    bundle = PluginCapabilityBundle.model_validate(payload)
-
-    assert bundle.plugin.icon == ""
-    assert bundle.plugin.category == "general"
-    assert bundle.plugin.badge == "read"
-
-
-def test_v2_agent_metadata_defaults() -> None:
-    from organelleverse.capabilities.models import PluginCapabilityBundle
-
-    payload = v2_payload()
-    payload["agent"].pop("prompt", None)  # type: ignore[index]
-    payload["agent"].pop("agent_surface", None)  # type: ignore[index]
-
-    bundle = PluginCapabilityBundle.model_validate(payload)
-
-    assert bundle.agent.prompt == ""
-    assert bundle.agent.agent_surface.value == "granular"
-
-
 def test_v2_operation_execution_and_progress_defaults() -> None:
     from organelleverse.capabilities.models import PluginCapabilityBundle
 
@@ -586,16 +557,6 @@ def test_v2_binding_inline_max_bytes_must_be_positive() -> None:
     payload["contract"]["binding"]["parameters"][2]["inline_max_bytes"] = 0  # type: ignore[index]
 
     with pytest.raises(ValidationError, match="inline_max_bytes"):
-        PluginCapabilityBundle.model_validate(payload)
-
-
-def test_v2_agent_surface_must_be_valid() -> None:
-    from organelleverse.capabilities.models import PluginCapabilityBundle
-
-    payload = v2_payload()
-    payload["agent"]["agent_surface"] = "automatic"  # type: ignore[index]
-
-    with pytest.raises(ValidationError, match="agent_surface"):
         PluginCapabilityBundle.model_validate(payload)
 
 

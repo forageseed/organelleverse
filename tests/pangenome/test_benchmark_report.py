@@ -28,6 +28,6 @@ def test_report_preserves_measured_zero_and_omits_unknown_or_own_timing(tmp_path
     assert rows[0]["cpu_seconds"] == "0.0" and rows[1]["cpu_seconds"] == ""
     assert (tmp_path / "stage_cpu_seconds.pdf").read_bytes().startswith(b"%PDF-")
     assert (tmp_path / "stage_cpu_seconds.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    svg = (tmp_path / "stage_cpu_seconds.svg").read_text()
+    svg = (tmp_path / "stage_cpu_seconds.svg").read_text(encoding="utf-8")
     assert "prepare" in svg and "before report generation" in svg
     assert len(outputs) == 11

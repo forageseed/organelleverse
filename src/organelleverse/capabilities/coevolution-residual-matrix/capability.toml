@@ -36,3 +36,15 @@ codec = "json"
 [[contract.binding.parameters]]
 name = "trim_prop"
 codec = "json"
+
+[[contract.binding.parameters]]
+name = "gene_trees"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "species_tree_newick"
+codec = "json"
+
+[[contract.binding.parameters]]
+name = "variance_weight"
+codec = "json"

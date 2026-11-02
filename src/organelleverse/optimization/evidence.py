@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from statistics import mean, median, variance
 
-from organelleverse.plugin_experiments.adaptive_models import (
+from organelleverse.optimization.evidence_models import (
     AdoptionDecision,
     CandidateAggregate,
     MetricAggregate,

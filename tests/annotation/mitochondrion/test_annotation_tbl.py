@@ -114,3 +114,60 @@ def test_unedited_table_drops_rna_editing_exceptions(tmp_path) -> None:
 
     assert "RNA editing" in edited.read_text()
     assert "RNA editing" not in unedited.read_text()
+
+
+def first_feature_coords(text: str) -> list[tuple[int, int]]:
+    """Coordinate lines of the first feature (a multi-part feature has one line per part)."""
+    coords: list[tuple[int, int]] = []
+    for line in text.splitlines()[1:]:
+        if line.startswith("\t"):
+            break
+        start, end = line.split("\t")[:2]
+        coords.append((int(start.lstrip("<>")), int(end.lstrip("<>"))))
+    return coords
+
+
+def test_trans_spliced_gene_keeps_exon_order_and_each_exons_strand(tmp_path) -> None:
+    """nad1-like: exons 1-2 on the plus strand, 3-5 far away on the minus strand.
+
+    Sorting by coordinate and using one strand for the whole gene writes a join
+    that NCBI accepts but that is not the gene.
+    """
+    exons = [
+        ExonRecord(start=100, end=150, strand=Strand.PLUS, number=1),
+        ExonRecord(start=300, end=360, strand=Strand.PLUS, number=2),
+        ExonRecord(start=1500, end=1600, strand=Strand.MINUS, number=3),
+        ExonRecord(start=1200, end=1260, strand=Strand.MINUS, number=4),
+        ExonRecord(start=800, end=900, strand=Strand.MINUS, number=5),
+    ]
+    nad1 = GeneAnnotation(gene_name="nad1", product="NADH dehydrogenase subunit 1", exons=exons, strand=Strand.PLUS)
+    out = tmp_path / "t.tbl"
+    render_tbl([nad1], [], [], make_genome(), out)
+    assert first_feature_coords(out.read_text()) == [(100, 150), (300, 360), (1600, 1500), (1260, 1200), (900, 800)]
+
+
+def test_trans_spliced_document_feature_keeps_part_strands(tmp_path) -> None:
+    from organelleverse.annotation.mitochondrion.tbl import render_tbl_document
+    from organelleverse.annotation.models import (
+        AnnotationDocument,
+        AnnotationFeature,
+        AnnotationRecord,
+        FeatureQualifier,
+        LocationPart,
+    )
+
+    parts = (  # zero-based half-open, biological order
+        LocationPart(start=99, end=150, strand=1),
+        LocationPart(start=1499, end=1600, strand=-1),
+        LocationPart(start=799, end=900, strand=-1),
+    )
+    feature = AnnotationFeature(
+        feature_id="TEST01:0:CDS", seqid="TEST01", type="CDS", operator="join", parts=parts,
+        qualifiers=(FeatureQualifier(name="gene", values=("nad5",)), FeatureQualifier(name="trans_splicing", values=("",))),
+        parents=(),
+    )
+    record = AnnotationRecord(seqid="TEST01", name="TEST01", description="d", sequence="ACGT" * 500, features=(feature,))
+    doc = AnnotationDocument(backend="mitochondrion", requested_stages=("pcg",), completed_stages=("pcg",), records=(record,))
+    out = tmp_path / "d.tbl"
+    render_tbl_document(doc, out)
+    assert first_feature_coords(out.read_text()) == [(100, 150), (1600, 1500), (900, 800)]

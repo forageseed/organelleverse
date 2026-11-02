@@ -72,6 +72,14 @@ def _dna(n: int, rng: random.Random) -> str:
     return "".join(rng.choice("ACGT") for _ in range(n))
 
 
+def test_omitted_cover_sizes_are_exposed_as_uncertainty() -> None:
+    ev = _evidence([5, 5])
+    linear = {**_linear(decisive=False), "cover_size_limited": True}
+    assert flags_for(ev, linear) == [UNDECIDED]
+    (finding,) = [f for f in findings_for(ev, linear) if f.metric == "cover_size_limited"]
+    assert finding.value is True
+
+
 def _revcomp(s: str) -> str:
     return s[::-1].translate(str.maketrans("ACGT", "TGCA"))
 

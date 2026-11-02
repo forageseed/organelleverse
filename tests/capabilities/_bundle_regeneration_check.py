@@ -3,7 +3,7 @@ produces, without ever writing into the committed tree to find out.
 
 Every ``tests/capabilities/test_restored_<domain>_bundles.py`` file used to
 call ``build_domain(..., output_root=_BUNDLE_ROOT)`` - the real, committed
-``src/organelleverse/capabilities/`` tree - so running its own "the
+``src/capabilities/`` tree - so running its own "the
 generator produces exactly these ids" test rewrote tracked source on every
 run. That made the tree self-healing: a bundle mutated or deleted between
 commits (by hand, by a bad merge, by disk corruption) would be silently

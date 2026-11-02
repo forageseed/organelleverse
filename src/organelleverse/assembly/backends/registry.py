@@ -91,7 +91,7 @@ _INSTALL = {
     "ovasm": BackendInstallSpec(
         tier="source",
         source="https://github.com/xibeixingchen/organelleverse",
-        note="Native binary: `cargo build --release` in rust/ovasm, or set ORG_VERSE_OVASM_BIN; no managed environment",
+        note="Native binary: ovasm 0.6.0 or later (forageseed/ovasm) on PATH, or set ORG_VERSE_OVASM_BIN; no managed environment",
     ),
 }
 

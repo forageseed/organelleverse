@@ -119,20 +119,43 @@ def test_circular_origin_join_is_not_an_intron(genbank, strand):
     assert row["gaps"] == ()
 
 
-def test_large_cis_intron_not_reclassified_by_distance(genbank):
+@pytest.mark.parametrize(
+    ("second_exon", "splicing", "basis"),
+    [(20_000, "cis", None), (35_000, "trans", "distance")],
+)
+def test_unmarked_join_is_trans_only_beyond_the_longest_cis_intron(
+    genbank, second_exon, splicing, basis
+):
+    # Same-strand, forward exons without /trans_splicing: only the 25 kb rule
+    # (shared with the annotation writer) separates nad5-like loci from cis genes.
     record = SeqIO.read(genbank, "genbank")
     record.seq = record.seq * 40
     record.features.append(
         SeqFeature(
             CompoundLocation(
-                [SimpleLocation(1, 10, strand=1), SimpleLocation(35000, 35100, strand=1)]
+                [SimpleLocation(1, 10, strand=1), SimpleLocation(second_exon, second_exon + 100, strand=1)]
             ),
             type="CDS",
-            qualifiers={"gene": ["cis"]},
+            qualifiers={"gene": ["nadX"]},
         )
     )
     SeqIO.write(record, genbank, "genbank")
-    assert plot_structure_map(genbank).metrics["features"][-1]["splicing"] == "cis"
+    # show_ir=False: IR seeding on this 40 kb periodic toy sequence is quadratic and untested here.
+    row = plot_structure_map(genbank, show_ir=False).metrics["features"][-1]
+    assert (row["splicing"], row["trans_basis"]) == (splicing, basis)
+
+
+def test_trans_basis_separates_annotated_from_inferred(genbank):
+    rows = {r["gene"]: r for r in plot_structure_map(genbank).metrics["features"]}
+    assert rows["rps12"]["trans_basis"] == "qualifier"
+    assert rows["ycf3"]["trans_basis"] is None
+    fig, ax = plt.subplots()
+    try:
+        _draw_exon_panel(ax, {**rows["rps12"], "trans_basis": "mixed_strand"})
+        assert "inferred: exons on both strands" in ax.get_label()
+        assert "trans (inferred)" in {t.get_text() for t in ax.texts}
+    finally:
+        plt.close(fig)
 
 
 def test_actual_exon_rectangle_widths(genbank):

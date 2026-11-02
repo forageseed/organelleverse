@@ -21,7 +21,7 @@ install_module = importlib.import_module("organelleverse.assembly.install")
 
 @pytest.fixture(autouse=True)
 def no_host_backend_discovery(monkeypatch, tmp_path):
-    monkeypatch.setenv("ORGANELLEVERSE_TOOL_ROOT", str(tmp_path / "tools"))
+    monkeypatch.setenv("ORGANELLEVERSE_TOOL_ROOT", str(tmp_path / "tool-root"))
     monkeypatch.setattr(install_module.shutil, "which", lambda name: None)
     monkeypatch.setattr(install_module, "_list_conda_envs", lambda: [])
 

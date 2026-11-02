@@ -82,7 +82,13 @@ def _profile(model_id: str) -> dict:
 def _root(directory: str | Path | None = None) -> Path:
     if directory is not None:
         return Path(directory)
-    return Path(os.environ.get("ORGANELLEVERSE_MODEL_DIR", Path.home()/".cache/organelleverse/models"))
+    # Same order as install.orgseg_model_path: a host that moves the cache root (a read-only or
+    # failing home) moves the models with it.
+    root = os.environ.get("ORGANELLEVERSE_MODEL_DIR")
+    if root:
+        return Path(root)
+    cache = os.environ.get("ORGANELLEVERSE_CACHE_ROOT")
+    return Path(cache) / "models" if cache else Path.home() / ".cache" / "organelleverse" / "models"
 
 
 def model_status(model_id: str, directory: str | Path | None = None) -> dict:

@@ -22,7 +22,7 @@ from organelleverse.optimization.evidence import (
     pareto_front,
 )
 from organelleverse.optimization.strategy_models import EvaluatorBinding
-from organelleverse.plugin_experiments.adaptive_models import AttemptIdentity, RepeatEvidence
+from organelleverse.optimization.evidence_models import AttemptIdentity, RepeatEvidence
 
 
 def objective(name: str, direction: Literal["maximize", "minimize"]) -> ObjectiveV3:

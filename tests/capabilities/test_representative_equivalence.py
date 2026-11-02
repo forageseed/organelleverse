@@ -1,9 +1,8 @@
 """Three representative direct/Agent equivalence fixtures, one per result codec.
 
-These are hand-authored test fixtures, not capability bundles admitted to any
-registry or discovery directory: Capability Plan 02 Task 2 (discovery/
-admission) has not started, so ``Bundles discovered`` must stay ``0/253`` and
-``Registry operations`` must stay ``20`` regardless of this file's existence.
+These are hand-authored, in-memory test fixtures, never written to a discovery
+directory. The same three operations are now also real first-party bundles
+under ``src/capabilities``; the registry serves those, not these fixtures.
 
 Each fixture proves, for one of the four ResultCodec values:
 
@@ -216,12 +215,21 @@ def test_plot_ogdraw_map_equivalence() -> None:
     assert _sha256(Path(primary.uri)) == primary.sha256
 
 
-def test_none_of_the_three_fixtures_are_registered() -> None:
-    """Bundles discovered stays 0/253 and Registry operations stays 20."""
-    import organelleverse as ov
+def test_the_three_ids_are_served_by_core_bundles_not_these_fixtures() -> None:
+    """The in-memory fixtures here never reach discovery.
 
-    registered_ids = {spec.operation_id for spec in ov.operations.list()}
-    assert len(registered_ids) == 20
-    assert "composition.compute_gc_content" not in registered_ids
-    assert "phenotype.cms" not in registered_ids
-    assert "visualization.plot_ogdraw_map" not in registered_ids
+    Since discovery/admission landed, all three operations are real first-party
+    capabilities under ``src/capabilities``; the registry must serve those core
+    bundles, never a fixture defined in this test module.
+    """
+    import organelleverse as ov
+    from organelleverse.capabilities.discovery import discover_capabilities
+
+    ids = {"composition.compute_gc_content", "phenotype.cms", "visualization.plot_ogdraw_map"}
+    assert ids <= {spec.operation_id for spec in ov.operations.list()}
+    core_root = Path(ov.__file__).resolve().parent / "capabilities"
+    entries = {e.capability_id: e for e in discover_capabilities().entries if e.capability_id in ids}
+    assert set(entries) == ids
+    for entry in entries.values():
+        assert [origin.channel for origin in entry.origins] == ["core"]
+        assert Path(entry.bundle_root).resolve().parent == core_root

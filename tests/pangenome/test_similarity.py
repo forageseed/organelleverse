@@ -90,6 +90,67 @@ def test_known_length_zero_overlap_allows_unstored_bases(tmp_path):
     assert [r["shared_fraction"] for r in graph_shared_windows(path)["rows"]] == [1, 1]
 
 
+def _reference_rows(gfa_path, bin_size):
+    """The original per-sample union-then-bin definition, kept as an oracle."""
+    from organelleverse.pangenome.graph import load_gfa, path_steps
+    from organelleverse.pangenome.similarity import _union
+
+    graph, steps = load_gfa(gfa_path), path_steps(gfa_path)
+    samples = sorted({record.sample for record in graph.paths.values()})
+    nodes = {s: set() for s in samples}
+    for record in graph.paths.values():
+        nodes[record.sample].update(node for node, _ in record.steps)
+    rows = []
+    for name, record in graph.paths.items():
+        start = record.start or 0
+        end = max((s["end"] for s in steps[name]), default=start)
+        for sample in samples:
+            if sample == record.sample:
+                continue
+            shared = _union(
+                [(s["start"], s["end"]) for s in steps[name] if s["node"] in nodes[sample]]
+            )
+            for left in range(start, end, bin_size):
+                right = min(end, left + bin_size)
+                covered = sum(max(0, min(right, b) - max(left, a)) for a, b in shared)
+                rows.append((name, sample, left, right, covered))
+    return rows
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_vectorized_windows_equal_the_union_definition_on_random_graphs(tmp_path, seed):
+    import random
+
+    rng = random.Random(seed)
+    lengths = {str(i): rng.randint(1, 9) for i in range(1, 13)}
+    lines = [f"S\t{n}\t{'A' * length}" for n, length in lengths.items()]
+    links = set()
+    # Nodes 1-3 are reserved for the overlapping molecule; random walks use 4-12.
+    pool = [str(i) for i in range(4, 13)]
+    for sample in ("a", "b", "c", "d"):
+        for molecule in range(1, rng.randint(1, 2) + 1):
+            walk = [rng.choice(pool) + rng.choice("+-") for _ in range(rng.randint(1, 15))]
+            for left, right in zip(walk, walk[1:], strict=False):
+                links.add((left, right))
+            lines.append(f"P\t{sample}#1#{molecule}\t{','.join(walk)}\t*")
+    for left, right in sorted(links):
+        lines.append(f"L\t{left[:-1]}\t{left[-1]}\t{right[:-1]}\t{right[-1]}\t0M")
+    if seed % 2:
+        # Exact 1-base overlaps on homopolymer nodes exercise the union branch,
+        # in a sample with another molecule and in one shared with sample a.
+        lines += ["L\t1\t+\t2\t+\t1M", "L\t2\t+\t3\t+\t1M"]
+        lines += ["P\te#1#1\t1+,2+,3+\t1M,1M", "P\ta#1#9\t2+,3+\t*", "P\te#1#2\t4+\t*"]
+    path = gfa(tmp_path, "\n".join(lines) + "\n")
+    bin_size = rng.randint(1, 12)
+
+    result = graph_shared_windows(path, bin_size=bin_size)
+
+    assert [
+        (r["path"], r["comparison_sample"], r["start"], r["end"], r["shared_bp"])
+        for r in result["rows"]
+    ] == _reference_rows(path, bin_size)
+
+
 def test_output_row_bound_and_no_within_sample_pseudoreplication(tmp_path):
     with pytest.raises(ValueError, match="max_rows"):
         graph_shared_windows(overlap_graph(tmp_path), bin_size=1, max_rows=2)

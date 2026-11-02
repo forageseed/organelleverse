@@ -30,7 +30,7 @@ def test_adapter_plans_and_registered_bindings_expose_the_same_parameters():
             operation_id = record["id"]
             if operation_id not in registered or operation_id not in overrides:
                 continue
-            plan = generator._plan_bundle(record, PROJECT_ROOT / "src" / "organelleverse", overrides)
+            plan = generator._plan_bundle(record, PROJECT_ROOT / "src", overrides)
             assert isinstance(plan, generator.PlannedBundle), (operation_id, plan)
             actual = registered[operation_id].binding.parameters
             assert [(p.name, p.codec, p.path_role) for p in plan.parameters] == [

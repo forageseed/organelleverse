@@ -292,6 +292,29 @@ def record_organelle(record) -> str:
     return "mito"
 
 
+def genbank_scope(genbank_path) -> str:
+    """Result scope of a map: the organelle every record's source /organelle declares.
+
+    ``"plastid"`` or ``"mitochondrion"`` when all records agree, ``"mixed"`` when
+    they differ, ``"none"`` when no record declares one. Unlike
+    :func:`record_organelle` (which picks a legend and treats an undeclared record
+    as mitochondrial), the scope is a claim about the data, so nothing is assumed.
+    """
+    declared: set[str | None] = set()
+    for _, record in _load_genbank_records(genbank_path):
+        src = next((f for f in record.features if f.type == "source"), None)
+        organ = " ".join(src.qualifiers.get("organelle", [""])).lower() if src is not None else ""
+        if "plastid" in organ or "chloroplast" in organ:
+            declared.add("plastid")
+        elif "mitochondrion" in organ:
+            declared.add("mitochondrion")
+        else:
+            declared.add(None)
+    if len(declared) > 1:
+        return "mixed"
+    return next(iter(declared), None) or "none"
+
+
 def _parse_genbank_record(record, gc_window: int = 200) -> MitoGenome:
     """Parse one already-loaded SeqRecord into a :class:`MitoGenome`."""
     sequence = str(record.seq).upper()
@@ -1092,6 +1115,7 @@ def plot_ogdraw_map(
     plot = plot_result(
         "plot_ogdraw_map",
         _render,
+        organelle=genbank_scope(genbank_path),
         metrics={"render_method": "ogdraw", "genome_name": resolved_name, "regions": regions},
         flags=("ogdraw_map",),
         summary="OGDraw organelle map prepared.",

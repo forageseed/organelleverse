@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from organelleverse._bundled import bundled_executable
 from organelleverse._layout import checkout_root
 
 import os
@@ -47,6 +48,9 @@ def _resolve_losat(losat_path: str | os.PathLike[str] | None) -> str | None:
         resolved = _resolve_executable(env_value, "LOSAT")
         if resolved is not None:
             return resolved
+    packaged = bundled_executable("LOSAT")
+    if packaged:
+        return packaged
     for root in _checkout_roots():
         candidate = (
             root / "external_tools" / "LOSAT" / "LOSAT" / "target" / "release" / "LOSAT"

@@ -2,11 +2,15 @@
 
 The release surface is 20 operations: 16 native core bundles (Plan 03 Task 1)
 plus four residual operations still served by the Python catalog (see
-``operations/catalog.py``'s docstring for the two structural reasons). The
-bundle-served 16 become visible to the default registry only after a
-content-addressed verification record exists, which is the owner-approved
-"verify once, reuse the record" model. Test sessions generate those records
-once into an isolated ``ORGANELLEVERSE_HOME``.
+``operations/catalog.py``'s docstring for the two structural reasons).
+
+Verification of first-party core bundles is advisory (af9b1c73): every pure-core
+native bundle is admitted, with a missing record kept as a diagnostic, so the
+default registry lists these 20 together with the other first-party
+capabilities and the ``tools.adapter`` plugin. Tests therefore assert that the
+20 release operations are present, not that they are the only ones. Plugin,
+bundle-local and external bundles still need a verification record; test
+sessions generate records into an isolated ``ORGANELLEVERSE_HOME``.
 """
 
 from __future__ import annotations
@@ -32,6 +36,12 @@ def release_bundle_ids() -> tuple[str, ...]:
 
     oracle = json.loads(ORACLE.read_text(encoding="utf-8"))
     return tuple(sorted(set(oracle) - RESIDUAL_CATALOG_IDS))
+
+
+def release_operation_ids() -> frozenset[str]:
+    """The 20 release operations: 16 bundle-served plus the four residual ones."""
+
+    return frozenset(release_bundle_ids()) | RESIDUAL_CATALOG_IDS
 
 
 def verify_release_bundles(home: Path) -> None:

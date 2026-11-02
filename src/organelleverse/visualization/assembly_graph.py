@@ -89,6 +89,10 @@ MTPT_COLOR = "#3C9A4A"
 PLASTID_REGION_COLORS = {"LSC": "#4FA35C", "IR": "#2B7A3D", "SSC": "#8CC97A", "plastome": "#4FA35C"}
 LINK_COLOR = "#8A94A3"
 UNSUPPORTED_COLOR = "#9AA3AF"
+#: MTPT transfer bands: light, translucent, one tint per donor plastid region.
+MTPT_BAND_COLORS = {"LSC": "#A9D8A0", "IR": "#9CCFD6", "SSC": "#E5D98F", "plastome": "#A9D8A0"}
+MTPT_BAND_UNSUPPORTED = "#D3D7DC"
+MTPT_BAND_ALPHA = 0.55
 INK = "#1F2933"
 MUTED = "#4B5563"
 _READ_NAMES = {"hifi": "HiFi", "ont": "ONT", "clr": "PacBio CLR"}
@@ -102,6 +106,7 @@ def plot_assembly_graph(
     reads: str | Path | Sequence[str | Path] | None = None,
     read_type: str = "hifi",
     plastid: str | Path | None = None,
+    sequences: str | Path | None = None,
     organelle: str = "mito",
     title: str = "",
     display_names: Mapping[str, str] | None = None,
@@ -138,6 +143,11 @@ def plot_assembly_graph(
     plastid:
         Plastid assembly (FASTA, first record used, or an ovasm plastid
         directory) for MTPT detection and the plastid map.
+    sequences:
+        Draw only the graph components holding these sequences (e.g. the
+        assembler's mitochondrial FASTA): a raw oatk graph also carries the
+        plastome and stray components. Same selection as
+        ``structure.graph_complexity(sequences=...)``.
     style:
         ``insets`` (conformation insets beside the network) or ``triptych``
         (network -> single master circle / sub-genomic circles).
@@ -146,9 +156,9 @@ def plot_assembly_graph(
         shared, MTPT in green; needs a plastid) or ``auto`` (origin when a
         plastid is available).
     ribbon_min_length:
-        MTPTs at least this long are summarised by the dashed connectors (one
-        per mitochondrial segment and plastid region); every MTPT is painted on
-        its segment and listed in the table.
+        MTPTs at least this long are summarised by the transfer bands (one
+        per mitochondrial segment and plastid region, tinted by that region);
+        every MTPT is painted on its segment and listed in the table.
     title:
         Goes into ``<figure>.caption.txt`` (journal figures carry no title).
     width:
@@ -170,13 +180,23 @@ def plot_assembly_graph(
         )
     pairings = None
     decisive = None
+    path_source = "GFA"
     if not isinstance(gfa, OrganelleData) and Path(gfa).is_dir():
         run = load_ovasm_run(gfa)
+        path_source = "OVASM"
         gfa_path, resolved_organelle = run["gfa"], organelle
         pairings, decisive = run["pairings"], run["decisive"]
         plastid = plastid if plastid is not None else run["plastid"]
     else:
         gfa_path, resolved_organelle = _resolve_gfa_input(gfa, organelle)
+    if sequences is not None:
+        import tempfile
+
+        from ..structure.graph_complexity import write_subgraph
+
+        gfa_path = write_subgraph(
+            gfa_path, sequences, Path(tempfile.mkdtemp(prefix="ov-subgraph-")) / Path(gfa_path).name
+        )
     if color_by == "origin" and plastid is None:
         raise OrganelleParameterError(
             code="visualization.assembly_graph.origin_needs_plastid",
@@ -248,6 +268,7 @@ def plot_assembly_graph(
         "branch_count": sum(row["kind"] == "branch" for row in repeats),
         "supported_repeats": len(supported),
         "linearization_decisive": decisive,
+        "path_source": path_source,
         "segments": analysis["segments"],
         "links": analysis["links"],
         "repeats": repeats,
@@ -453,6 +474,12 @@ _LEGEND_ROW_MM = 3.8
 _RIBBON = 3.4  # points, fixed for every segment
 _RING = 2.4  # points, molecule rings in conformation panels
 _LABEL_PT = max(6.5, FONT_PT["label"])  # segment, ring and note labels
+_LABEL_PAD_PT = 0.8  # white halo around a segment label, kept clear of other labels
+#: Positions along a ribbon tried for its label, middle first.
+_LABEL_FRACTIONS = tuple(sorted((i / 20 for i in range(1, 20)), key=lambda f: abs(f - 0.5)))
+#: Placement costs in points of ribbon covered: per point of distance, and for a leader line.
+_LABEL_DISTANCE_COST = 1.0
+_LABEL_LEADER_COST = 15.0
 
 
 def _with_panel(plot: OrganellePlot, metrics: Mapping[str, Any]) -> OrganellePlot:
@@ -705,9 +732,28 @@ def _draw_network_panel(ax, metrics, legend: bool) -> list:
     return [] if legend else _legend_handles(metrics)
 
 
+def _even_points(curve: np.ndarray, step: float) -> np.ndarray:
+    """Points every ``step`` along a polyline, so covered ribbon is counted by length."""
+    along = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(curve, axis=0), axis=1))])
+    if along[-1] <= 0:
+        return curve[:1]
+    at = np.arange(0.0, along[-1] + step / 2, step)
+    return np.column_stack([np.interp(at, along, curve[:, 0]), np.interp(at, along, curve[:, 1])])
+
+
 def _place_labels(ax, segments, curves, scale, pe) -> None:
-    """Name + depth beside each ribbon, avoiding ribbons and earlier labels (in points)."""
-    occupied = np.concatenate(list(curves.values()))
+    """Name + depth beside each ribbon, measured in points.
+
+    Candidates run along both sides of the ribbon at growing distances. A spot is
+    ranked by leaving the panel, then by overlap with labels already placed, then
+    by the ribbon it covers and its distance, so labels never overlap while a free
+    spot exists. A label pushed past the first two rings gets a thin leader line.
+    """
+    renderer = ax.figure.canvas.get_renderer()
+    points_per_pixel = 72.0 / ax.figure.dpi
+    occupied = np.concatenate([_even_points(curve, scale) for curve in curves.values()])  # 1 pt apart
+    reach = _RIBBON / 2 * scale
+    (x0, x1), (y0, y1) = ax.get_xlim(), ax.get_ylim()
     taken: list[tuple[np.ndarray, float, float]] = []
     for name, row in sorted(segments.items(), key=lambda item: -item[1]["length"]):
         curve = curves[name]
@@ -718,31 +764,9 @@ def _place_labels(ax, segments, curves, scale, pe) -> None:
         else:
             badge = f"{row['repeat_id']} " if row.get("repeat_id") else ""
             text = f"{badge}{row['label']} {row['depth']:.1f}\u00d7"
-        half_w = 0.29 * size * len(text) * scale
-        half_h = 0.65 * size * scale
-        best = None
-        for fraction in (0.5, 0.35, 0.65, 0.2, 0.8):
-            i = min(len(curve) - 2, int(fraction * (len(curve) - 1)))
-            tangent = curve[i + 1] - curve[i]
-            tangent /= np.linalg.norm(tangent) or 1.0
-            normal = np.array([-tangent[1], tangent[0]])
-            for side in (1, -1):
-                for distance_pt in (_RIBBON / 2 + 1.5 + size * 0.8, _RIBBON / 2 + 3 + size * 1.6):
-                    spot = curve[i] + side * distance_pt * scale * normal
-                    inside = (np.abs(occupied[:, 0] - spot[0]) < half_w) & (np.abs(occupied[:, 1] - spot[1]) < half_h)
-                    clash = sum(
-                        abs(spot[0] - other[0]) < half_w + other_w and abs(spot[1] - other[1]) < half_h + other_h
-                        for other, other_w, other_h in taken
-                    )
-                    score = 6 * clash + int(inside.sum()) + 0.05 * distance_pt
-                    if best is None or score < best[0]:
-                        best = (score, spot)
-        assert best is not None
-        spot = best[1]
-        taken.append((spot, half_w, half_h))
-        ax.text(
-            spot[0],
-            spot[1],
+        label = ax.text(
+            0.0,
+            0.0,
             text,
             ha="center",
             va="center",
@@ -752,6 +776,61 @@ def _place_labels(ax, segments, curves, scale, pe) -> None:
             zorder=7,
             path_effects=[pe.withStroke(linewidth=1.6, foreground="white")],
         )
+        # measured as drawn (line height, bold widths), then moved to the chosen spot
+        extent = label.get_window_extent(renderer)
+        width_pt, height_pt = extent.width * points_per_pixel, extent.height * points_per_pixel
+        half_w = (width_pt / 2 + _LABEL_PAD_PT) * scale
+        half_h = (height_pt / 2 + _LABEL_PAD_PT) * scale
+        near = _RIBBON / 2 + 1.0 + height_pt / 2 + _LABEL_PAD_PT
+        steps = (0, 1, 2, 3, 4.5, 6, 8, 10, 13)
+        # only ribbon points a candidate box can reach
+        margin = (near + steps[-1] * (height_pt + 2 * _LABEL_PAD_PT)) * scale + half_w + reach
+        nearby = occupied[
+            np.all((occupied >= curve.min(axis=0) - margin) & (occupied <= curve.max(axis=0) + margin), axis=1)
+        ]
+        best = None
+        for ring, step in enumerate(steps):
+            distance_pt = near + step * (height_pt + 2 * _LABEL_PAD_PT)
+            for fraction in _LABEL_FRACTIONS:
+                i = min(len(curve) - 2, int(fraction * (len(curve) - 1)))
+                tangent = curve[i + 1] - curve[i]
+                tangent = tangent / (np.linalg.norm(tangent) or 1.0)
+                normal = np.array([-tangent[1], tangent[0]])
+                for side in (1, -1):
+                    spot = curve[i] + side * distance_pt * scale * normal
+                    outside = not (x0 <= spot[0] - half_w and spot[0] + half_w <= x1) or not (
+                        y0 <= spot[1] - half_h and spot[1] + half_h <= y1
+                    )
+                    overlap = sum(
+                        max(0.0, min(spot[0] + half_w, other[0] + other_w) - max(spot[0] - half_w, other[0] - other_w))
+                        * max(0.0, min(spot[1] + half_h, other[1] + other_h) - max(spot[1] - half_h, other[1] - other_h))
+                        for other, other_w, other_h in taken
+                    ) / (4 * half_w * half_h)
+                    inside = (np.abs(nearby[:, 0] - spot[0]) < half_w + reach) & (
+                        np.abs(nearby[:, 1] - spot[1]) < half_h + reach
+                    )
+                    # points of ribbon covered (~pt of ribbon length), distance, and a leader line
+                    cost = (
+                        int(inside.sum())
+                        + _LABEL_DISTANCE_COST * distance_pt
+                        + (_LABEL_LEADER_COST if ring >= 2 else 0.0)
+                    )
+                    score = (outside, overlap > 0, overlap, cost)
+                    if best is None or score < best[0]:
+                        best = (score, spot, ring, curve[i] + side * (_RIBBON / 2) * scale * normal)
+        assert best is not None
+        _, spot, ring, anchor = best
+        taken.append((spot, half_w, half_h))
+        if ring >= 2:
+            # leader from the ribbon edge to the nearest edge of the label box
+            delta = spot - anchor
+            inner = min(
+                half_w / abs(delta[0]) if delta[0] else math.inf,
+                half_h / abs(delta[1]) if delta[1] else math.inf,
+            )
+            end = anchor + max(0.0, 1.0 - inner) * delta
+            ax.plot([anchor[0], end[0]], [anchor[1], end[1]], color=MUTED, lw=0.4, zorder=6, solid_capstyle="round")
+        label.set_position((float(spot[0]), float(spot[1])))
 
 
 def _curve_point(curve: np.ndarray, fraction: float) -> np.ndarray:
@@ -759,34 +838,45 @@ def _curve_point(curve: np.ndarray, fraction: float) -> np.ndarray:
     return piece[len(piece) // 2]
 
 
+def _band_regions(metrics) -> dict[str, str]:
+    """Plastid-graph segment name -> its region (LSC / IR / SSC, or plastome)."""
+    return {row["name"]: row["region"] for row in (metrics.get("plastid_graph") or {}).get("segments", [])}
+
+
 def _draw_homology(ax, metrics, curves, scale) -> None:
-    """Dashed MTPT -> plastid connectors: sequence homology, not assembly links."""
-    from matplotlib.patches import PathPatch
-    from matplotlib.path import Path as MplPath
+    """MTPT -> plastid transfer bands: sequence homology, not assembly links.
+
+    Each band is a light, translucent ribbon tinted by its donor plastid region,
+    1.2-8.2 pt wide by the square root of its total MTPT length; bands lie under
+    the segment ribbons, widest first so narrow ones stay visible.
+    """
+    from matplotlib.patches import Polygon
 
     # Integration read counts are in the caption and <figure>.mtpt.tsv: at print
-    # size one label per connector cannot be placed without collisions.
+    # size one label per band cannot be placed without collisions.
     rows = metrics.get("homology") or []
+    regions = _band_regions(metrics)
     longest = max((row["total_length"] for row in rows), default=1)
-    for row in rows:
+    t = np.linspace(0.0, 1.0, 48)[:, None]
+    for row in sorted(rows, key=lambda r: -r["total_length"]):
         a = _curve_point(curves[row["segment"]], row["segment_at"])
         b = _curve_point(curves[row["plastid_segment"]], row["plastid_at"])
         direction = b - a
         control = (a + b) / 2 + np.array([-direction[1], direction[0]]) * 0.12
-        path = MplPath([a, control, b], [MplPath.MOVETO, MplPath.CURVE3, MplPath.CURVE3])
+        points = (1 - t) ** 2 * a + 2 * (1 - t) * t * control + t**2 * b
+        tangent = np.gradient(points, axis=0)
+        norm = np.linalg.norm(tangent, axis=1, keepdims=True)
+        tangent = tangent / np.where(norm > 0, norm, 1.0)
+        normal = np.column_stack([-tangent[:, 1], tangent[:, 0]])
+        half = (0.6 + 3.5 * math.sqrt(row["total_length"] / longest)) * scale
+        outline = np.vstack([points + half * normal, (points - half * normal)[::-1]])
         unsupported = row["assessed"] > 0 and row["integrated"] == 0
-        ax.add_patch(
-            PathPatch(
-                path,
-                fill=False,
-                ec=UNSUPPORTED_COLOR if unsupported else MTPT_COLOR,
-                lw=0.5 + 1.6 * math.sqrt(row["total_length"] / longest),
-                ls=(0, (1, 1.5)) if unsupported else (0, (3, 2)),
-                alpha=0.75,
-                capstyle="round",
-                zorder=1.2,
-            )
+        color = (
+            MTPT_BAND_UNSUPPORTED
+            if unsupported
+            else MTPT_BAND_COLORS[regions.get(row["plastid_segment"], "plastome")]
         )
+        ax.add_patch(Polygon(outline, closed=True, fc=color, ec="none", alpha=MTPT_BAND_ALPHA, zorder=1.2))
 
 
 def _legend_handles(metrics) -> list:
@@ -810,13 +900,23 @@ def _legend_handles(metrics) -> list:
         handles.append(patch(REPEAT_COLOR, f"Repeat (R1\u2013R{len(metrics['repeats'])}, recombining)"))
     handles.append(Line2D([], [], color=LINK_COLOR, lw=0.9, label="Assembly-graph link"))
     if metrics.get("homology"):
-        handles.append(
-            Line2D([], [], color=MTPT_COLOR, lw=1.0, ls=(0, (3, 2)),
-                   label="MTPT sequence homology, summed per region (not a graph link)")
-        )
-        if any(row["assessed"] and not row["integrated"] for row in metrics["homology"]):
+        regions = _band_regions(metrics)
+        unsupported = [row["assessed"] and not row["integrated"] for row in metrics["homology"]]
+        drawn = {
+            regions.get(row["plastid_segment"], "plastome")
+            for row, skip in zip(metrics["homology"], unsupported)
+            if not skip
+        }
+        for region in ("LSC", "IR", "SSC", "plastome"):
+            if region in drawn:
+                source = "plastid" if region == "plastome" else region
+                handles.append(
+                    Patch(fc=MTPT_BAND_COLORS[region], ec="none", alpha=MTPT_BAND_ALPHA,
+                          label=f"MTPT from {source} (width scales with length)")
+                )
+        if any(unsupported):
             handles.append(
-                Line2D([], [], color=UNSUPPORTED_COLOR, lw=1.0, ls=(0, (1, 1.5)), label="MTPT without spanning reads")
+                Patch(fc=MTPT_BAND_UNSUPPORTED, ec="none", alpha=MTPT_BAND_ALPHA, label="MTPT without spanning reads")
             )
     return handles
 
@@ -851,12 +951,26 @@ def _caption(metrics) -> str:
         "no read spans a whole path, so they are representative and candidate recombination paths, "
         "not observed molecules."
     )
+    if any(
+        str(conf.get("molecules_source") or "").startswith("paths")
+        for row in metrics["repeats"]
+        for conf in row["configurations"]
+    ):
+        name = metrics.get("path_source") or "GFA"
+        parts.append(
+            "Where the graph alone spells no molecules (a segment outside the repeats still branches), a "
+            f"conformation's molecules come from the assembler's paths in the GFA ({name}; first haplotype), as labelled under "
+            "its rings: drawn as reported when every pass of the repeat uses that conformation's junctions, "
+            "recombined when re-pairing the passes is unique, or as the reported molecules using some of its "
+            "junctions (partial: the repeat is passed more than twice); otherwise its junction pairs are drawn."
+        )
     plastid = metrics.get("plastid")
     if plastid:
         parts.append(
             f"MTPTs: {plastid['backend']}, ≥{plastid['min_identity']:g}% identity, ≥{plastid['min_length']} bp; "
-            "each dashed connector sums all MTPTs between one mitochondrial segment and one plastid region "
-            "(sequence homology, not an assembly link; width scales with total MTPT length). The plastid is drawn as its "
+            "each light band sums all MTPTs between one mitochondrial segment and one plastid region "
+            "(sequence homology, not an assembly link; tinted by donor region, LSC green, IR blue, SSC yellow; "
+            "width scales with total MTPT length). The plastid is drawn as its "
             "quadripartite graph (LSC\u2013IR\u2013SSC, IR collapsed) from the representative molecule."
         )
         assessed = [f for f in plastid["fragments"] if f["spanning_reads"] is not None]
@@ -913,14 +1027,32 @@ def _kb(length: int) -> str:
     return f"{length / 1000:.1f} kb" if length >= 1000 else f"{length} bp"
 
 
+def _molecule_note(conf, metrics, row_has_paths: bool) -> str:
+    """Where a conformation's drawn molecules come from, when not spelled from the graph alone."""
+    source = conf.get("molecules_source")
+    name = metrics.get("path_source") or "GFA"
+    if source == "paths":
+        return f"{name} path"
+    if source == "paths_recombined":
+        return f"{name} paths, recombined"
+    if source == "paths_partial":
+        return f"{name} paths (partial)"
+    if conf.get("molecules") is None and row_has_paths:
+        return f"not in {name} paths"
+    return ""
+
+
 def _draw_repeat_panel(ax, row, metrics) -> None:
     """Both conformations of one repeat side by side, junction-pairing support underneath."""
     ax.axis("off")
     segments = {r["name"]: r for r in metrics["segments"]}
     confs = row["configurations"]
+    row_has_paths = any(str(c.get("molecules_source") or "").startswith("paths") for c in confs)
+    notes = [_molecule_note(conf, metrics, row_has_paths) for conf in confs]
+    bottom = 0.34 if any(notes) else 0.28
     for index, conf in enumerate(confs):
         left = index / len(confs)
-        ring_ax = ax.inset_axes((left + 0.02, 0.28, 1 / len(confs) - 0.04, 0.62))
+        ring_ax = ax.inset_axes((left + 0.02, bottom, 1 / len(confs) - 0.04, 0.9 - bottom))
         ring_ax.axis("off")
         molecules = conf.get("molecules")
         if molecules is None:
@@ -928,6 +1060,9 @@ def _draw_repeat_panel(ax, row, metrics) -> None:
         else:
             _draw_molecule_row(ring_ax, molecules, segments, metrics)
         center = left + 0.5 / len(confs)
+        if notes[index]:
+            ax.text(center, 0.29, notes[index], transform=ax.transAxes, ha="center", va="center",
+                    fontsize=_LABEL_PT - 0.5, color=MUTED, style="italic")
         ax.text(center, 0.2, f"Conf. {index + 1}" + (" (assembled)" if conf["assembled"] else ""),
                 transform=ax.transAxes, ha="center", va="center", fontsize=_LABEL_PT, color=INK,
                 fontweight="bold" if conf["assembled"] else "normal")
@@ -1101,9 +1236,11 @@ def _draw_subgenomic(ax, metrics) -> None:
     for repeat in metrics["repeats"]:
         assembled = next((c for c in repeat["configurations"] if c["assembled"]), None)
         for conf in repeat["configurations"]:
-            if conf is assembled or not conf.get("molecules"):
+            # sub-genomic circles are spelled from the graph only, not from reported paths
+            if conf is assembled or not conf.get("molecules") or conf.get("molecules_source", "graph") != "graph":
                 continue
-            base = len(assembled["molecules"]) if assembled and assembled.get("molecules") else 1
+            spelled = assembled and assembled.get("molecules") and assembled.get("molecules_source", "graph") == "graph"
+            base = len(assembled["molecules"]) if spelled else 1
             if len(conf["molecules"]) > base:
                 rows.append((repeat, conf))
             elif assembled and assembled.get("molecules"):
@@ -1163,6 +1300,7 @@ def _write_tables(path: Path, metrics) -> None:
         "supporting_reads",
         "proportion",
         "molecules",
+        "molecules_source",
     ]
     lines = ["\t".join(header)]
     for row in metrics["repeats"]:
@@ -1188,6 +1326,7 @@ def _write_tables(path: Path, metrics) -> None:
                 "" if conf["supporting_reads"] is None else conf["supporting_reads"],
                 "" if conf["proportion"] is None else conf["proportion"],
                 described,
+                conf.get("molecules_source") or "",
             )
             lines.append("\t".join(str(v) for v in values))
     path.with_name(path.stem + ".conformations.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
