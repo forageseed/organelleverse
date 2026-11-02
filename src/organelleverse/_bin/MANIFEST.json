@@ -1,0 +1,76 @@
+{
+ "tools": {
+  "LOSAT": {
+   "repository": "https://github.com/satoshikawato/LOSAT",
+   "commit": "2d5b3877aab73e1721b60de5e9a5f88bf8b79a91",
+   "license": "MIT (licenses/LOSAT-LICENSE)"
+  },
+  "ovasm": {
+   "repository": "https://github.com/forageseed/ovasm",
+   "commit": "9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f",
+   "license": "MIT (licenses/ovasm-LICENSE)"
+  }
+ },
+ "files": [
+  {
+   "platform": "linux-arm64",
+   "file": "LOSAT",
+   "bytes": 5695696,
+   "sha256": "49fabadc84fafdb05a8e5e67ec33a43fcd86be87b85c3390dbcc1e652e512666"
+  },
+  {
+   "platform": "linux-arm64",
+   "file": "ovasm",
+   "bytes": 19078536,
+   "sha256": "3ea210e9d6e711b490ee7395295bcba9acca6251b3f02bf413f411c8a41798e4"
+  },
+  {
+   "platform": "linux-x86_64",
+   "file": "LOSAT",
+   "bytes": 7661968,
+   "sha256": "f17b2b42c47057ba8a9ed4bd1f6326013c64f4f244438e7328e2c72ae02f4909"
+  },
+  {
+   "platform": "linux-x86_64",
+   "file": "ovasm",
+   "bytes": 20215904,
+   "sha256": "a4ad4f58caccb50f8be6edfd05f74b71998a8c2b53c2f9c6892c683ae981cf51"
+  },
+  {
+   "platform": "macos-arm64",
+   "file": "LOSAT",
+   "bytes": 5285840,
+   "sha256": "76dd4f8fb0619ce642cc720b76f2c385944234196f1edb30260bfc0e1fdae3b4"
+  },
+  {
+   "platform": "macos-arm64",
+   "file": "ovasm",
+   "bytes": 19206768,
+   "sha256": "c19adb838a53f7c408a0bcbd3e95acb2161700d2dda060260f14d363f5f0ad3c"
+  },
+  {
+   "platform": "macos-x86_64",
+   "file": "LOSAT",
+   "bytes": 7043128,
+   "sha256": "62ee1986462fd9e73e25998f3bf7812d52b11e6ab0d939284b806cfd91bba0a5"
+  },
+  {
+   "platform": "macos-x86_64",
+   "file": "ovasm",
+   "bytes": 19951256,
+   "sha256": "32bf961996b8500be60c122282ad9a550705e7fad2edfc4f3402baa077949fb0"
+  },
+  {
+   "platform": "windows-x86_64",
+   "file": "LOSAT.exe",
+   "bytes": 6841344,
+   "sha256": "6c2c32372c5448d04ee8adc3318f04b631499c1b25fe406edf5a6c5c75208eb4"
+  },
+  {
+   "platform": "windows-x86_64",
+   "file": "ovasm.exe",
+   "bytes": 21634560,
+   "sha256": "f3ed6d0f55a9ad25df8c865de5be992c85a189f678e164b89e5feb96fd5a0ae6"
+  }
+ ]
+}

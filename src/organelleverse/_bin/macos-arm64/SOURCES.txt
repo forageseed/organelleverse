@@ -1,0 +1,4 @@
+losat_commit=2d5b3877aab73e1721b60de5e9a5f88bf8b79a91
+ovasm_commit=9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f
+ovasm 0.7.0
+losat 0.2.0
