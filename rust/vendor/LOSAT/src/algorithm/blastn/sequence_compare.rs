@@ -33,7 +33,7 @@ pub fn compare_28mer_simd(query: &[u8], subject: &[u8]) -> bool {
 
     #[cfg(target_arch = "aarch64")]
     {
-        if is_aarch64_feature_detected!("neon") {
+        if std::arch::is_aarch64_feature_detected!("neon") {
             unsafe {
                 return compare_28mer_neon(query, subject);
             }
@@ -179,7 +179,7 @@ pub fn compare_sequences_simd(query: &[u8], subject: &[u8], len: usize) -> bool 
 
     #[cfg(target_arch = "aarch64")]
     {
-        if is_aarch64_feature_detected!("neon") {
+        if std::arch::is_aarch64_feature_detected!("neon") {
             unsafe {
                 return compare_sequences_neon(query, subject, len);
             }
