@@ -46,7 +46,8 @@ AUTO_PREFERENCE = ("cuda", "mps", "xpu", "cpu")
 #: the two stacks, not a probe.
 BACKEND_DEVICE_SUPPORT: dict[str, tuple[str, ...]] = {
     "orgseg": ("cuda", "cpu"),
-    "micro_sam": ("cuda", "mps", "xpu", "cpu"),
+    "micro_sam": ("cuda", "mps", "cpu"),
+    "cellpose": ("cuda", "mps", "cpu"),
 }
 
 #: Declared VRAM floor (GiB) for OrgSegNet fine-tuning (PSPNet-R50-d8 at
@@ -191,7 +192,7 @@ def resolve_device(
         if kind not in supported:
             suggestion = (
                 " Use the micro_sam backend for mps/xpu devices."
-                if kind in {"mps", "xpu"} and backend == "orgseg"
+                if kind == "mps" and backend == "orgseg"
                 else ""
             )
             return _failure(

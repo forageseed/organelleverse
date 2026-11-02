@@ -66,7 +66,7 @@ OPERATION_ID = "morphology.segment"
 
 #: Registered segmentation backends (``auto`` routes between the local ones;
 #: ``fusion3`` is a remote-delivery specialist and only ever runs when pinned).
-BACKENDS = ("orgseg", "micro_sam", "fusion3")
+BACKENDS = ("orgseg", "micro_sam", "cellpose", "fusion3")
 
 # Defaults for the released OrgSegNet checkpoint (Nat. Plants 2023).
 DEFAULT_CONFIG = "configs/OrgSegNet/OrgSeg_PlantCell_768x512.py"
@@ -111,11 +111,13 @@ def segment(
     measure_objects: bool = True,
     intensity_image: str | Path | Images | None = None,
     pixel_size_um: float | None = None,
+    voxel_size_um: tuple[float, float, float] | None = None,
     backend: str = "auto",
     is_3d_stack: bool = False,
     micro_sam_model_type: str = DEFAULT_EM_ORGANELLE_MODEL,
     remote_execution: bool = False,
     backend_available: bool | None = None,
+    model_record: dict[str, Any] | None = None,
 ) -> OrganelleResult:
     """Segment plant EM images with OrgSegNet and (optionally) quantify.
 
@@ -195,6 +197,10 @@ def segment(
     # Resolve the backend before anything runs. ``auto`` routes on declared
     # input metadata only; an unknown explicit name fails closed.
     selected = _route_backend(backend, is_3d_stack=is_3d_stack)
+    if is_3d_stack and measure_objects and voxel_size_um is None:
+        raise ValueError("3D measurements require voxel_size_um=(z,y,x); use measure_objects=False for masks only")
+    if selected == "orgseg" and is_3d_stack:
+        raise ValueError("OrgSegNet only supports 2D plant electron micrographs")
     if selected is None:
         return OrganelleResult(
             operation_id=OPERATION_ID,
@@ -344,9 +350,11 @@ def segment(
             "measure_objects": measure_objects,
             "intensity_image": str(intensity_image) if intensity_image else None,
             "pixel_size_um": pixel_size_um,
+            "voxel_size_um": voxel_size_um,
             "backend": backend,
             "is_3d_stack": is_3d_stack,
             "micro_sam_model_type": micro_sam_model_type,
+            "model": model_record,
         }
     )
 
@@ -398,8 +406,7 @@ def segment(
         )
 
     # ── Run path: call the executor with the selected backend's convention ─
-    # OrgSegNet's official checkpoint is license-restricted: the app never
-    # downloads it. Missing or corrupt -> explicit failure with the download
+    # OrgSegNet's official weights are CC-BY-4.0; acquisition is explicit. Missing or corrupt -> explicit failure with the download
     # guidance; NEVER a silent switch to micro-SAM (that would silently
     # degrade semantic segmentation to classless instance segmentation).
     # Remote execution verifies on the compute host instead: the delivery's
@@ -453,7 +460,7 @@ def segment(
     label_paths: list[Path] = []
     run_err = ""
     try:
-        if selected == "micro_sam":
+        if selected in ("micro_sam", "cellpose"):
             result = executor(
                 micro_sam_model_type, torch_device, [str(p) for p in image_list], str(outdir)
             )
@@ -463,6 +470,8 @@ def segment(
         else:
             result = executor(cfg, ckpt, torch_device, [str(p) for p in image_list], str(outdir))
         label_paths = [Path(p) for p in (result or [])]
+        if len(label_paths) != n_img or not all(p.is_file() for p in label_paths):
+            raise ValueError("The executor must return one existing label map for each input image")
     except Exception as exc:
         run_err = str(exc)
 
@@ -517,12 +526,13 @@ def segment(
         }
         if measure_objects:
             inten = intensity_image if (i == 0 and intensity_image) else None
-            if selected == "micro_sam":
+            if selected in ("micro_sam", "cellpose"):
                 # micro-SAM AMG yields instance ids without semantic classes.
                 m = measure_objs(
                     lp,
                     intensity_image=inten,
                     pixel_size_um=pixel_size_um,
+                    voxel_size_um=voxel_size_um,
                     class_names=("background", "object"),
                     instance_map=True,
                     label_source="model",
@@ -555,11 +565,10 @@ def segment(
         for k, v in e.get("counts", {}).items():
             total_counts[k] = total_counts.get(k, 0) + v
 
-    label_artifacts = collect_artifacts(
-        label_paths,
-        kind="organelle_label_map",
-        format="png",
-        media_type="image/png",
+    label_artifacts = tuple(
+        artifact for path in label_paths for artifact in collect_artifacts(
+            [path], kind="organelle_label_map", format="tiff" if path.suffix.lower() in (".tif", ".tiff") else "png",
+            media_type="image/tiff" if path.suffix.lower() in (".tif", ".tiff") else "image/png")
     )
     findings = tuple(
         Finding(
@@ -590,6 +599,7 @@ def segment(
             "requested_device": device,
             "per_image": per_image,
             "total_counts": total_counts,
+            "model": model_record,
         },
         findings=findings,
         flags=("morph_ran", f"backend_{selected}"),
@@ -602,6 +612,7 @@ def segment(
             attempted_backends=(selected,),
             software_versions={
                 **({selected: loc["version"]} if loc.get("version") else {}),
+                **({selected: model_record["runtime_version"]} if model_record and model_record.get("runtime_version") else {}),
                 "device": device_record,
             },
             started_at=started_at,

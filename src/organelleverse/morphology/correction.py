@@ -52,6 +52,28 @@ CORRECTION_TYPES = ("merge", "split", "relabel", "delete", "add")
 LABEL_SOURCE = "human_corrected"
 
 
+def _as_label_map(image: np.ndarray) -> np.ndarray:
+    """A 2D label map: an RGB(A) label image is decoded with the OrgSegNet palette.
+
+    Only the red channel used to be read, so a fix that changed green or blue (the
+    Mitochondria and Nucleus colours) looked like no change at all. Colours outside
+    the palette become distinct negative values, so they still compare exactly.
+    """
+    import numpy as np
+
+    if image.ndim == 3 and image.shape[-1] in (3, 4):
+        from .measure import ORGSEG_PALETTE
+
+        rgb = image[..., :3].astype(np.int64)
+        labels = -(((rgb[..., 0] << 16) | (rgb[..., 1] << 8) | rgb[..., 2]) + 1)
+        for class_id, colour in ORGSEG_PALETTE.items():
+            labels[np.all(rgb == colour, axis=-1)] = class_id
+        return labels
+    if image.ndim == 3:
+        return image[..., 0]
+    return image
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -171,12 +193,8 @@ def correct(
             params_hash=params_hash,
         )
 
-    before = _load_image(original)
-    after = _load_image(corrected)
-    if before.ndim == 3:
-        before = before[..., 0]
-    if after.ndim == 3:
-        after = after[..., 0]
+    before = _as_label_map(_load_image(original))
+    after = _as_label_map(_load_image(corrected))
     if before.shape != after.shape:
         return _failed(
             "morphology.correct_shape_mismatch",

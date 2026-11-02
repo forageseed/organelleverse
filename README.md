@@ -24,7 +24,8 @@ makes it safe to hand to an AI: the AI calls a function, and you can read, trust
 - **Look into** a genome: repeats, codon use, RNA editing, trans-splicing, IR boundaries.
 - **Compare** genomes: gene content, gene order, pangenome, barcodes.
 - **Study evolution**: trees, dating, selection, co-evolution, populations, gene transfer.
-- **Draw** maps, trees and heatmaps, and **measure** organelles in microscope images.
+- **Draw** maps, trees and heatmaps.
+- **Segment and measure microscopy images**: derive calibrated size and shape from masks using OrgSegNet, micro-SAM or current Cellpose models. Matching runtimes and offline weights are required; see the [model guide](docs/microscopy-models.md).
 
 Results are ordinary files: FASTA, GenBank, GFF3, tables, figures and a readable report.
 
@@ -47,7 +48,7 @@ directories, versions, clear failures) and adds its own checks on top.
 | `hgt` | Horizontal gene transfer between a donor and a recipient genome. | In-house |
 | `ir_boundary` | Chloroplast inverted-repeat junctions (LSC / IRb / SSC / IRa) and the genes at each border, with a drawing. | In-house |
 | `localization` | Predicts where a protein goes in the cell. | Existing tools (DeepLoc, TargetP) |
-| `morphology` | Finds and measures chloroplasts, mitochondria, vacuoles and nuclei in microscope images; trains models and corrects labels. | In-house (measuring) + existing tools (segmentation) |
+| `morphology` | Segments microscopy images and measures calibrated masks. OrgSegNet labels four plant TEM organelle classes; micro-SAM/Cellpose instance IDs do not identify organelle classes. | In-house (measuring) + existing tools (segmentation) |
 | `pangenome` | Builds a graph pangenome, gene presence/absence, core and variable parts, subgraphs, format conversion. | Existing tools (minigraph, PGGB, PanTools) + in-house analysis |
 | `phenotype` | Screens for cytoplasmic male sterility (CMS) candidate genes and weighs the evidence for each. | In-house |
 | `phylogeny` | Alignment, trimming, maximum-likelihood and Bayesian trees, divergence dating, haplotype networks, ancestral states, tree comparison. | Existing tools (MAFFT, IQ-TREE, MrBayes, RAxML, LSD2, MCMCTree) + in-house networks |
@@ -231,8 +232,13 @@ ov.localization.predict("results/annotation/proteins.fasta")
 ### `ov.morphology`: organelles in microscope images
 
 ```python
-ov.morphology.segment("cells.tif")                # find chloroplasts, mitochondria, vacuoles, nuclei
-ov.morphology.measure("labels.tif")               # size and shape of each one
+ov.morphology.list_models()                       # modality, version and label semantics
+print(ov.morphology.model_guide())                # guide included in ordinary installs
+result = ov.morphology.segment(
+    "plant-tem.tif", model_id="vit_b_em_organelles",
+    model_dir="/data/ov-models", pixel_size_um=0.01,
+)                                                 # matching runtime and weights required
+ov.morphology.measure("labels.tif", instance_map=True, pixel_size_um=0.01)
 ```
 
 ### `ov.pangenome`: pangenomes
