@@ -11,7 +11,7 @@ on:
         default: "2d5b3877aab73e1721b60de5e9a5f88bf8b79a91"
       ovasm_ref:
         description: "forageseed/ovasm commit, tag or branch"
-        default: "8040b2a1b28ad8eda8ed2a21c322b7ca9688b042"
+        default: "9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f"
 
 permissions:
   contents: write
