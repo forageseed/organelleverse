@@ -1,14 +1,11 @@
-# Build LOSAT and ovasm for every supported platform and commit the binaries
-# to src/organelleverse/_bin/<system>-<machine>/, where
+# Build LOSAT (rust/vendor/LOSAT) and ovasm for every supported platform and
+# commit the binaries to src/organelleverse/_bin/<system>-<machine>/, where
 # organelleverse._bundled finds them before PATH.
 name: bundled-tools
 
 on:
   workflow_dispatch:
     inputs:
-      losat_ref:
-        description: "satoshikawato/LOSAT commit, tag or branch"
-        default: "2d5b3877aab73e1721b60de5e9a5f88bf8b79a91"
       ovasm_ref:
         description: "forageseed/ovasm commit, tag or branch"
         default: "9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f"
@@ -38,9 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: satoshikawato/LOSAT
-          ref: ${{ inputs.losat_ref }}
-          path: losat-src
+          path: ov-src
+          sparse-checkout: rust/vendor/LOSAT
       - uses: actions/checkout@v4
         with:
           repository: forageseed/ovasm
@@ -51,7 +47,7 @@ jobs:
           rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
           rustup default stable
       - name: Build LOSAT
-        working-directory: losat-src/LOSAT
+        working-directory: ov-src/rust/vendor/LOSAT
         run: cargo build --release --locked --bin LOSAT --target ${{ matrix.target }}
       - name: Build ovasm
         working-directory: ovasm-src
@@ -60,16 +56,18 @@ jobs:
         run: |
           exe=""; [[ "${{ matrix.target }}" == *windows* ]] && exe=".exe"
           out="out/${{ matrix.tag }}"; mkdir -p "$out"
-          cp "losat-src/LOSAT/target/${{ matrix.target }}/release/LOSAT$exe" "$out/"
+          cp "ov-src/rust/vendor/LOSAT/target/${{ matrix.target }}/release/LOSAT$exe" "$out/"
           cp "ovasm-src/target/${{ matrix.target }}/release/ovasm$exe" "$out/"
           {
-            echo "losat_commit=$(git -C losat-src rev-parse HEAD)"
+            echo "losat_source=rust/vendor/LOSAT@$(git -C ov-src rev-parse HEAD)"
             echo "ovasm_commit=$(git -C ovasm-src rev-parse HEAD)"
           } > "$out/SOURCES"
           if [[ "${{ matrix.run }}" == "true" ]]; then
             "$out/ovasm$exe" --version | tee -a "$out/SOURCES"
-            "$out/LOSAT$exe" --version | head -1 | tee -a "$out/SOURCES"
-            "$out/LOSAT$exe" blastn --help > /dev/null
+            # OrganelleVerse's command line: tabular output by default, --task and -q/-s.
+            printf '>a\nTTTCCTCATGCAATTCAAAACCATGTCCGTAATGTAGGCGAAATAGTAAACCATTTTACGGAGGATACCAAATTCCTCCTTATTCAGGACCTAACCTGAGGTAAACCAGGTCTCTCCGCCCCCTTATAAAAGCTGTTGCACCTAGCCAAGTTCAACGGCAGCTGCAATGGAAATAGGCAATGACGGATATATATTAAAAAGTGTTTTAAGATACATTGAGGCCCGTTCGTGCTCCTCGCC\n' > q.fa
+            "$out/LOSAT$exe" blastn --task blastn -q q.fa -s q.fa -n 1 | tee losat.tsv
+            test "$(awk -F'\t' 'END{print NF}' losat.tsv)" = "12"
           fi
           ls -l "$out"
       - uses: actions/upload-artifact@v4
@@ -85,12 +83,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: satoshikawato/LOSAT
-          ref: ${{ inputs.losat_ref }}
-          path: .losat-src
-          sparse-checkout: LICENSE
-      - uses: actions/checkout@v4
-        with:
           repository: forageseed/ovasm
           ref: ${{ inputs.ovasm_ref }}
           path: .ovasm-src
@@ -104,7 +96,7 @@ jobs:
         run: |
           bin=src/organelleverse/_bin
           rm -rf "$bin"; mkdir -p "$bin/licenses"
-          cp .losat-src/LICENSE "$bin/licenses/LOSAT-LICENSE"
+          cp rust/vendor/LOSAT/LICENSE "$bin/licenses/LOSAT-LICENSE"
           cp .ovasm-src/LICENSE "$bin/licenses/ovasm-LICENSE"
           for dir in .artifacts/*/; do
             tag=$(basename "$dir"); mkdir -p "$bin/$tag"
@@ -127,7 +119,9 @@ jobs:
           manifest = {
               "tools": {
                   "LOSAT": {"repository": "https://github.com/satoshikawato/LOSAT",
-                            "commit": sources["losat_commit"], "license": "MIT (licenses/LOSAT-LICENSE)"},
+                            "source": sources["losat_source"],
+                            "note": "0.1.0-era snapshot with the OrganelleVerse command line plus a subject-start fix (rust/vendor/LOSAT/NOTICE.md)",
+                            "license": "MIT (licenses/LOSAT-LICENSE)"},
                   "ovasm": {"repository": "https://github.com/forageseed/ovasm",
                             "commit": sources["ovasm_commit"], "license": "MIT (licenses/ovasm-LICENSE)"},
               },
@@ -143,5 +137,5 @@ jobs:
           git add -A src/organelleverse/_bin
           git update-index --chmod=+x src/organelleverse/_bin/*/LOSAT src/organelleverse/_bin/*/ovasm
           if git diff --cached --quiet; then echo "binaries unchanged"; exit 0; fi
-          git commit -m "build(bin): LOSAT ${{ inputs.losat_ref }} and ovasm ${{ inputs.ovasm_ref }} for all platforms"
+          git commit -m "build(bin): LOSAT (vendored) and ovasm ${{ inputs.ovasm_ref }} for all platforms"
           git push origin "HEAD:${GITHUB_REF_NAME}"

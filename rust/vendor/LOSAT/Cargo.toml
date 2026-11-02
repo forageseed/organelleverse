@@ -1,0 +1,85 @@
+[package]
+name = "LOSAT"
+version = "0.1.0"
+edition = "2021"
+description = "Local sequence alignment tool implementing BLAST-compatible searches in Rust"
+license = "MIT"
+repository = "https://github.com/satoshikawato/LOSAT"
+readme = "../README.md"
+keywords = ["blast", "bioinformatics", "alignment", "wasm"]
+categories = ["science"]
+exclude = [
+    ".tmp/",
+    "losat_out/",
+    "tests/losat_out/",
+    "tests/blast_out/",
+    "tests/ncbi_out/",
+    "tests/__pycache__/",
+    "tests/blast_db/",
+    "tests/plots/",
+    "tests/fasta/*.gb",
+    "tests/fasta/*.fna",
+    "tests/fasta/*.ndb",
+    "tests/fasta/*.nhd",
+    "tests/fasta/*.nhi",
+    "tests/fasta/*.nhr",
+    "tests/fasta/*.nin",
+    "tests/fasta/*.njs",
+    "tests/fasta/*.nog",
+    "tests/fasta/*.nos",
+    "tests/fasta/*.not",
+    "tests/fasta/*.nsq",
+    "tests/fasta/*.ntf",
+    "tests/fasta/*.nto",
+    "LOSAT/",
+    "**/*.pyc",
+    "**/*.tmp",
+    "**/*.orig",
+]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+anyhow = "1.0"
+bio = "1.6"
+clap = { version = "4.5", features = ["derive"] }
+rayon = { version = "1.11", optional = true }
+lazy_static = "1.5"
+libm = "0.2.15"
+num_cpus = { version = "1.0", optional = true }
+indicatif = "0.17"
+bitvec = "1.0"
+rustc-hash = "1.1"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[features]
+default = ["parallel"]
+parallel = ["rayon", "num_cpus"]
+# NCBI reference: ncbi-blast/c++/src/algo/blast/blastinput/blast_args.cpp:3205-3222
+# ```c
+# int num_threads = args[kArgNumThreads].AsInteger();
+# if (num_threads > kMaxValue) {
+#     m_NumThreads = kMaxValue;
+# } else {
+#     m_NumThreads = num_threads;
+# }
+# ```
+#
+# Opt-in only: real Wasm threading requires the wasm32-wasip1-threads target
+# and a WASI runtime that implements thread spawning. Plain wasm32-wasip1 and
+# browser command-Wasm builds remain serial.
+wasm-threads = ["parallel"]
+# Diagnostic-only parity switch. NCBI BLAST has a single scalar C control flow
+# for TBLASTX ungapped extension/reevaluation (aa_ungapped.c:846-921,
+# blast_hits.c:675-733); this feature forces the Wasm build to use the matching
+# Rust scalar path even when the target enables simd128.
+tblastx-wasm-scalar = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = 3
