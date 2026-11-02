@@ -2,7 +2,8 @@
  "tools": {
   "LOSAT": {
    "repository": "https://github.com/satoshikawato/LOSAT",
-   "commit": "2d5b3877aab73e1721b60de5e9a5f88bf8b79a91",
+   "source": "rust/vendor/LOSAT@ba62c4923a8e50c884db277b36f946bc495bdaf9",
+   "note": "0.1.0-era snapshot with the OrganelleVerse command line plus a subject-start fix (rust/vendor/LOSAT/NOTICE.md)",
    "license": "MIT (licenses/LOSAT-LICENSE)"
   },
   "ovasm": {
@@ -15,8 +16,8 @@
   {
    "platform": "linux-arm64",
    "file": "LOSAT",
-   "bytes": 5695696,
-   "sha256": "49fabadc84fafdb05a8e5e67ec33a43fcd86be87b85c3390dbcc1e652e512666"
+   "bytes": 2010352,
+   "sha256": "b717fca8e244c05b6ee741e0989159797089bf78bbb6e999943d16caeba158f4"
   },
   {
    "platform": "linux-arm64",
@@ -27,8 +28,8 @@
   {
    "platform": "linux-x86_64",
    "file": "LOSAT",
-   "bytes": 7661968,
-   "sha256": "f17b2b42c47057ba8a9ed4bd1f6326013c64f4f244438e7328e2c72ae02f4909"
+   "bytes": 2387688,
+   "sha256": "2a16f65e1ff56f79788ec70cca22f6dd14141bada1ff6b60a245f8f5d3772096"
   },
   {
    "platform": "linux-x86_64",
@@ -39,8 +40,8 @@
   {
    "platform": "macos-arm64",
    "file": "LOSAT",
-   "bytes": 5285840,
-   "sha256": "76dd4f8fb0619ce642cc720b76f2c385944234196f1edb30260bfc0e1fdae3b4"
+   "bytes": 1892816,
+   "sha256": "aef2a4145efe19235934d84650544737b818a59ef166fc8f4d767f5eeae1568f"
   },
   {
    "platform": "macos-arm64",
@@ -51,8 +52,8 @@
   {
    "platform": "macos-x86_64",
    "file": "LOSAT",
-   "bytes": 7043128,
-   "sha256": "62ee1986462fd9e73e25998f3bf7812d52b11e6ab0d939284b806cfd91bba0a5"
+   "bytes": 2205688,
+   "sha256": "a095c95e66f1e0132436935cc5fdf6ebc5b4d132b6f2194bcb1e890cff2bb7b1"
   },
   {
    "platform": "macos-x86_64",
@@ -63,14 +64,14 @@
   {
    "platform": "windows-x86_64",
    "file": "LOSAT.exe",
-   "bytes": 6841344,
-   "sha256": "6c2c32372c5448d04ee8adc3318f04b631499c1b25fe406edf5a6c5c75208eb4"
+   "bytes": 2131456,
+   "sha256": "dc37f936dbc8fa9c88a212fa3306947cf190f0bfbd29098f03fdd063f89f5ccb"
   },
   {
    "platform": "windows-x86_64",
    "file": "ovasm.exe",
    "bytes": 21634560,
-   "sha256": "f3ed6d0f55a9ad25df8c865de5be992c85a189f678e164b89e5feb96fd5a0ae6"
+   "sha256": "4f3b90e74d7c070174a6eda3daf07a1ffeb579caa4bf9011ee81e2d362a49d65"
   }
  ]
 }

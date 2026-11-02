@@ -1,4 +1,3 @@
-losat_commit=2d5b3877aab73e1721b60de5e9a5f88bf8b79a91
+losat_source=rust/vendor/LOSAT@ba62c4923a8e50c884db277b36f946bc495bdaf9
 ovasm_commit=9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f
 ovasm 0.7.0
-losat 0.2.0
