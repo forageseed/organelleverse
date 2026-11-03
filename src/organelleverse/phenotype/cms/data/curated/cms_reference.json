@@ -24,5 +24,31 @@
     "publication": "https://pubmed.ncbi.nlm.nih.gov/8000006/",
     "download_date": "2026-10-01",
     "evidence": "Accession-checked known CMS reference; homology in a query does not establish its phenotype"
+  },
+  {
+    "name": "WA352",
+    "accession": "AGG40956.1",
+    "nucleotide_accession": "JX131325.1",
+    "species": "Oryza sativa Indica Group",
+    "length_aa": 352,
+    "cms_type": "WA-CMS",
+    "record_url": "https://www.ncbi.nlm.nih.gov/nuccore/JX131325.1",
+    "protein_url": "https://www.ncbi.nlm.nih.gov/protein/AGG40956.1",
+    "publication": "https://pubmed.ncbi.nlm.nih.gov/23502780/",
+    "download_date": "2026-11-02",
+    "evidence": "Accession-checked known CMS reference; homology in a query does not establish its phenotype"
+  },
+  {
+    "name": "orf182",
+    "accession": "AWT58828.1",
+    "nucleotide_accession": "MH027411.1",
+    "species": "Oryza sativa",
+    "length_aa": 182,
+    "cms_type": "D1-CMS",
+    "record_url": "https://www.ncbi.nlm.nih.gov/nuccore/MH027411.1",
+    "protein_url": "https://www.ncbi.nlm.nih.gov/protein/AWT58828.1",
+    "publication": "https://pubmed.ncbi.nlm.nih.gov/29876974/",
+    "download_date": "2026-11-02",
+    "evidence": "Accession-checked known CMS reference; homology in a query does not establish its phenotype"
   }
 ]

@@ -1,0 +1,60 @@
+LOCUS       MH027411                 549 bp    DNA     linear   PLN 18-JUN-2018
+DEFINITION  Oryza sativa cultivar IRR:104625 D1-type CMS protein ORF182
+            (orf182) gene, complete cds; mitochondrial.
+ACCESSION   MH027411
+VERSION     MH027411.1
+KEYWORDS    .
+SOURCE      mitochondrion Oryza sativa (Asian cultivated rice)
+  ORGANISM  Oryza sativa
+            Eukaryota; Viridiplantae; Streptophyta; Embryophyta; Tracheophyta;
+            Spermatophyta; Magnoliopsida; Liliopsida; Poales; Poaceae; BOP
+            clade; Oryzoideae; Oryzeae; Oryzinae; Oryza.
+REFERENCE   1  (bases 1 to 549)
+  AUTHORS   Xie,H., Peng,X., Qian,M., Cai,Y., Ding,X., Chen,Q., Cai,Q., Zhu,Y.,
+            Yan,L. and Cai,Y.
+  TITLE     The chimeric mitochondrial gene orf182 causes non-pollen-type
+            abortion in Dongxiang cytoplasmic male-sterile rice
+  JOURNAL   Plant J. (2018) In press
+   PUBMED   29876974
+  REMARK    Publication Status: Available-Online prior to print
+REFERENCE   2  (bases 1 to 549)
+  AUTHORS   X,H.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (04-MAR-2018) Jiangxi Super-rice Research and Development
+            center, Jiangxi Academy of Agricultural Sciences, Nanlian Road No.
+            602 Qingyunpu District, nanchang, jiangxi 330200, China
+COMMENT     ##Assembly-Data-START##
+            Sequencing Technology :: Sanger dideoxy sequencing
+            ##Assembly-Data-END##
+FEATURES             Location/Qualifiers
+     source          1..549
+                     /organism="Oryza sativa"
+                     /organelle="mitochondrion"
+                     /mol_type="genomic DNA"
+                     /cultivar="IRR:104625"
+                     /db_xref="taxon:4530"
+                     /geo_loc_name="China"
+     gene            1..549
+                     /gene="orf182"
+     CDS             1..549
+                     /gene="orf182"
+                     /codon_start=1
+                     /product="D1-type CMS protein ORF182"
+                     /protein_id="AWT58828.1"
+                     /translation="MMRFSSTDKKDRRNMLFAAIPSIWKFMDNIFFGGPGMTMHRLPL
+                     FVVKRLADTCVPGGAFLIALLCSLSSTAMAAGPSDWMRGDPNETLLRQTDKQIEKVNE
+                     ELRNVTSQAVEKAQQFQLNLPGTSEEQTHTIRSILEHDLDGIALNQRLRRIRRWVNSG
+                     EIENPESLFWLQIIDQFSKWFP"
+ORIGIN      
+        1 atgatgagat ttagttcaac ggataagaag gatagaagaa atatgctatt tgctgctatt
+       61 ccatctattt ggaaattcat ggacaacatt ttttttggtg gacctgggat gactatgcat
+      121 agattaccac ttttcgtagt aaagaggctt gccgacactt gcgtgccagg cggcgctttc
+      181 ctgattgcac ttttgtgcag tctctcttcc acggcaatgg ccgctggtcc atccgactgg
+      241 atgcggggtg atccaaatga aacactccta cggcagaccg ataagcaaat agagaaggtc
+      301 aacgaggagt taaggaacgt gacatcccaa gccgtggaaa aagcgcagca gttccagttg
+      361 aacttgccgg gcacaagtga ggaacaaacg cacaccatcc gttctattct agaacatgat
+      421 cttgatggta tcgctctgaa tcaacgactt cgacgaatcc gaagatgggt caattctgga
+      481 gaaatcgaga atccggaaag cctattttgg cttcaaatta ttgaccaatt cagcaagtgg
+      541 ttcccatga
+//
+

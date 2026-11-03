@@ -31,8 +31,15 @@ DATA = Path(__file__).parent / "data"
 def test_reviewed_seed_accession_lengths_and_genomic_translation():
     metadata = json.loads(cms_reference_json().read_text())
     proteins = dict(read_fasta(cms_protein_fasta()))
-    assert set(proteins) == {"orf79", "orf138"}
-    assert [(m["name"], m["length_aa"]) for m in metadata] == [("orf79", 79), ("orf138", 138)]
+    assert set(proteins) == {"orf79", "orf138", "WA352", "orf182"}
+    assert [(m["name"], m["length_aa"], m["cms_type"]) for m in metadata] == [
+        ("orf79", 79, "BT-CMS"),
+        ("orf138", 138, "Ogu-CMS"),
+        ("WA352", 352, "WA-CMS"),
+        ("orf182", 182, "D1-CMS"),
+    ]
+    # A seed is a homology reference only; every record must say so.
+    assert all("does not establish its phenotype" in m["evidence"] for m in metadata)
     for row in metadata:
         record = SeqIO.read(DATA / f"{row['nucleotide_accession']}.gb", "genbank")
         feature = next(
@@ -335,6 +342,63 @@ def test_real_orf_discovery_to_cms_evidence_chain(tmp_path):
             if r["protein_sequence"] == target
         )
         assert "known_cms_reference_homolog" in row["evidence_labels"]
+
+
+def test_rice_cms_seed_coordinates_match_the_genbank_records():
+    wa352 = SeqIO.read(DATA / "JX131325.1.gb", "genbank")
+    feature = next(
+        f
+        for f in wa352.features
+        if f.type == "CDS" and f.qualifiers.get("protein_id") == ["AGG40956.1"]
+    )
+    # NCBI reports 1726..2784 (1-based, inclusive).
+    assert (int(feature.location.start) + 1, int(feature.location.end)) == (1726, 2784)
+    orf182 = SeqIO.read(DATA / "MH027411.1.gb", "genbank")
+    assert len(orf182) == 549
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("accession", "gene", "name"),
+    [
+        ("D14339.1", "ORF79", "orf79"),
+        ("JX131325.1", "WA352", "WA352"),
+        ("MH027411.1", "orf182", "orf182"),
+    ],
+)
+def test_rice_cms_orfs_are_recalled_from_their_own_mitochondrial_records(
+    tmp_path, accession, gene, name
+):
+    # ORF79 is the control: adding seeds must not change its recall.
+    from organelleverse.annotation import find_orfs, write_orfs
+
+    record = SeqIO.read(DATA / f"{accession}.gb", "genbank")
+    genome = tmp_path / "genome.fasta"
+    SeqIO.write(record, genome, "fasta")
+    exported = write_orfs(
+        find_orfs(genome, organelle="mitochondrion", min_aa=30), output=tmp_path / "orfs"
+    )
+    protein_path = next(
+        a.resolve() for a in exported.artifacts if a.uri.endswith("orfs.proteins.fasta")
+    )
+    result = assess_cms_candidates(
+        protein_path, conserved_proteins_fasta=DATA / "conserved_controls.fasta"
+    )
+    feature = next(
+        f
+        for f in record.features
+        if f.type == "CDS"
+        and gene.lower() in " ".join(f.qualifiers.get("product", []) + f.qualifiers.get("gene", [])).lower()
+    )
+    target = feature.qualifiers["translation"][0]
+    row = next(
+        r for r in thaw_json(result.metrics)["candidate_table"] if r["protein_sequence"] == target
+    )
+    assert "known_cms_reference_homolog" in row["evidence_labels"]
+    hit = row["cms_reference_hits"][0]
+    assert hit["subject_id"] == name
+    assert hit["identity_percent"] == 100
+    assert hit["query_coverage"] == hit["subject_coverage"] == 1
 
 
 def test_public_root_exports_and_partial_match_retains_unknown_region(monkeypatch):

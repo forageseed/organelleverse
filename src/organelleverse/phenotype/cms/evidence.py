@@ -10,6 +10,7 @@ from pathlib import Path
 from statistics import mean
 from tempfile import TemporaryDirectory
 
+from organelleverse._losat import resolve_losat
 from organelleverse._public_validation import validated_public
 
 from ..._bio import read_fasta, write_fasta
@@ -59,7 +60,8 @@ def assess_cms_candidates(
 ) -> OrganelleResult:
     """Assess proteins using Rust LOSAT BLASTP and optional TPMs.
 
-    Default CMS references are a small, accession-checked ORF79/ORF138 seed.
+    Default CMS references are a small, accession-checked seed (ORF79, ORF138,
+    WA352, ORF182).
     Users must supply ordinary mitochondrial protein references separately.
     Identity/alignment thresholds select individual HSPs; a near-full homolog
     requires BOTH query and subject coverage >= min_homolog_coverage in one HSP.
@@ -94,6 +96,9 @@ def assess_cms_candidates(
             message="Invalid identity, coverage, E-value or hydrophobicity threshold",
         )
     executable = shutil.which(losat_path)
+    if executable is None and losat_path == "LOSAT":
+        # The default name also follows ORG_VERSE_LOSAT_BIN and the packaged build.
+        executable = resolve_losat()
     if executable is None:
         raise OrganelleDependencyError(
             code="cms.losat_missing", message=f"Rust LOSAT not found: {losat_path}"
