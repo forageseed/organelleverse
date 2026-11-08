@@ -1,2 +1,2 @@
-losat_source=rust/vendor/LOSAT@ba62c4923a8e50c884db277b36f946bc495bdaf9
-ovasm_commit=9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f
+losat_source=rust/vendor/LOSAT@82be5788ee60ca0f996b241b6470ac95c252673a
+ovasm_commit=91a5115bcb04c495076380a6c023b25f8d35b134

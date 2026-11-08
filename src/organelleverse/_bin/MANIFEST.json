@@ -2,13 +2,13 @@
  "tools": {
   "LOSAT": {
    "repository": "https://github.com/satoshikawato/LOSAT",
-   "source": "rust/vendor/LOSAT@ba62c4923a8e50c884db277b36f946bc495bdaf9",
+   "source": "rust/vendor/LOSAT@82be5788ee60ca0f996b241b6470ac95c252673a",
    "note": "0.1.0-era snapshot with the OrganelleVerse command line plus a subject-start fix (rust/vendor/LOSAT/NOTICE.md)",
    "license": "MIT (licenses/LOSAT-LICENSE)"
   },
   "ovasm": {
    "repository": "https://github.com/forageseed/ovasm",
-   "commit": "9cc0b5d3a9209e4115f2a35b9be83c7d9ec74a1f",
+   "commit": "91a5115bcb04c495076380a6c023b25f8d35b134",
    "license": "MIT (licenses/ovasm-LICENSE)"
   }
  },
@@ -22,8 +22,8 @@
   {
    "platform": "linux-arm64",
    "file": "ovasm",
-   "bytes": 19078536,
-   "sha256": "3ea210e9d6e711b490ee7395295bcba9acca6251b3f02bf413f411c8a41798e4"
+   "bytes": 19672464,
+   "sha256": "199a72a475df43c8ac8d8f102106d05cbf8c1851c990597c182af572b94e2d33"
   },
   {
    "platform": "linux-x86_64",
@@ -34,44 +34,44 @@
   {
    "platform": "linux-x86_64",
    "file": "ovasm",
-   "bytes": 20215904,
-   "sha256": "a4ad4f58caccb50f8be6edfd05f74b71998a8c2b53c2f9c6892c683ae981cf51"
+   "bytes": 20974960,
+   "sha256": "2d348eb3d843a0c4323bf951c16cfbf7570c1fffb790de817672b564ddb83940"
   },
   {
    "platform": "macos-arm64",
    "file": "LOSAT",
    "bytes": 1892816,
-   "sha256": "aef2a4145efe19235934d84650544737b818a59ef166fc8f4d767f5eeae1568f"
+   "sha256": "a45d5f7982d6c336d55d78456dbe09028ac3e3f4a400de161846281924c84f0f"
   },
   {
    "platform": "macos-arm64",
    "file": "ovasm",
-   "bytes": 19206768,
-   "sha256": "c19adb838a53f7c408a0bcbd3e95acb2161700d2dda060260f14d363f5f0ad3c"
+   "bytes": 19805680,
+   "sha256": "977d6aea8ae7bdb1f175a23fd1094efc32792fce0e27f5bbc7bfcaf2e6058313"
   },
   {
    "platform": "macos-x86_64",
    "file": "LOSAT",
    "bytes": 2205688,
-   "sha256": "a095c95e66f1e0132436935cc5fdf6ebc5b4d132b6f2194bcb1e890cff2bb7b1"
+   "sha256": "aca3302dcf0a2ec00fca424fd8e995bdc0b6bce28b86fe12be90041b33e454a7"
   },
   {
    "platform": "macos-x86_64",
    "file": "ovasm",
-   "bytes": 19951256,
-   "sha256": "32bf961996b8500be60c122282ad9a550705e7fad2edfc4f3402baa077949fb0"
+   "bytes": 20676656,
+   "sha256": "00cc2bb1fd37b1863bac8d72ce31ee01c05e3922ce31d16909c4aa17723eb8ab"
   },
   {
    "platform": "windows-x86_64",
    "file": "LOSAT.exe",
    "bytes": 2131456,
-   "sha256": "dc37f936dbc8fa9c88a212fa3306947cf190f0bfbd29098f03fdd063f89f5ccb"
+   "sha256": "8df8d0d56d821c0cd7dcac1b3e6ddfa1ea0d8bd5baccfb16f4e7c2a3a67f862b"
   },
   {
    "platform": "windows-x86_64",
    "file": "ovasm.exe",
-   "bytes": 21634560,
-   "sha256": "4f3b90e74d7c070174a6eda3daf07a1ffeb579caa4bf9011ee81e2d362a49d65"
+   "bytes": 22633472,
+   "sha256": "899d4915163ab965006569ff5e9e95862c25e1b2ea2b9e3e4a4aa4ce8c14b194"
   }
  ]
 }
