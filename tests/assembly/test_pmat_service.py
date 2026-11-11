@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import pytest
+
 import organelleverse.assembly.service as assembly_service
 from organelleverse.assembly.backends.himt import EmptyAssemblyResourceProvider
 from organelleverse.assembly.backends.pmat import PmatAdapter
@@ -180,6 +182,7 @@ class _ExistingPmatResolver(EnvironmentResolver):
         return EnvironmentResolution(selected_provider=self.provider)
 
 
+@pytest.mark.requires_posix
 def test_private_pmat_runtime_executes_and_publishes_evidence(tmp_path: Path) -> None:
     from organelleverse.assembly.environment_specs import PMAT_ORIENTATION_VERSION
 
@@ -226,6 +229,7 @@ def test_private_pmat_runtime_executes_and_publishes_evidence(tmp_path: Path) ->
     assert all(str(tmp_path) not in item for item in manifest.stable_argv)
 
 
+@pytest.mark.requires_posix
 def test_private_pmat_reuses_a_verified_existing_provider_without_install(
     tmp_path: Path,
 ) -> None:

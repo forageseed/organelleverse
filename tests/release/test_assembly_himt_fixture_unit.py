@@ -251,6 +251,7 @@ def test_manifest_models_reject_unknown_missing_and_out_of_order_fields(tmp_path
             load_fixture_manifest(path)
 
 
+@pytest.mark.requires_posix
 def test_cache_miss_then_exact_hit_avoids_network_and_minimap2(
     tmp_path: Path,
     file_server: str,
@@ -362,6 +363,7 @@ def test_nonzero_minimap2_is_a_typed_failure(
     assert raised.value.code == "fixture.minimap2_failed"
 
 
+@pytest.mark.requires_posix
 def test_truncated_fastq_is_detected_while_streaming(
     tmp_path: Path,
     file_server: str,
@@ -384,6 +386,7 @@ def test_truncated_fastq_is_detected_while_streaming(
     assert raised.value.code == "fixture.invalid_fastq"
 
 
+@pytest.mark.requires_posix
 def test_duplicate_selected_read_id_is_rejected(
     tmp_path: Path,
     file_server: str,
@@ -397,6 +400,7 @@ def test_duplicate_selected_read_id_is_rejected(
     assert raised.value.code == "fixture.duplicate_read_id"
 
 
+@pytest.mark.requires_posix
 def test_repeated_paf_query_id_uses_unique_full_fastq_descriptions(
     tmp_path: Path,
     file_server: str,
@@ -422,6 +426,7 @@ def test_repeated_paf_query_id_uses_unique_full_fastq_descriptions(
     assert [str(record.seq) for record in derived] == ["ACGT" * 50, "TGCA" * 50]
 
 
+@pytest.mark.requires_posix
 def test_extraction_preserves_source_then_record_order_and_sequence(
     tmp_path: Path,
     file_server: str,
@@ -446,6 +451,7 @@ def test_extraction_preserves_source_then_record_order_and_sequence(
     ]
 
 
+@pytest.mark.requires_posix
 def test_recipe_identity_is_machine_independent_and_changes_with_recipe(
     tmp_path: Path,
     file_server: str,
@@ -474,6 +480,7 @@ def test_recipe_identity_is_machine_independent_and_changes_with_recipe(
 
 
 @pytest.mark.parametrize("profile_name", ["hifi", "clr", "ont"])
+@pytest.mark.requires_posix
 def test_every_profile_has_a_recipe_identity_and_writes_expected_manifest(
     tmp_path: Path,
     file_server: str,

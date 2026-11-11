@@ -257,6 +257,7 @@ def test_registry_forwards_exact_version_and_closed_environment_hint(
     assert captured["environment_hint"] == EnvironmentHint(prefix=tmp_path.resolve())
 
 
+@pytest.mark.requires_posix
 def test_adapter_emits_every_real_graphbuild_flag(tmp_path: Path) -> None:
     command = PmatGraphAdapter().build_command(_context(tmp_path))
     assert command.stable_argv == (
@@ -285,6 +286,7 @@ def test_adapter_emits_every_real_graphbuild_flag(tmp_path: Path) -> None:
     assert not any("role://" in token for token in command.resolved_argv)
 
 
+@pytest.mark.requires_posix
 def test_execute_success_reuse_and_tamper_detection(tmp_path: Path) -> None:
     from organelleverse.assembly.environment_specs import PMAT_ORIENTATION_VERSION
 
@@ -328,6 +330,7 @@ def test_execute_success_reuse_and_tamper_detection(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.requires_posix
 def test_execute_plastid_does_not_require_mitochondrial_assessment(tmp_path: Path) -> None:
     result = execute_pmat_graph_build(
         _data(tmp_path / "plastid"),
@@ -339,6 +342,7 @@ def test_execute_plastid_does_not_require_mitochondrial_assessment(tmp_path: Pat
     assert not (output / "normalized" / "assessment.txt").exists()
 
 
+@pytest.mark.requires_posix
 def test_started_failure_is_a_failed_result_and_input_tamper_is_prestart(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

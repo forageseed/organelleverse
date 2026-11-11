@@ -9,7 +9,9 @@ managed run.
 
 from __future__ import annotations
 
+import importlib.util
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,57 @@ _REAL_RELEASE_MARKERS = (
     "release_assembly_pmat",
     "release_assembly_qc",
 )
+
+
+def _host_is_posix() -> bool:
+    return os.name == "posix"
+
+
+def _host_can_symlink() -> bool:
+    # Windows refuses os.symlink without the "create symbolic links" privilege
+    # (WinError 1314), so the answer has to be probed rather than read from the
+    # platform name.
+    with tempfile.TemporaryDirectory() as scratch:
+        target = Path(scratch) / "target"
+        target.write_bytes(b"")
+        try:
+            os.symlink(target, Path(scratch) / "link")
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+def _module_installed(name: str):
+    return lambda: importlib.util.find_spec(name) is not None
+
+
+# Marker name -> (check that the precondition holds, reason shown when it does not).
+# A marked test is skipped instead of failing when its host cannot meet the
+# precondition; on a host that can, it runs unchanged.
+_HOST_PRECONDITIONS = {
+    "requires_posix": (
+        _host_is_posix,
+        "needs a POSIX host: the test relies on POSIX paths, file modes or Linux-only tools",
+    ),
+    "requires_symlink": (
+        _host_can_symlink,
+        "this account cannot create symbolic links",
+    ),
+    "requires_mappy": (_module_installed("mappy"), "mappy is not installed"),
+    "requires_edlib": (_module_installed("edlib"), "edlib is not installed"),
+}
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    met: dict[str, bool] = {}
+    for item in items:
+        for marker, (check, reason) in _HOST_PRECONDITIONS.items():
+            if item.get_closest_marker(marker) is None:
+                continue
+            if marker not in met:
+                met[marker] = bool(check())
+            if not met[marker]:
+                item.add_marker(pytest.mark.skip(reason=reason))
 
 
 @pytest.fixture(scope="session", autouse=True)

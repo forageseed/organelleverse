@@ -122,6 +122,7 @@ def test_gzip_streams_are_transparently_decoded(tmp_path: Path) -> None:
     assert excinfo.value.code == "input.invalid_gzip"
 
 
+@pytest.mark.requires_posix
 def test_a_non_regular_file_is_refused(tmp_path: Path) -> None:
     fifo = tmp_path / "pipe"
     os.mkfifo(fifo)

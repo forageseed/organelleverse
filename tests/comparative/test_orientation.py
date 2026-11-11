@@ -20,6 +20,7 @@ def plastome():
     return lsc, ir, ssc
 
 
+@pytest.mark.requires_mappy
 def test_origin_strands_and_operation_replay(tmp_path):
     lsc, ir, ssc = plastome()
     original = lsc + ir + ssc + rc(ir)
@@ -56,6 +57,7 @@ def test_origin_strands_and_operation_replay(tmp_path):
     )
 
 
+@pytest.mark.requires_mappy
 def test_majority_not_first_and_tie(tmp_path):
     lsc, ir, ssc = plastome()
     a, b = lsc + ir + ssc + rc(ir), rc(lsc) + ir + rc(ssc) + rc(ir)
@@ -68,6 +70,7 @@ def test_majority_not_first_and_tie(tmp_path):
     assert tie.metrics["target_strands"] == {"LSC": 1, "SSC": 1}
 
 
+@pytest.mark.requires_mappy
 def test_irless_and_unrelated_are_reported(tmp_path):
     lsc, ir, ssc = plastome()
     other = random.Random(22)
@@ -107,6 +110,7 @@ def test_missing_optional_dependency(tmp_path, monkeypatch):
         normalize_plastome_orientation(tmp_path / "input.fa")
 
 
+@pytest.mark.requires_mappy
 def test_rejects_alignment_input(tmp_path):
     path = write_fasta(tmp_path / "input.fa", [("a", "ACGT-N")])
     with pytest.raises(OrganelleInputError, match="ungapped"):

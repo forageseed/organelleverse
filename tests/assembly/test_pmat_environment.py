@@ -174,6 +174,7 @@ def test_managed_source_build_is_part_of_environment_identity(tmp_path: Path) ->
     )
 
 
+@pytest.mark.requires_symlink
 def test_manager_builds_source_links_aliases_and_reuses(tmp_path: Path) -> None:
     content = _archive()
     manager = EnvironmentManager(
@@ -194,6 +195,7 @@ def test_manager_builds_source_links_aliases_and_reuses(tmp_path: Path) -> None:
     assert (source / "lib" / "genomescope.R").is_file()
 
 
+@pytest.mark.requires_symlink
 def test_managed_build_is_registered_by_actual_component_hashes(tmp_path: Path) -> None:
     content = _archive()
     apptainer = tmp_path / "apptainer"
@@ -256,7 +258,10 @@ def test_safe_tar_extraction_rejects_parent_escape(tmp_path: Path) -> None:
     assert not (tmp_path / "escaped").exists()
 
 
-@pytest.mark.parametrize("invalid", [None, "checksum", "context"])
+@pytest.mark.parametrize(
+    "invalid",
+    [pytest.param(None, marks=pytest.mark.requires_symlink), "checksum", "context"],
+)
 def test_source_patch_is_verified_and_applied_before_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid: str | None
 ) -> None:
@@ -317,6 +322,7 @@ def test_packaged_orientation_patch_checksum() -> None:
     assert hashlib.sha256(_read_resource(patch.resource)).hexdigest() == patch.sha256
 
 
+@pytest.mark.requires_symlink
 def test_patched_version_survives_registration_and_provider_reuse(tmp_path: Path) -> None:
     from organelleverse.assembly.environment_specs import PMAT_ORIENTATION_VERSION
 

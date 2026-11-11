@@ -46,6 +46,7 @@ def test_both_strands_secondary_union_and_circular_coordinates():
     assert result["inverted_blocks"][0]["query_intervals"] == [[8, 10], [0, 3]]
 
 
+@pytest.mark.requires_mappy
 def test_generic_reverse_and_no_match(tmp_path):
     ref = _dna(5000, 80)
     path = write_fasta(tmp_path / "q.fa", [("reverse", rc(ref)), ("unrelated", _dna(5000, 81))])
@@ -60,6 +61,7 @@ def test_generic_reverse_and_no_match(tmp_path):
     assert unrelated["raw"]["alignment_identity"] is None
 
 
+@pytest.mark.requires_mappy
 def test_plastome_candidates_replay_and_reference_rotation(tmp_path):
     lsc, ir, ssc = _plastome()
     original = lsc + ir + ssc + rc(ir)
@@ -94,6 +96,7 @@ def test_plastome_candidates_replay_and_reference_rotation(tmp_path):
     assert not any(b["region"] == "SSC" for b in ssc_row["normalized"]["inverted_blocks"])
 
 
+@pytest.mark.requires_mappy
 def test_unresolved_plastid_not_fabricated(tmp_path):
     lsc, ir, ssc = _plastome()
     ref = write_fasta(tmp_path / "r.fa", [("r", lsc + ir + ssc + rc(ir))])
@@ -122,6 +125,7 @@ def test_missing_mappy_has_install_hint(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("text", ["", ">a\nAC-G\n", ">a\nACGT\n>a\nACGT\n"])
+@pytest.mark.requires_mappy
 def test_invalid_fasta(tmp_path, text):
     path = tmp_path / "input.fa"
     path.write_text(text)

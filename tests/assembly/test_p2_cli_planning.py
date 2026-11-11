@@ -10,6 +10,7 @@ from organelleverse.assembly.backends.p2_cli import (
 )
 
 
+@pytest.mark.requires_posix
 def test_tippo_uses_documented_v24_flags_and_organelle_mode() -> None:
     argv = plan_tippo_argv(
         executable="/tools/TIPPo.v2.4.pl",
@@ -32,6 +33,7 @@ def test_tippo_uses_documented_v24_flags_and_organelle_mode() -> None:
     )
 
 
+@pytest.mark.requires_posix
 def test_tippo_mitochondrion_uses_organelle_mode() -> None:
     argv = plan_tippo_argv(
         executable="TIPPo.v2.4.pl",
@@ -64,6 +66,7 @@ def test_tippo_rejects_invalid_threads_and_relative_reads() -> None:
         )
 
 
+@pytest.mark.requires_posix
 def test_ptgaul_uses_documented_required_and_optional_flags() -> None:
     argv = plan_ptgaul_argv(
         executable="/tools/ptGAUL.sh",
@@ -95,6 +98,7 @@ def test_ptgaul_uses_documented_required_and_optional_flags() -> None:
     )
 
 
+@pytest.mark.requires_posix
 def test_ptgaul_rejects_nonpositive_parameters() -> None:
     with pytest.raises(AssemblyBackendInputError, match="positive"):
         plan_ptgaul_argv(

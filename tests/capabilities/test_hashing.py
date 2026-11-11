@@ -113,6 +113,7 @@ def test_empty_fixture_dataset_has_a_stable_hash(tmp_path: Path) -> None:
     assert hash_fixture_dataset(tmp_path) == _expected([])
 
 
+@pytest.mark.requires_symlink
 def test_hashing_rejects_a_symlinked_file_instead_of_hashing_outside_the_bundle(
     tmp_path: Path,
 ) -> None:

@@ -84,6 +84,7 @@ def sequences(tmp_path):
     return seq, run
 
 
+@pytest.mark.requires_mappy
 def test_circular_origin_and_global_reverse_are_not_variants(sequences):
     seq, run = sequences
     for query in (seq, seq[5000:] + seq[:5000], rc(seq[5000:] + seq[:5000])):
@@ -92,6 +93,7 @@ def test_circular_origin_and_global_reverse_are_not_variants(sequences):
         assert result.metrics["coverage"]["query"]["uncovered_bases"] == 0
 
 
+@pytest.mark.requires_mappy
 def test_real_mappy_inversion_and_plot_contract(sequences):
     from organelleverse.visualization import summarize_synteny_matrix
 
@@ -105,6 +107,7 @@ def test_real_mappy_inversion_and_plot_contract(sequences):
 
 
 @pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.requires_mappy
 def test_plastome_ssc_isomer_and_rotation(tmp_path, reverse):
     from tests.comparative.test_orientation import plastome
 
@@ -120,6 +123,7 @@ def test_plastome_ssc_isomer_and_rotation(tmp_path, reverse):
     assert result.metrics["orientation"]["ssc"]["reversed"]
 
 
+@pytest.mark.requires_mappy
 def test_no_homology_fails(sequences):
     _, run = sequences
     with pytest.raises(OrganelleInputError, match="No shared anchors"):

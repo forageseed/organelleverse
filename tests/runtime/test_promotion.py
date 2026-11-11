@@ -50,6 +50,7 @@ def _managed_result(
     return result, run_dir
 
 
+@pytest.mark.requires_posix
 def test_same_filesystem_promotion_moves_tree_and_relocates_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -78,6 +79,7 @@ def test_same_filesystem_promotion_moves_tree_and_relocates_result(
     )
 
 
+@pytest.mark.requires_posix
 def test_cross_filesystem_promotion_copies_verifies_commits_and_removes_source(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -245,6 +247,7 @@ def test_promotion_rejects_artifacts_stored_under_wrong_operation(
     assert run_dir.is_dir()
 
 
+@pytest.mark.requires_symlink
 def test_promotion_rejects_managed_run_reached_through_intermediate_symlink(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

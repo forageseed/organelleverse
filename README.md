@@ -335,7 +335,7 @@ Questions, bugs and ideas are welcome as GitHub issues.
 
 ## Citing
 
-There is no paper yet. Please cite this repository, the version (1.0.0), and the programs you ran
+There is no paper yet. Please cite this repository, the version (1.0.1), and the programs you ran
 (LOSAT, Oatk, HiMT, GetOrganelle, PMAT2, BLAST+, HMMER, NCBI resources).
 
 ## License

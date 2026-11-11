@@ -1,5 +1,7 @@
 """New QC entry point is discoverable, bound, and verifies its real fixture."""
 
+import pytest
+
 from organelleverse.capabilities.discovery import discover_capabilities
 from organelleverse.capabilities.verification import (
     LocalVerificationEnvironment,
@@ -10,6 +12,7 @@ from organelleverse.operations.python_binding import bind_python_capability
 from organelleverse.qc import compare_assembly_to_reference
 
 
+@pytest.mark.requires_mappy
 def test_reference_comparison_binding_and_fixture(tmp_path, monkeypatch):
     monkeypatch.setenv("ORGANELLEVERSE_HOME", str(tmp_path / "home"))
     index = discover_capabilities()

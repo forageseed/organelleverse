@@ -105,6 +105,7 @@ def _identical_managed_results(
     return built
 
 
+@pytest.mark.requires_posix
 def test_assembly_write_promotes_managed_result_and_leaves_one_tree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -133,6 +134,7 @@ def test_assembly_write_promotes_managed_result_and_leaves_one_tree(
     assert len(list(tmp_path.rglob("assembly.fasta"))) == 1
 
 
+@pytest.mark.requires_posix
 def test_assembly_write_retry_reuses_same_verified_published_tree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -165,6 +167,7 @@ def test_assembly_write_retry_rejects_tampered_published_artifact(
     assert captured.value.code == "runtime.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_module_writer_and_generic_writer_return_equivalent_relocated_results(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -192,6 +195,7 @@ def test_module_writer_and_generic_writer_return_equivalent_relocated_results(
         assert (module_destination / name).read_bytes() == (generic_destination / name).read_bytes()
 
 
+@pytest.mark.requires_posix
 def test_direct_registry_and_agent_json_writer_calls_agree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -240,6 +244,7 @@ def test_direct_registry_and_agent_json_writer_calls_agree(
         assert (destination / "assembly.fasta").read_text() == ">contig\nACGT\n"
 
 
+@pytest.mark.requires_posix
 def test_assembly_write_cross_filesystem_promotes_one_tree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -298,6 +303,7 @@ def test_assembly_write_rejects_tampered_artifact_before_publication(
     assert not destination.exists()
 
 
+@pytest.mark.requires_posix
 def test_assembly_write_promotes_failed_run_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

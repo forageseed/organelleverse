@@ -130,6 +130,7 @@ def test_publish_run_is_atomic_and_no_replace(tmp_path: Path) -> None:
     assert (completed / "result.json").read_text() == "{}\n"
 
 
+@pytest.mark.requires_symlink
 def test_remove_managed_entry_unlinks_symlink_without_following_it(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -165,6 +166,7 @@ def test_remove_managed_entry_refuses_paths_outside_cache(
     assert (outside / "valuable.txt").read_text() == "keep me"
 
 
+@pytest.mark.requires_symlink
 def test_remove_managed_entry_rejects_intermediate_symlink_escape(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -206,6 +208,7 @@ def test_staging_is_hidden_sibling_and_refuses_preexisting_leaf(
     assert captured.value.code == "runtime.staging_conflict"
 
 
+@pytest.mark.requires_symlink
 def test_staging_creation_refuses_symlinked_operation_ancestor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -313,6 +316,7 @@ def test_staged_artifact_read_failure_is_structured(
     assert captured.value.as_dict()["details"]["path"] == str(staging / "artifact.bin")
 
 
+@pytest.mark.requires_posix
 def test_staged_run_is_created_private_to_the_parent(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -427,6 +431,7 @@ def test_staged_artifact_tree_and_parent_recomputation_are_exact(
 
 
 @pytest.mark.parametrize("symlink_kind", ["leaf", "directory"])
+@pytest.mark.requires_symlink
 def test_staged_artifact_tree_rejects_symlinks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

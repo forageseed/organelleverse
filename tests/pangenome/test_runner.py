@@ -5,9 +5,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from organelleverse.pangenome._runner import run_command
 
 
+@pytest.mark.requires_posix
 def test_absolute_environment_launcher_can_resolve_sibling_tools(tmp_path: Path) -> None:
     """A conda-style launcher must find tools installed beside itself."""
     helper = tmp_path / "backend-helper"

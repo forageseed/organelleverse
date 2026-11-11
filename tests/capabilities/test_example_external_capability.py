@@ -71,6 +71,7 @@ def _walk_files(root: Path) -> dict[str, bytes]:
     }
 
 
+@pytest.mark.requires_posix
 def test_example_matches_a_fresh_scaffold_byte_for_byte(tmp_path: Path) -> None:
     generated_root = _generate_example(tmp_path / "external-capability")
     assert COMMITTED_EXAMPLE_ROOT.is_dir(), (

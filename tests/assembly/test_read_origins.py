@@ -16,6 +16,7 @@ from organelleverse.assembly.read_origins import (
 )
 
 
+@pytest.mark.requires_edlib
 def test_whole_query_realigns_a_misplaced_repeat_middle():
     read = "TTTTTACGTACGTGGGGG"
     fields = ["r", "18", "5", "13", "+", "chr", "22", "8", "16"]
@@ -31,6 +32,7 @@ def test_whole_query_realigns_a_misplaced_repeat_middle():
 @pytest.mark.parametrize("strand,read,a,b", [
     ("+", "TTTTTACGTACGT", 5, 13), ("-", "ACGTACGTAAAAA", 0, 8),
 ])
+@pytest.mark.requires_edlib
 def test_one_available_flank_resolves_read_ending_in_repeat(tmp_path, strand, read, a, b):
     p = tmp_path / "p.paf"
     p.write_text(f"r\t13\t0\t13\t{strand}\tchr\t17\t2\t15\t13\t13\t0\tNM:i:0\tcg:Z:13M\n")
@@ -44,6 +46,7 @@ def test_one_available_flank_resolves_read_ending_in_repeat(tmp_path, strand, re
     assert compare_periodic_context(read, "ACGT", 0) == "nuclear_context_better"
 
 
+@pytest.mark.requires_edlib
 def test_inserted_flank_and_candidate_contained_read_do_not_supply_context():
     read = "TTTTTACGTACGT"
     fields = ["r", "13", "5", "13", "+", "chr", "8", "0", "8"]
@@ -52,6 +55,7 @@ def test_inserted_flank_and_candidate_contained_read_do_not_supply_context():
     assert not candidate_and_flank(context, {"query_start": 0, "query_end": 13})
 
 
+@pytest.mark.requires_edlib
 def test_nuclear_read_haplotype_requires_donor_flank_and_retains_provenance(tmp_path):
     p = tmp_path / "read.paf"
     p.write_text(
@@ -80,6 +84,7 @@ def test_nuclear_read_haplotype_requires_donor_flank_and_retains_provenance(tmp_
         anchored_nuclear_read_contexts(*args)
 
 
+@pytest.mark.requires_edlib
 def test_observed_organelle_context_vetoes_nuclear_read_haplotype(tmp_path):
     read = "TTTTTACGTACGT"
     graph, sam, raw = (tmp_path / name for name in ("g.gfa", "c.sam", "raw.fastq"))
@@ -105,6 +110,7 @@ def test_observed_organelle_context_vetoes_nuclear_read_haplotype(tmp_path):
     assert decision["organelle_context"]["reference"] == "marked-path"
 
 
+@pytest.mark.requires_edlib
 def test_exact_clipped_extensions_resolve_loose_periodic_bound_on_both_strands():
     read = "TTTTTACGTACGTGGGGG"
     reference = "CC" + read + "AA"
@@ -121,6 +127,7 @@ def test_exact_clipped_extensions_resolve_loose_periodic_bound_on_both_strands()
         )
 
 
+@pytest.mark.requires_edlib
 def test_extension_handles_reference_boundary_and_insertion_without_a_flank_window():
     fields = ["r", "8", "4", "8", "+", "chr", "4", "0", "4"]
     witness = extend_nuclear_context("TTTTACGT", "ACGT", fields, 0)
@@ -133,6 +140,7 @@ def test_extension_handles_reference_boundary_and_insertion_without_a_flank_wind
     assert witness["reference_end"] == 14
 
 
+@pytest.mark.requires_edlib
 def test_extended_context_retains_unplaced_tie_and_all_observed_secondary_placements(tmp_path):
     read = "TTTTTACGTACGTGGGGG"
     fields = "r\t18\t6\t12\t+\tchr\t22\t8\t14\t6\t6\t0\tNM:i:0\tcg:Z:6M\n"
@@ -149,6 +157,7 @@ def test_extended_context_retains_unplaced_tie_and_all_observed_secondary_placem
     assert contexts["r"]["unplaced"]["cost_upper_bound"] == 0
 
 
+@pytest.mark.requires_edlib
 def test_periodic_competition_preserves_true_gene_free_circle_and_both_strands():
     assert compare_periodic_context("ACGTACGTACGT", "ACGT", 0) == "periodic_compatible"
     assert compare_periodic_context("CTCTCTCT", "AG", 0) == "periodic_compatible"
@@ -156,6 +165,7 @@ def test_periodic_competition_preserves_true_gene_free_circle_and_both_strands()
     assert compare_periodic_context("ACGTACGT", "ACGT", None) == "unresolved"
 
 
+@pytest.mark.requires_edlib
 def test_nuclear_flanks_win_against_the_entire_periodic_read_hypothesis():
     read = "TTTTTACGTACGTGGGGG"
     assert compare_periodic_context(read, "ACGT", 0) == "nuclear_context_better"
@@ -220,6 +230,7 @@ def test_retained_decisions_materialize_only_aligned_base_coverage(tmp_path):
         )
 
 
+@pytest.mark.requires_edlib
 def test_complete_read_comparison_to_component_input(tmp_path):
     graph = tmp_path / "g.gfa"
     graph.write_text(
@@ -260,6 +271,7 @@ def test_complete_read_comparison_to_component_input(tmp_path):
     assert by_name["circle"]["unresolved_reads"] == 1
 
 
+@pytest.mark.requires_edlib
 def test_assessment_uses_extended_context_and_preserves_unplaced_ambiguity(tmp_path):
     read = "TTTTTACGTACGTGGGGG"
     graph = tmp_path / "g.gfa"

@@ -28,6 +28,7 @@ def _events(reference_length: int = 16):
     return matches, mismatches, deletions
 
 
+@pytest.mark.requires_edlib
 def test_piece_events_counts_matches_mismatches_indels() -> None:
     matches, mismatches, deletions = _events()
     edits = _accumulate_piece_events("ACGTACGT", "ACGTTCGT", 0, matches, mismatches, deletions)
@@ -38,6 +39,7 @@ def test_piece_events_counts_matches_mismatches_indels() -> None:
     assert deletions.sum() == 0
 
 
+@pytest.mark.requires_edlib
 def test_piece_events_counts_deletion_and_insertion() -> None:
     matches, mismatches, deletions = _events()
     # reference has "TTT" where the query has "GG"; the insertion relative to
@@ -51,6 +53,7 @@ def test_piece_events_counts_deletion_and_insertion() -> None:
     assert matches.sum() + mismatches.sum() == 9
 
 
+@pytest.mark.requires_edlib
 def test_piece_events_empty_query_marks_all_deletions() -> None:
     matches, mismatches, deletions = _events()
     _accumulate_piece_events("ACGTACGT", "", 4, matches, mismatches, deletions)
@@ -70,6 +73,7 @@ def test_window_rows_identity_definition() -> None:
     assert rows[1]["matches"] == 0 and rows[1]["deletions"] == 4
 
 
+@pytest.mark.requires_mappy
 def test_anchor_blocks_single_block_and_strand() -> None:
     base = comparative_adapter._IDENTITY_BASE
     blocks = _anchor_blocks(base, comparative_adapter._identity_query_a(base), preset="asm10")
@@ -85,6 +89,7 @@ def test_anchor_blocks_single_block_and_strand() -> None:
     assert blocks_reverse[0]["strand"] == -1
 
 
+@pytest.mark.requires_mappy
 def test_piece_plan_aligns_blocks_and_interblock_gaps() -> None:
     base = comparative_adapter._IDENTITY_BASE
     query = comparative_adapter._identity_query_a(base)
@@ -102,6 +107,7 @@ def _write_fasta(path: Path, sequence: str, name: str = "rec") -> Path:
     return path
 
 
+@pytest.mark.requires_mappy
 def test_compute_genome_identity_end_to_end(tmp_path: Path) -> None:
     base = comparative_adapter._IDENTITY_BASE
     reference = _write_fasta(tmp_path / "ref.fa", base, "ref")
@@ -127,6 +133,7 @@ def test_compute_genome_identity_end_to_end(tmp_path: Path) -> None:
     assert result["windows"][-1]["end"] == 2400
 
 
+@pytest.mark.requires_mappy
 def test_compute_genome_identity_default_step_equals_window(tmp_path: Path) -> None:
     base = comparative_adapter._IDENTITY_BASE
     reference = _write_fasta(tmp_path / "ref.fa", base)
@@ -264,6 +271,7 @@ def test_collinear_gaps_and_tails_are_oriented_and_globally_aligned(strand: int)
     assert all(r == q for r, q, _ in pieces)
 
 
+@pytest.mark.requires_edlib
 def test_inversion_gap_does_not_reuse_query_or_fabricate_deletions() -> None:
     reference = "AACCGGTT" * 10
     blocks = [_block(0, 30, 0, 30), _block(40, 60, 40, 60, -1), _block(60, 80, 60, 80)]
@@ -275,6 +283,7 @@ def test_inversion_gap_does_not_reuse_query_or_fabricate_deletions() -> None:
 
 
 @pytest.mark.parametrize("scenario", ["inversion", "inverted_repeat", "rotation", "reverse"])
+@pytest.mark.requires_mappy
 def test_real_anchor_rearrangements_preserve_one_to_one_coordinates(tmp_path: Path, scenario: str):
     import random
 
@@ -317,6 +326,7 @@ def test_genbank_coordinates_must_belong_to_reference(tmp_path: Path):
         )
 
 
+@pytest.mark.requires_mappy
 def test_duplicate_sample_names_are_rejected(tmp_path: Path):
     base = comparative_adapter._IDENTITY_BASE
     ref = _write_fasta(tmp_path / "ref.fa", base)

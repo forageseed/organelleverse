@@ -104,6 +104,7 @@ class TestFacadeRecords:
         records = facade.list()
         assert {r.backend_id for r in records} == {"oatk", "himt"}
 
+    @pytest.mark.requires_posix
     def test_record_exposes_full_identity_and_activation(self, tool_root: Path) -> None:
         _populate(tool_root, "oatk", seed="o")
         record = facade.locate("oatk")[0]
@@ -149,6 +150,7 @@ class TestFacadeWiring:
 
 
 class TestEnvironmentCli:
+    @pytest.mark.requires_posix
     def test_list_json_emits_record_array(
         self, tool_root: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -172,6 +174,7 @@ class TestEnvironmentCli:
         payload = json.loads(capsys.readouterr().out)
         assert {entry["backend_id"] for entry in payload} == {"oatk"}
 
+    @pytest.mark.requires_posix
     def test_list_human_prints_activation_instruction(
         self, tool_root: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from organelleverse.capabilities.discovery import discover_capabilities
 from organelleverse.capabilities.index import CapabilityStatus
 from organelleverse.capabilities.verification import (
@@ -11,6 +13,7 @@ from organelleverse.capabilities.verification import (
 )
 
 
+@pytest.mark.requires_mappy
 def test_orientation_bundle_verifies_and_invokes(tmp_path, monkeypatch):
     from organelleverse.capabilities.adapters.comparative import _ORIENTATION_FASTA
 

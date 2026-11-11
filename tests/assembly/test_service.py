@@ -386,6 +386,7 @@ def test_execution_environment_strips_conda_sysconfigdata_leak(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_posix
 def test_success_publishes_a_loadable_acyclic_evidence_chain(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -431,6 +432,7 @@ def test_success_publishes_a_loadable_acyclic_evidence_chain(tmp_path: Path) -> 
     assert "hmm_profiles" in {item.role for item in manifest.input_artifacts}
 
 
+@pytest.mark.requires_posix
 def test_success_artifacts_resolve_after_atomic_publication(tmp_path: Path) -> None:
     request = _request(tmp_path)
 
@@ -450,6 +452,7 @@ def test_success_artifacts_resolve_after_atomic_publication(tmp_path: Path) -> N
     assert all(item.artifact.resolve().is_file() for item in manifest.outputs)
 
 
+@pytest.mark.requires_posix
 def test_user_profile_override_is_recorded_as_profile_component(tmp_path: Path) -> None:
     request = _request(tmp_path)
     declared = request.data.artifacts["hmm_profiles"]
@@ -474,6 +477,7 @@ def test_user_profile_override_is_recorded_as_profile_component(tmp_path: Path) 
     assert profile_components[0].locator == "user-supplied"
 
 
+@pytest.mark.requires_posix
 def test_success_records_all_fifteen_stages(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -503,6 +507,7 @@ def test_success_records_all_fifteen_stages(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.requires_posix
 def test_route_backend_runs_after_routing_context_and_records_evidence(
     tmp_path: Path,
 ) -> None:
@@ -525,6 +530,7 @@ def test_route_backend_runs_after_routing_context_and_records_evidence(
     assert manifest.routing_evidence.genome_size_bp is None
 
 
+@pytest.mark.requires_posix
 def test_routing_context_uses_the_released_runtime_registry(tmp_path: Path) -> None:
     """The service must pass the live released runtime registry to routing, so a
     swapped registry (e.g. a private synthetic backend) gates auto routing."""
@@ -566,6 +572,7 @@ def test_routing_context_uses_the_released_runtime_registry(tmp_path: Path) -> N
     assert captured["context"] is not None
 
 
+@pytest.mark.requires_posix
 def test_explicit_method_records_requested_backend(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path, method="oatk")
@@ -631,6 +638,7 @@ def test_unsupported_oatk_auxiliary_fails_before_artifact_or_environment_access(
     assert not _expected_destination(request).exists()
 
 
+@pytest.mark.requires_posix
 def test_changed_input_fails_reuse_before_execution(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -715,6 +723,7 @@ def test_launch_error_raises_before_destination(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_posix
 def test_nonzero_exit_produces_failed_result(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -727,6 +736,7 @@ def test_nonzero_exit_produces_failed_result(tmp_path: Path) -> None:
     assert result.errors
 
 
+@pytest.mark.requires_posix
 def test_failed_result_publishes_machine_readable_evidence(tmp_path: Path) -> None:
     request = _request(tmp_path)
     manager = _fake_environment_manager(tmp_path / "cache")
@@ -770,6 +780,7 @@ def test_failed_result_publishes_machine_readable_evidence(tmp_path: Path) -> No
     assert (_expected_destination(request) / "result.json").exists()
 
 
+@pytest.mark.requires_posix
 def test_missing_output_produces_failed_result(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -791,6 +802,7 @@ def test_missing_output_produces_failed_result(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_posix
 def test_exact_completed_destination_is_reused_without_starting_oatk(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -809,6 +821,7 @@ def test_exact_completed_destination_is_reused_without_starting_oatk(tmp_path: P
     assert forbidden.calls == []
 
 
+@pytest.mark.requires_posix
 def test_exact_promoted_destination_is_reused_through_managed_link(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -830,6 +843,7 @@ def test_exact_promoted_destination_is_reused_through_managed_link(tmp_path: Pat
     assert forbidden.calls == []
 
 
+@pytest.mark.requires_posix
 def test_changed_expected_profile_identity_blocks_reuse(tmp_path: Path) -> None:
     request = _request(tmp_path)
     manager = _fake_environment_manager(tmp_path / "cache")
@@ -862,6 +876,7 @@ def test_changed_expected_profile_identity_blocks_reuse(tmp_path: Path) -> None:
     assert raised.value.code == "assembly.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_tampered_published_output_blocks_reuse(tmp_path: Path) -> None:
     request = _request(tmp_path)
     execute_assembly(
@@ -883,6 +898,7 @@ def test_tampered_published_output_blocks_reuse(tmp_path: Path) -> None:
     assert raised.value.code == "assembly.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_tampered_observations_binding_blocks_reuse(tmp_path: Path) -> None:
     request = _request(tmp_path)
     execute_assembly(
@@ -922,6 +938,7 @@ def test_tampered_observations_binding_blocks_reuse(tmp_path: Path) -> None:
     assert raised.value.code == "assembly.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_manifest_parameters_must_match_the_current_request(tmp_path: Path) -> None:
     request = _request(tmp_path)
     execute_assembly(
@@ -946,6 +963,7 @@ def test_manifest_parameters_must_match_the_current_request(tmp_path: Path) -> N
     assert raised.value.code == "assembly.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_result_outputs_must_exactly_match_manifest_outputs(tmp_path: Path) -> None:
     request = _request(tmp_path)
     execute_assembly(
@@ -976,6 +994,7 @@ def test_result_outputs_must_exactly_match_manifest_outputs(tmp_path: Path) -> N
     assert raised.value.code == "assembly.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_result_outputs_cannot_be_reused_by_two_manifest_roles(tmp_path: Path) -> None:
     request = _request(tmp_path)
     execute_assembly(
@@ -1055,6 +1074,7 @@ def test_result_outputs_cannot_be_reused_by_two_manifest_roles(tmp_path: Path) -
     assert raised.value.code == "assembly.destination_conflict"
 
 
+@pytest.mark.requires_posix
 def test_atomic_publish_never_replaces_a_racing_empty_destination(tmp_path: Path) -> None:
     request = _request(tmp_path)
     destination = _expected_destination(request)
@@ -1096,6 +1116,7 @@ def test_atomic_publish_never_replaces_a_racing_empty_destination(tmp_path: Path
     assert not any(destination.iterdir())
 
 
+@pytest.mark.requires_posix
 def test_failed_destination_is_archived_and_retry_proceeds(tmp_path: Path) -> None:
     """A failed run no longer wedges its destination forever (2026-08-15 fix).
 
@@ -1273,6 +1294,7 @@ def _nonzero_fake_oatk_runner(tmp_path: Path) -> _FakeOatkRunner:
     return _FakeOatkRunner(tmp_path / "scripts", mode="nonzero")
 
 
+@pytest.mark.requires_posix
 def test_fake_executable_success_through_real_subprocess(tmp_path: Path) -> None:
     # read path with a space and $ to prove shell safety
     read_path = tmp_path / "inputs" / "sample $1 reads.fastq"
@@ -1289,6 +1311,7 @@ def test_fake_executable_success_through_real_subprocess(tmp_path: Path) -> None
     assert genome.sequence is not None
 
 
+@pytest.mark.requires_posix
 def test_fake_executable_nonzero_through_real_subprocess(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -1301,6 +1324,7 @@ def test_fake_executable_nonzero_through_real_subprocess(tmp_path: Path) -> None
     assert not (_expected_destination(request) / "primary_genome.json").exists()
 
 
+@pytest.mark.requires_posix
 def test_fake_executable_partial_output_through_real_subprocess(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -1316,6 +1340,7 @@ def test_fake_executable_partial_output_through_real_subprocess(tmp_path: Path) 
     assert failed == ("collect_outputs",)
 
 
+@pytest.mark.requires_posix
 def test_fake_executable_malformed_output_through_real_subprocess(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -1334,6 +1359,7 @@ def test_fake_executable_malformed_output_through_real_subprocess(tmp_path: Path
     assert result.errors[0].suggested_action["failed_stage"] == "normalize_outputs"
 
 
+@pytest.mark.requires_posix
 def test_fake_executable_timeout_through_real_subprocess(tmp_path: Path) -> None:
     read_path = _read_file(tmp_path)
     request = _request(tmp_path, read_path=read_path)
@@ -1717,6 +1743,7 @@ def _clear_himt_mode() -> None:
         ("ont", "duplex", 0.8),
     ],
 )
+@pytest.mark.requires_posix
 def test_himt_success_records_quality_resolved_accuracy(
     tmp_path: Path,
     technology: str,
@@ -1746,6 +1773,7 @@ def test_himt_success_records_quality_resolved_accuracy(
         _clear_himt_mode()
 
 
+@pytest.mark.requires_posix
 def test_himt_success_plastid_binds_path1_as_primary(tmp_path: Path) -> None:
     _set_himt_mode("both_two_paths", requested="plastid")
     try:
@@ -1771,6 +1799,7 @@ def test_himt_success_plastid_binds_path1_as_primary(tmp_path: Path) -> None:
         _clear_himt_mode()
 
 
+@pytest.mark.requires_posix
 def test_himt_success_mito_only_detects_plastid(tmp_path: Path) -> None:
     _set_himt_mode("both_one_path", requested="mitochondrion")
     try:
@@ -1788,6 +1817,7 @@ def test_himt_success_mito_only_detects_plastid(tmp_path: Path) -> None:
         _clear_himt_mode()
 
 
+@pytest.mark.requires_posix
 def test_himt_reuse_avoids_second_process_and_parameter_change_prevents_reuse(
     tmp_path: Path,
 ) -> None:
@@ -1824,6 +1854,7 @@ def test_himt_reuse_avoids_second_process_and_parameter_change_prevents_reuse(
         os.environ.pop("ORGANELLEVERSE_FAKE_HIMT_CALLS", None)
 
 
+@pytest.mark.requires_posix
 def test_himt_tampering_with_primary_output_blocks_reuse(tmp_path: Path) -> None:
     _set_himt_mode("mito_only")
     request = _himt_request(tmp_path)
@@ -1850,6 +1881,7 @@ def test_himt_tampering_with_primary_output_blocks_reuse(tmp_path: Path) -> None
         _clear_himt_mode()
 
 
+@pytest.mark.requires_posix
 def test_himt_failure_nonzero_publishes_failed_result(tmp_path: Path) -> None:
     _set_himt_mode("nonzero")
     request = _himt_request(tmp_path)
@@ -1871,6 +1903,7 @@ def test_himt_failure_nonzero_publishes_failed_result(tmp_path: Path) -> None:
         _clear_himt_mode()
 
 
+@pytest.mark.requires_posix
 def test_himt_failure_missing_requested_publishes_failed_result(tmp_path: Path) -> None:
     _set_himt_mode("missing_requested")
     request = _himt_request(tmp_path)
@@ -1890,6 +1923,7 @@ def test_himt_failure_missing_requested_publishes_failed_result(tmp_path: Path) 
         _clear_himt_mode()
 
 
+@pytest.mark.requires_posix
 def test_himt_failure_malformed_output_publishes_failed_result(tmp_path: Path) -> None:
     _set_himt_mode("malformed")
     request = _himt_request(tmp_path)

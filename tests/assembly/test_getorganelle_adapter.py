@@ -493,6 +493,7 @@ def _config_environment(tmp_path: Path) -> PreparedEnvironment:
         ("mitochondrion", "fungi", {"fungus_mt"}),
     ],
 )
+@pytest.mark.requires_posix
 def test_provider_prepares_upstream_required_databases(
     tmp_path: Path,
     organelle,
@@ -521,6 +522,7 @@ def test_provider_prepares_upstream_required_databases(
         assert {p.stem for p in (root / directory).glob("*.fasta")} == targets
 
 
+@pytest.mark.requires_posix
 def test_provider_rejects_tampered_prepared_database(tmp_path: Path) -> None:
     manager = _ArchiveManager(tmp_path / "cache", _archive_bytes())
     provider = GetOrganelleResourceProvider()

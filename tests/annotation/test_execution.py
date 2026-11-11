@@ -141,6 +141,7 @@ def test_version_capture_order_and_shell_free_argv(
     assert all(kwargs["text"] is True for _argv, kwargs in calls)
 
 
+@pytest.mark.requires_symlink
 def test_tool_resolution_preserves_multicall_symlink_name(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -167,6 +168,7 @@ def test_tool_resolution_preserves_multicall_symlink_name(
     assert tool.version == "INFERNAL 1.1.4 (Dec 2020)"
 
 
+@pytest.mark.requires_posix
 def test_tool_resolution_rejects_wrong_program_banner(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

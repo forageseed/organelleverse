@@ -223,6 +223,7 @@ class TestLocateAndList:
         assert oatk[0].backend_id == "oatk"
         assert registry.locate("pmat") == ()
 
+    @pytest.mark.requires_posix
     def test_default_resolver_lookup_reads_verified_paths(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

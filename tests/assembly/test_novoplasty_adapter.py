@@ -200,7 +200,14 @@ def test_mitochondrion_requires_explicit_seed_and_range(tmp_path):
         )
 
 
-@pytest.mark.parametrize("exit_code,accepted", [(2, True), (0, False), (255, False)])
+@pytest.mark.parametrize(
+    "exit_code,accepted",
+    [
+        pytest.param(2, True, marks=pytest.mark.requires_posix),
+        (0, False),
+        (255, False),
+    ],
+)
 def test_existing_provider_checks_declared_banner_exit(tmp_path, exit_code, accepted):
     from organelleverse.assembly.backends.runtime import RUNTIMES
     from organelleverse.assembly.environment_capabilities import runtime_capabilities

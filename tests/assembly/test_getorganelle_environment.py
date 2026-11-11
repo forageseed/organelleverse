@@ -354,6 +354,7 @@ def _getorganelle_resolver(tmp_path: Path, *, probe_output: str) -> EnvironmentR
     )
 
 
+@pytest.mark.requires_posix
 def test_existing_getorganelle_provider_is_verified_before_managed_plan(tmp_path: Path) -> None:
     """An already-installed provider whose probe emits exactly
     ``GetOrganelle v1.7.7.1`` is verified and selected before a managed install

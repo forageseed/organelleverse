@@ -68,6 +68,7 @@ def test_threshold_records_the_interval_separately_from_accuracy():
     assert profile["fitted_read_error_rate_percent"] == 0.1
 
 
+@pytest.mark.requires_posix
 def test_missing_model_provider_is_a_dependency_error(monkeypatch):
     from organelleverse.core.errors import OrganelleDependencyError
 

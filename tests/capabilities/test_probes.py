@@ -13,6 +13,7 @@ from organelleverse.core.errors import OrganelleDependencyError
 from organelleverse.environments import locate_executable
 
 
+@pytest.mark.requires_posix
 def test_locate_executable_is_path_only_and_returns_a_resolved_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

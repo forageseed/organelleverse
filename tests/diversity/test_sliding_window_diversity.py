@@ -275,6 +275,7 @@ def test_leave_one_out_against_brute_force_with_missing_bases(tmp_path, gap_mode
                 assert row["pi"] is None
 
 
+@pytest.mark.requires_mappy
 def test_orientation_pipeline_uses_normalized_sequences_and_retains_report(tmp_path, monkeypatch):
     from Bio.Seq import reverse_complement as rc
 
@@ -312,6 +313,7 @@ def test_orientation_pipeline_uses_normalized_sequences_and_retains_report(tmp_p
     assert failed.metrics["orientation"]["unresolved"][0]["sample"] == "irless"
 
 
+@pytest.mark.requires_mappy
 def test_orientation_pipeline_rejects_placeholder(tmp_path, monkeypatch):
     import organelleverse.phylogeny as phylogeny
     from organelleverse.core.errors import OrganelleDependencyError

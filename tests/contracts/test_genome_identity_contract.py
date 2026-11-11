@@ -22,6 +22,7 @@ def _fixture_fasta(tmp_path: Path) -> tuple[Path, Path, Path]:
     return reference, query_a, query_b
 
 
+@pytest.mark.requires_mappy
 def test_genome_identity_compute_then_plot_then_write(tmp_path: Path) -> None:
     reference, query_a, query_b = _fixture_fasta(tmp_path)
     result = ov.comparative.compute_genome_identity(reference, [query_a, query_b])
@@ -48,6 +49,7 @@ def test_genome_identity_compute_then_plot_then_write(tmp_path: Path) -> None:
     assert png_destination.is_file()
 
 
+@pytest.mark.requires_mappy
 def test_genome_identity_plot_zooms_to_region(tmp_path: Path) -> None:
     reference, query_a, _ = _fixture_fasta(tmp_path)
     result = ov.comparative.compute_genome_identity(reference, [query_a])
@@ -63,6 +65,7 @@ def test_genome_identity_plot_zooms_to_region(tmp_path: Path) -> None:
     assert destination.is_file()
 
 
+@pytest.mark.requires_mappy
 def test_genome_identity_plot_validates_thresholds(tmp_path: Path) -> None:
     reference, query_a, _ = _fixture_fasta(tmp_path)
     result = ov.comparative.compute_genome_identity(reference, [query_a])

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "organelleverse"
-version = "1.0.0"
+version = "1.0.1"
 description = "Plant organelle assembly, annotation, retrieval, and quality control."
 readme = "README.md"
 license = "MIT"
@@ -168,6 +168,10 @@ markers = [
     "slow: long-running tests excluded by default (run with '-m slow')",
     "r_kernel: marks tests needing a working local R runtime (deselect with '-m \"not r_kernel\"')",
     "realdata: tests requiring real genome data",
+    "requires_posix: skipped off POSIX hosts (relies on POSIX paths, file modes or Linux-only tools)",
+    "requires_symlink: skipped when the account cannot create symbolic links",
+    "requires_mappy: skipped when mappy is not installed (no Windows wheel is published)",
+    "requires_edlib: skipped when edlib is not installed",
     "integration: non-skippable local real-tool integration gates",
     "release_annotation: non-skippable real-tool annotation release gate",
     "release_assembly_oatk: non-skippable real-tool Oatk assembly release gate",

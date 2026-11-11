@@ -72,6 +72,7 @@ def test_existing_regular_file_leaf_passes(tmp_path: Path) -> None:
     _validate(str(f), tmp_path)
 
 
+@pytest.mark.requires_symlink
 def test_symlink_component_is_refused(tmp_path: Path) -> None:
     real = tmp_path / "real"
     real.mkdir()

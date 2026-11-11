@@ -24,6 +24,7 @@ def _write_slow_script(path: Path, *, sleep_seconds: float) -> None:
     path.chmod(0o755)
 
 
+@pytest.mark.requires_posix
 def test_managed_prefix_environment_resolves_env_python_inside_long_prefix(
     tmp_path: Path,
 ) -> None:
@@ -55,6 +56,7 @@ def test_managed_prefix_environment_resolves_env_python_inside_long_prefix(
     assert completed.stdout == "managed-python\n"
 
 
+@pytest.mark.requires_posix
 def test_command_runner_never_invokes_a_shell(tmp_path: Path) -> None:
     script = tmp_path / "print argv.py"
     script.write_text("#!/usr/bin/env python3\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
@@ -107,6 +109,7 @@ def test_launch_error_is_recorded_without_claiming_started(tmp_path: Path) -> No
     assert outcome.launch_error
 
 
+@pytest.mark.requires_posix
 def test_timeout_terminates_and_kills_the_process(tmp_path: Path) -> None:
     script = tmp_path / "sleep.py"
     _write_slow_script(script, sleep_seconds=10)
@@ -129,6 +132,7 @@ def test_timeout_terminates_and_kills_the_process(tmp_path: Path) -> None:
     assert outcome.signal < 0
 
 
+@pytest.mark.requires_posix
 def test_negative_return_code_is_recorded_as_a_signal(tmp_path: Path) -> None:
     script = tmp_path / "segfault.py"
     script.write_text(
@@ -153,6 +157,7 @@ def test_negative_return_code_is_recorded_as_a_signal(tmp_path: Path) -> None:
     assert outcome.returncode < 0
 
 
+@pytest.mark.requires_posix
 def test_utf8_output_is_preserved(tmp_path: Path) -> None:
     script = tmp_path / "unicode.py"
     script.write_text(

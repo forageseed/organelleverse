@@ -111,7 +111,10 @@ def test_recommendation_uses_controlled_tools_and_publishes_exact_metrics_copy(
     assert other.metrics["segment_length_policy"]["floor"] is None
 
 
-@pytest.mark.parametrize("mutation", ("tamper", "symlink", "extra"))
+@pytest.mark.parametrize(
+    "mutation",
+    ("tamper", pytest.param("symlink", marks=pytest.mark.requires_symlink), "extra"),
+)
 def test_recommendation_cache_reopen_rejects_unsafe_or_changed_tree(
     tmp_path: Path, monkeypatch, mutation: str
 ) -> None:

@@ -275,6 +275,7 @@ def test_install_forces_recheck():
     assert result["success"] is None  # dry-run
 
 
+@pytest.mark.requires_posix
 def test_check_backend_finds_registered_managed_prefix(tmp_path):
     from organelleverse.assembly.environment_contracts import (
         ProviderComponentIdentity,

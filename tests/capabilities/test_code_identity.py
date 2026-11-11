@@ -144,6 +144,7 @@ def test_missing_locator_module_is_rejected(tmp_path: Path) -> None:
     assert captured.value.code == "capability.code_locator_missing"
 
 
+@pytest.mark.requires_symlink
 def test_symlinked_source_is_rejected(tmp_path: Path) -> None:
     package = _write_package(tmp_path)
     outside = tmp_path / "outside.py"
@@ -156,6 +157,7 @@ def test_symlinked_source_is_rejected(tmp_path: Path) -> None:
     assert captured.value.code == "capability.code_path_unsafe"
 
 
+@pytest.mark.requires_symlink
 def test_code_directory_cannot_escape_through_a_symlink(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     _write_package(outside)

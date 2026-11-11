@@ -13,7 +13,10 @@ from organelleverse.capabilities.verification import (
 @pytest.mark.parametrize(
     "capability",
     [
-        "comparative.detect_structural_variants",
+        pytest.param(
+            "comparative.detect_structural_variants",
+            marks=pytest.mark.requires_mappy,
+        ),
         "phylogeny.reconstruct_ancestral_states",
         "phylogeny.gene_presence_traits",
     ],

@@ -288,6 +288,7 @@ class _FailureRunner(CommandRunner):
 
 
 class TestGetOrganelleServiceSuccess:
+    @pytest.mark.requires_posix
     def test_success_path_produces_ok_result(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 
@@ -317,6 +318,7 @@ class TestGetOrganelleServiceSuccess:
             f"no GFA found in {list(output_dir.iterdir())}"
         )
 
+    @pytest.mark.requires_posix
     def test_result_contains_manifest_and_observations(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 
@@ -339,6 +341,7 @@ class TestGetOrganelleServiceSuccess:
         assert manifest.organelle == "plastid"
         assert len(manifest.outputs) > 0
 
+    @pytest.mark.requires_posix
     def test_manifest_records_exact_parameters_and_hashes(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
         env_manager = _synthetic_environment_manager(cache)
@@ -385,6 +388,7 @@ class TestGetOrganelleServiceSuccess:
             ),
         }
 
+    @pytest.mark.requires_posix
     def test_reuse_publishes_consistent_evidence(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 
@@ -442,6 +446,7 @@ class TestGetOrganelleServiceSuccess:
 
 
 class TestGetOrganelleServiceFailure:
+    @pytest.mark.requires_posix
     def test_nonzero_exit_produces_failed_result(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 
@@ -460,6 +465,7 @@ class TestGetOrganelleServiceFailure:
         assert result.errors[0].code == "assembly.execution_failed"
         assert result.errors[0].suggested_action["failed_stage"] == "execute_backend"
 
+    @pytest.mark.requires_posix
     def test_failed_result_published_with_evidence(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 
@@ -479,6 +485,7 @@ class TestGetOrganelleServiceFailure:
         assert (output_dir / "result.json").is_file()
         assert (output_dir / "assembly_run_manifest.json").is_file()
 
+    @pytest.mark.requires_posix
     def test_missing_output_after_ok_exit_is_recorded(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 
@@ -532,6 +539,7 @@ class TestGetOrganelleServiceFailure:
             (">seq1\nACGTACGTACGT\n", "not-gfa\n"),
         ],
     )
+    @pytest.mark.requires_posix
     def test_malformed_outputs_are_recorded_at_normalization(
         self,
         tmp_path: Path,
@@ -600,6 +608,7 @@ class TestGetOrganelleServiceCatalog:
 
 
 class TestGetOrganelleServiceAtomicPublication:
+    @pytest.mark.requires_posix
     def test_publication_is_atomic(self, tmp_path: Path) -> None:
         cache = tmp_path / "cache"
 

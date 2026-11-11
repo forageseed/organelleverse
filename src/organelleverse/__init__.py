@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     )
     from .read_facade import read
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 #: Short human-facing names, in the spirit of OmicVerse's ``pp`` / ``pl``.
 #:

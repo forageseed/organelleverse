@@ -450,6 +450,7 @@ def test_prepare_profile_require_is_offline(tmp_path: Path) -> None:
     assert downloader.calls == []
 
 
+@pytest.mark.requires_posix
 def test_user_supplied_profile_override_is_rehashed_without_download(tmp_path: Path) -> None:
     spec = _synthetic_spec()
     profile_file = tmp_path / "user_mito.fam"
@@ -484,6 +485,7 @@ def test_user_supplied_profile_override_is_rehashed_without_download(tmp_path: P
     )
 
 
+@pytest.mark.requires_posix
 def test_user_profile_identity_is_independent_of_source_filename(tmp_path: Path) -> None:
     spec = _synthetic_spec()
     first_path = tmp_path / "first-name.fam"

@@ -326,6 +326,7 @@ def test_deleted_bundle_goes_offline_while_old_registry_view_remains_readable(ri
     assert pinned_source.resolve("thirdparty.demo") is pinned_binding
 
 
+@pytest.mark.requires_posix
 def test_unparseable_bundle_fails_closed_with_diagnostic(rig) -> None:
     controller, plugins, timers, watcher, _store, _trust = rig
     controller.start()

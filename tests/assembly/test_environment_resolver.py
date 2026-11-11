@@ -213,6 +213,7 @@ class TestEnvironmentSourceAndVersion:
         req = _request(tmp_path)
         assert req.backend_version == "tested"
 
+    @pytest.mark.requires_posix
     def test_assembly_request_accepts_optional_environment_hint(
         self,
         tmp_path: Path,
@@ -325,6 +326,7 @@ class TestSemanticIdentityIncludesNewFields:
         )
         assert tested.semantic_hash != semver.semantic_hash
 
+    @pytest.mark.requires_posix
     def test_environment_hint_affects_semantic_hash(self, tmp_path: Path) -> None:
         without = _request(tmp_path)
         with_hint = _request(
@@ -431,6 +433,7 @@ class TestEnvironmentHint:
         hint = EnvironmentHint()
         _assert_frozen_extra_forbid(hint)
 
+    @pytest.mark.requires_posix
     def test_environment_hint_all_fields_optional(self) -> None:
         hint = EnvironmentHint(executable=Path("/bin/true"))
         assert hint.executable == Path("/bin/true")
@@ -855,15 +858,18 @@ class TestAssemblyRunParametersEnvironmentFields:
 class TestEnvironmentHintMutualExclusion:
     """EnvironmentHint must reject providing both executable and prefix."""
 
+    @pytest.mark.requires_posix
     def test_rejects_both_executable_and_prefix(self) -> None:
         with pytest.raises(ValidationError, match="must not provide both"):
             EnvironmentHint(executable=Path("/bin/true"), prefix=Path("/opt"))
 
+    @pytest.mark.requires_posix
     def test_accepts_executable_only(self) -> None:
         hint = EnvironmentHint(executable=Path("/bin/true"))
         assert hint.executable == Path("/bin/true")
         assert hint.prefix is None
 
+    @pytest.mark.requires_posix
     def test_accepts_prefix_only(self) -> None:
         hint = EnvironmentHint(prefix=Path("/opt/conda/envs/test"))
         assert hint.prefix == Path("/opt/conda/envs/test")
@@ -1042,6 +1048,7 @@ class _FakeStatResult:
 class TestResolverSourceOrder:
     """Verification of fixed discovery order."""
 
+    @pytest.mark.requires_posix
     def test_managed_source_skips_discovery(self, tmp_path: Path) -> None:
         """environment_source='managed' returns managed plan without discovery."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1083,6 +1090,7 @@ class TestResolverSourceOrder:
         # Zero discovery calls
         assert call_log == []
 
+    @pytest.mark.requires_posix
     def test_getorganelle_auto_discovers_default_managed_cache(
         self,
         tmp_path: Path,
@@ -1151,6 +1159,7 @@ class TestResolverSourceOrder:
         assert result.selected_provider.discovery_source == "managed"
         assert result.selected_provider.prefix == prefix
 
+    @pytest.mark.requires_posix
     def test_discovery_order_is_fixed(self, tmp_path: Path) -> None:
         """Discovery proceeds in fixed order: hint→registry→conda→path→managed."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1197,6 +1206,7 @@ class TestResolverSourceOrder:
 class TestResolverExistingRaisesError:
     """environment_source='existing' raises OrganelleDependencyError on failure."""
 
+    @pytest.mark.requires_posix
     def test_existing_raises_when_nothing_found(self, tmp_path: Path) -> None:
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -1221,6 +1231,7 @@ class TestResolverExistingRaisesError:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_auto_falls_back_to_managed_plan(self, tmp_path: Path) -> None:
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -1251,6 +1262,7 @@ class TestResolverExistingRaisesError:
 class TestResolverTrustVerification:
     """Verification of symlink containment, permissions, and hash checks."""
 
+    @pytest.mark.requires_symlink
     def test_symlink_escape_detected(self, tmp_path: Path) -> None:
         """Symlinks pointing outside prefix are rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1316,6 +1328,7 @@ class TestResolverTrustVerification:
         assert result is not None
         assert result.reason_code == "unsafe_permissions"
 
+    @pytest.mark.requires_posix
     def test_hash_mismatch_detected(self, tmp_path: Path) -> None:
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -1352,6 +1365,7 @@ class TestResolverTrustVerification:
         assert isinstance(result, ProviderRejection)
         assert result.reason_code == "hash_mismatch"
 
+    @pytest.mark.requires_posix
     def test_trusted_hash_not_required(self, tmp_path: Path) -> None:
         """When no trusted_sha256, verification succeeds with probe."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1394,6 +1408,7 @@ class TestResolverTrustVerification:
 class TestResolverSandboxProbe:
     """Sandbox probe constraints: timeout, bounded output, controlled env, no network."""
 
+    @pytest.mark.requires_posix
     def test_probe_uses_fixed_argv(self, tmp_path: Path) -> None:
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -1438,6 +1453,7 @@ class TestResolverSandboxProbe:
         assert len(probe_calls) == 1
         assert probe_calls[0][1] == ("--version",)
 
+    @pytest.mark.requires_posix
     def test_probe_timeout_handled(self, tmp_path: Path) -> None:
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -1479,6 +1495,7 @@ class TestResolverSandboxProbe:
         assert isinstance(result, ProviderRejection)
         assert result.reason_code == "probe_failed"
 
+    @pytest.mark.requires_posix
     def test_discovery_zero_subprocess(self, tmp_path: Path) -> None:
         """Discovery phase makes zero subprocess calls."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1506,6 +1523,7 @@ class TestResolverSandboxProbe:
         )
         assert result.managed_plan is not None
 
+    @pytest.mark.requires_posix
     def test_never_writes_trust_record(self, tmp_path: Path) -> None:
         """Resolver never writes any files — it's read-only."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1536,6 +1554,7 @@ class TestResolverSandboxProbe:
 class TestResolverInvalidContinuation:
     """Invalid candidates produce rejections and resolution continues."""
 
+    @pytest.mark.requires_posix
     def test_rejection_does_not_stop_discovery(self, tmp_path: Path) -> None:
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -1645,6 +1664,7 @@ class TestRequiredProfilesTypeAnnotation:
 class TestResolvedVersionFiltering:
     """Only candidates whose probed version matches resolved_version are accepted."""
 
+    @pytest.mark.requires_posix
     def test_version_mismatch_candidate_is_skipped(self, tmp_path: Path) -> None:
         """A candidate with version 1.0.0 must be skipped when resolved_version is 2.0.0."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1710,6 +1730,7 @@ class TestResolvedVersionFiltering:
         assert result.selected_provider is not None
         assert result.selected_provider.components[0].version == "2.0.0"
 
+    @pytest.mark.requires_posix
     def test_backend_id_mismatch_in_resolved_version_is_error(self, tmp_path: Path) -> None:
         """resolved_version.backend_id must match capability_contract.backend_id."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1735,6 +1756,7 @@ class TestResolvedVersionFiltering:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_unparseable_version_from_probe_is_rejected(self, tmp_path: Path) -> None:
         """Probe returning unparseable output must cause rejection, not fallback."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1786,6 +1808,7 @@ class TestResolvedVersionFiltering:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_version_matches_is_strict_no_substring_fallback(self, tmp_path: Path) -> None:
         """Version matching must not fall back to substring/string comparison."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -1999,6 +2022,7 @@ class TestProviderDigestNullEncoding:
 class TestRegistryNotPath:
     """Registry source must return explicit registered paths, not PATH search results."""
 
+    @pytest.mark.requires_posix
     def test_registry_does_not_call_find_in_path(self, tmp_path: Path) -> None:
         """When registry returns None/empty, resolver must not call _find_in_path."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2082,6 +2106,7 @@ class TestActiveCondaOnlyPrefix:
             # Currently it scans home dirs, so this may find envs
             # This is the RED test - it will FAIL at HEAD if home has conda dirs
 
+    @pytest.mark.requires_posix
     def test_active_conda_uses_injected_find_conda(self, tmp_path: Path) -> None:
         """Resolver uses injected _find_conda, not default scanning."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2122,6 +2147,7 @@ class TestActiveCondaOnlyPrefix:
 class TestLexicographicTieBreak:
     """Within a source, candidates must be sorted by canonical path lexicographically."""
 
+    @pytest.mark.requires_posix
     def test_lexicographic_not_length_sort(self, tmp_path: Path) -> None:
         """Two prefixes of equal length must be sorted lexicographically, not by
         filesystem iteration order or path length."""
@@ -2193,6 +2219,7 @@ class TestLexicographicTieBreak:
         # This test will FAIL at HEAD if the length sort gives unpredictable results
         # or picks b/env when a/env should come first lexicographically
 
+    @pytest.mark.requires_posix
     def test_equal_length_paths_lexicographic(self, tmp_path: Path) -> None:
         """Same-length paths: 'aa' comes before 'bb' lexicographically."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2372,6 +2399,7 @@ class TestAmbiguousSafeNamesRejection:
 class TestExpectedSha256Enforcement:
     """EnvironmentHint.expected_sha256 must be checked during verification."""
 
+    @pytest.mark.requires_posix
     def test_expected_sha256_mismatch_causes_rejection(self, tmp_path: Path) -> None:
         """When hint has expected_sha256 that doesn't match, candidate is rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2419,6 +2447,7 @@ class TestExpectedSha256Enforcement:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_expected_sha256_match_passes(self, tmp_path: Path) -> None:
         """When hint has correct expected_sha256, verification succeeds."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2477,6 +2506,7 @@ class TestProbeFailureAlwaysRejected:
     """Probe failure (non-zero exit, timeout, empty output) must ALWAYS reject,
     even when trusted_sha256 is present."""
 
+    @pytest.mark.requires_posix
     def test_probe_failure_rejected_despite_trusted_hash(self, tmp_path: Path) -> None:
         """When probe fails, candidate is rejected regardless of trusted_sha256."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2531,6 +2561,7 @@ class TestProbeFailureAlwaysRejected:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_probe_timeout_rejected_despite_trusted_hash(self, tmp_path: Path) -> None:
         """When probe times out, candidate is rejected regardless of trusted_sha256."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2583,6 +2614,7 @@ class TestProbeFailureAlwaysRejected:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_probe_empty_output_rejected_despite_trusted_hash(self, tmp_path: Path) -> None:
         """When probe returns empty version, candidate is rejected regardless of trust."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2721,6 +2753,7 @@ class TestProbeSandboxRequiredForUnknown:
     """Unknown executables (without trusted_sha256 match) must use ProbeSandbox,
     not plain subprocess."""
 
+    @pytest.mark.requires_posix
     def test_unknown_candidate_without_sandbox_rejected(self, tmp_path: Path) -> None:
         """When no ProbeSandbox injected and candidate has no trusted_sha256,
         probing must be rejected with 0 subprocess."""
@@ -2762,6 +2795,7 @@ class TestProbeSandboxRequiredForUnknown:
         assert isinstance(result, ProviderRejection)
         assert result.reason_code == "sandbox_required"
 
+    @pytest.mark.requires_posix
     def test_trusted_candidate_without_sandbox_accepted(self, tmp_path: Path) -> None:
         """Candidates matched by trusted_sha256 use trusted runner, not sandbox."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2801,6 +2835,7 @@ class TestProbeSandboxRequiredForUnknown:
         )
         assert isinstance(result, ResolvedProvider)
 
+    @pytest.mark.requires_posix
     def test_unknown_candidate_with_sandbox_accepted(self, tmp_path: Path) -> None:
         """Unknown candidates with proper sandbox injected are accepted."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2850,6 +2885,7 @@ class TestProbeSandboxRequiredForUnknown:
         assert isinstance(result, ResolvedProvider)
         assert result.components[0].version == "1.0.0"
 
+    @pytest.mark.requires_posix
     def test_sandbox_without_capabilities_rejected(self, tmp_path: Path) -> None:
         """Sandbox without read_only=True or network_disabled=True is rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2905,6 +2941,7 @@ class TestProbeSandboxRequiredForUnknown:
 class TestTrustedRunnerBoundedOutput:
     """Trusted runner must use injected bounded read, not capture_output + slice."""
 
+    @pytest.mark.requires_posix
     def test_trusted_runner_uses_injected_bounded_read(self, tmp_path: Path) -> None:
         """When _trusted_runner is injected, it must be used for trusted items."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -2957,6 +2994,7 @@ class TestTrustedRunnerBoundedOutput:
         assert runner_calls[0]["executable"] == exe
         assert runner_calls[0]["argv"] == ("--version",)
 
+    @pytest.mark.requires_posix
     def test_default_trusted_runner_has_fixed_argv_no_shell(self, tmp_path: Path) -> None:
         """Default trusted runner must use shell=False and fixed argv."""
         from organelleverse.assembly.environment_resolver import (
@@ -3176,6 +3214,7 @@ class TestResourceDirectoryHash:
             "directory hash must differ from file hash"
         )
 
+    @pytest.mark.requires_symlink
     def test_directory_hash_rejects_symlink_escape(self, tmp_path: Path) -> None:
         """Directory hashing must reject symlinks that escape the directory."""
         from organelleverse.assembly.environment_resolver import (
@@ -3283,6 +3322,7 @@ class TestHostProviderIsExecutable:
         # Missing host_provider → entire prefix rejected
         assert result == {}
 
+    @pytest.mark.requires_posix
     def test_host_provider_requires_xok(self, tmp_path: Path) -> None:
         """host_provider without X_OK must not be found."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3349,6 +3389,7 @@ class TestHostProviderIsExecutable:
 class TestVersionCheckPrimaryOnly:
     """Only the primary backend item's version matters vs resolved_version."""
 
+    @pytest.mark.requires_posix
     def test_secondary_item_version_not_compared_to_resolved(self, tmp_path: Path) -> None:
         """A secondary item with a different version must not cause rejection."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3420,6 +3461,7 @@ class TestVersionCheckPrimaryOnly:
 class TestPrimaryBackendRequiresVersionArgv:
     """The primary backend executable item must declare version_argv."""
 
+    @pytest.mark.requires_posix
     def test_resolve_rejects_missing_version_argv_on_primary(self, tmp_path: Path) -> None:
         """Primary backend item without version_argv must be rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3480,6 +3522,7 @@ class TestTrustChecksBeforeExpectedHash:
     BEFORE computing an expected_sha256 hash check — for security, we must
     never hash a file we haven't verified ownership/permissions of."""
 
+    @pytest.mark.requires_posix
     def test_trust_checked_before_hash_for_prefix_hint(self, tmp_path: Path) -> None:
         """With a prefix hint containing expected_sha256, trust must be verified first."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3529,6 +3572,7 @@ class TestTrustChecksBeforeExpectedHash:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_trust_checked_before_hash_for_executable_hint(self, tmp_path: Path) -> None:
         """With executable hint and expected_sha256, trust verified before hash."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3652,6 +3696,7 @@ class TestRecursiveTrustVerification:
     """Resource directories must be recursively verified for unsafe permissions
     and escaped symlinks."""
 
+    @pytest.mark.requires_symlink
     def test_resource_dir_with_escaped_symlink_rejected(self, tmp_path: Path) -> None:
         """A resource directory containing an escaped symlink is rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3712,6 +3757,7 @@ class TestRecursiveTrustVerification:
         assert result is not None
         assert result.reason_code == "unsafe_permissions"
 
+    @pytest.mark.requires_posix
     def test_resource_dir_owner_mismatch_rejected(self, tmp_path: Path) -> None:
         """A resource directory with files owned by a different uid is rejected
         (when that uid is not root)."""
@@ -3758,6 +3804,7 @@ class TestRegistryComponentVerification:
     """Registry-resolved candidates must verify registered hashes against
     actual file contents for every component."""
 
+    @pytest.mark.requires_posix
     def test_registry_candidate_with_wrong_hash_rejected(self, tmp_path: Path) -> None:
         """Registry candidate whose component hash differs from registered is rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3822,6 +3869,7 @@ class TestRegistryComponentVerification:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_registry_missing_component_rejected(self, tmp_path: Path) -> None:
         """Registry entry with a component path that doesn't exist is rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -3886,6 +3934,7 @@ class TestContractDigestActualComponents:
     """The capability_contract_digest stored in ResolvedProvider must reflect
     the actual resolved components, not just the declared capability items."""
 
+    @pytest.mark.requires_posix
     def test_contract_digest_differs_with_different_sha256_same_item(self, tmp_path: Path) -> None:
         """Two providers with same capability items but different file contents
         must produce different capability_contract_digest values."""
@@ -4020,6 +4069,7 @@ class TestStrictPmatSemver:
 class TestBoundedRunnerOverflow:
     """The trusted runner must not buffer unlimited output before slicing."""
 
+    @pytest.mark.requires_posix
     def test_unlimited_child_output_is_bounded(self, tmp_path: Path) -> None:
         """A child that emits far more than max_output must be bounded,
         returning 'output limit exceeded', not OOM or a truncated slice
@@ -4228,6 +4278,7 @@ class TestAncestorTrustChain:
 class TestRegistryExactMatch:
     """Registry must verify the complete expected role/kind set exactly."""
 
+    @pytest.mark.requires_posix
     def test_registry_extra_component_rejected(self, tmp_path: Path) -> None:
         """Registry declaring an extra component not in effective_items is rejected."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -4298,6 +4349,7 @@ class TestRegistryExactMatch:
                 effective_parameters={},
             )
 
+    @pytest.mark.requires_posix
     def test_registry_missing_component_rejected(self, tmp_path: Path) -> None:
         """Registry missing an effective item causes rejection."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -4373,6 +4425,7 @@ class TestRegistryExactMatch:
 class TestPmatVersionParsing:
     """PMAT version output must be correctly extracted as canonical semver."""
 
+    @pytest.mark.requires_posix
     def test_pmat_v215_resolves_correctly(self, tmp_path: Path) -> None:
         """PMAT v2.1.5 with output 'PMAT v2.1.5' must extract 2.1.5."""
         from organelleverse.assembly.environment_resolver import EnvironmentResolver
@@ -4460,6 +4513,7 @@ class TestTwoSafeNameBinaries:
         # Two distinct canonical paths → ambiguous → rejected
         assert result is None
 
+    @pytest.mark.requires_symlink
     def test_two_safe_names_same_canonical_accepted(self, tmp_path: Path) -> None:
         """Two safe_names that resolve to the same file (via symlink)
         must be accepted (single canonical path after dedup)."""
@@ -4505,6 +4559,7 @@ def test_two_distinct_resource_safe_names_are_rejected(tmp_path: Path) -> None:
     assert resolved is None
 
 
+@pytest.mark.requires_posix
 def test_secondary_version_output_is_canonicalized_for_own_specifier(
     tmp_path: Path,
 ) -> None:
@@ -4559,6 +4614,7 @@ def test_secondary_version_output_is_canonicalized_for_own_specifier(
     assert versions == {"pmat": "2.1.5", "blastn": "2.16.0"}
 
 
+@pytest.mark.requires_posix
 def test_pmat_v1_probe_is_rejected_even_when_requested_version_is_v1(
     tmp_path: Path,
 ) -> None:
@@ -4658,6 +4714,7 @@ def test_registry_components_require_path_hash_and_resolved_path_match(
     )
 
 
+@pytest.mark.requires_posix
 def test_registry_accepts_hash_bound_source_build_executable_path(tmp_path: Path) -> None:
     from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -4697,6 +4754,7 @@ def test_registry_accepts_hash_bound_source_build_executable_path(tmp_path: Path
     assert candidates == [(prefix, {"pmat": executable.resolve()})]
 
 
+@pytest.mark.requires_posix
 def test_registry_reuses_hash_bound_component_version_without_reprobing(tmp_path: Path) -> None:
     from organelleverse.assembly.environment_resolver import EnvironmentResolver
 
@@ -4816,6 +4874,7 @@ def _hash_file_impl(path: Path) -> str:
 
 
 @pytest.mark.parametrize("patched", [False, True])
+@pytest.mark.requires_posix
 def test_registered_pmat_is_reprobed_for_required_orientation_patch(
     tmp_path: Path, patched: bool
 ) -> None:

@@ -40,6 +40,7 @@ class Carrier:
         return (("novoplasty", "4.3.5", "test"),)
 
 
+@pytest.mark.requires_posix
 def test_declared_nonzero_version_banner_and_provider_role(tmp_path):
     manager = EnvironmentManager(
         cache_root=tmp_path / "cache", tool_root=tmp_path / "tools", carrier=Carrier()

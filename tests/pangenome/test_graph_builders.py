@@ -382,6 +382,7 @@ def test_pggb_zero_final_gfa_fails_closed(tmp_path: Path, monkeypatch: pytest.Mo
     assert result.errors[0].details["search_root"].endswith("pggb")
 
 
+@pytest.mark.requires_posix
 def test_pggb_nonzero_exit_preserves_bounded_stdout_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

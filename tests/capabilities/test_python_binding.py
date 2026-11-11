@@ -580,6 +580,7 @@ def test_path_codec_rejects_a_missing_file_before_invoking_the_scientific_functi
     assert calls == []
 
 
+@pytest.mark.requires_posix
 def test_path_codec_rejects_an_unreadable_file_before_invoking_the_scientific_function(
     tmp_path: Path,
 ) -> None:
@@ -2081,6 +2082,7 @@ def test_directory_output_rejects_an_empty_destination(tmp_path: Path) -> None:
     assert calls == []
 
 
+@pytest.mark.requires_symlink
 def test_directory_output_rejects_a_symlink_component_in_the_tail(tmp_path: Path) -> None:
     real = tmp_path / "real"
     real.mkdir()
@@ -2103,6 +2105,7 @@ def test_directory_output_rejects_a_symlink_component_in_the_tail(tmp_path: Path
     assert calls == []
 
 
+@pytest.mark.requires_symlink
 def test_directory_output_rejects_an_existing_destination_that_is_not_a_real_directory(
     tmp_path: Path,
 ) -> None:

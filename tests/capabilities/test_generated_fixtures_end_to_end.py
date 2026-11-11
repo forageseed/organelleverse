@@ -333,6 +333,7 @@ def _on_disk_fixture_keys() -> set[tuple[str, str]]:
     return keys
 
 
+@pytest.mark.requires_mappy
 def test_every_committed_fixture_bearing_bundle_verifies_to_a_real_passing_verdict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

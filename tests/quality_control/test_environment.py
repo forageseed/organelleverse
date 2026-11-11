@@ -54,6 +54,7 @@ def test_unknown_mapper_profile_fails_closed(technology: str, quality_state: str
     assert captured.value.code == "qc.unsupported_technology"
 
 
+@pytest.mark.requires_posix
 def test_installed_environment_records_exact_component_identity(tmp_path: Path) -> None:
     minimap2 = _fake_tool(tmp_path / "minimap2", "2.30-r1287")
     samtools = _fake_tool(tmp_path / "samtools", "samtools 1.20")
@@ -69,6 +70,7 @@ def test_installed_environment_records_exact_component_identity(tmp_path: Path) 
     assert environment.environment_id.startswith("qc-environment:sha256:")
 
 
+@pytest.mark.requires_posix
 def test_installed_environment_precedes_managed_fallback(tmp_path: Path) -> None:
     minimap2 = _fake_tool(tmp_path / "minimap2", "2.30-r1287")
     samtools = _fake_tool(tmp_path / "samtools", "samtools 1.20")

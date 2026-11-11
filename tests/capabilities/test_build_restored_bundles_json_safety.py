@@ -189,6 +189,7 @@ def test_bare_bindable_str_and_none_are_unaffected() -> None:
         assert generator._looks_json_safe(_annotation_expr(source)) is True
 
 
+@pytest.mark.requires_mappy
 def test_no_domains_generated_or_skipped_sets_change(tmp_path: Path) -> None:
     """The cheapest real proof that fixing the recognizer is safe: regenerate every domain.
 

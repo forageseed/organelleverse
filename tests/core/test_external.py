@@ -163,6 +163,7 @@ def test_failure_message_without_stderr() -> None:
     assert failure_message("tool", None, None) == "tool failed"
 
 
+@pytest.mark.requires_posix
 def test_failure_details_accepts_bytes_and_paths() -> None:
     from pathlib import Path
 

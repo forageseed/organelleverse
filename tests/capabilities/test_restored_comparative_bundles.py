@@ -127,6 +127,7 @@ def test_the_two_bindable_capabilities_are_discovered_from_the_real_core_channel
         assert excluded_id not in discovered_ids
 
 
+@pytest.mark.requires_mappy
 def test_the_generator_produces_exactly_these_ids_and_skips_the_rest(tmp_path: Path) -> None:
     generator = _load_generator()
     isolated_output_root = tmp_path / "capabilities"
@@ -177,6 +178,7 @@ def test_the_generator_produces_exactly_these_ids_and_skips_the_rest(tmp_path: P
     assert fixture_cases_by_id == fixture_expected
 
 
+@pytest.mark.requires_mappy
 def test_every_generated_bundle_reaches_admitted_through_the_real_pipeline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -221,6 +223,7 @@ def test_a_capability_the_generator_refused_to_produce_is_simply_absent(
         )
 
 
+@pytest.mark.requires_mappy
 def test_normalize_gene_names_and_normalize_genes_resolve_and_invoke_real_json_lists(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -241,6 +244,7 @@ def test_normalize_gene_names_and_normalize_genes_resolve_and_invoke_real_json_l
     assert "NAD1" in genes_result.metrics["gene_name_map"]
 
 
+@pytest.mark.requires_mappy
 def test_compute_genome_identity_resolves_and_invokes_on_real_fasta_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
