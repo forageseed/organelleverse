@@ -204,6 +204,10 @@ def _edited_rows(path, entries):
     return mapped, edited
 
 
+def _optional_path(value: str | Path | None) -> Path | None:
+    return None if value is None else Path(value)
+
+
 @validated_public('phenotype.assess_cms_annotation')
 def assess_cms_annotation(
     annotation_result: OrganelleResult,
@@ -273,9 +277,11 @@ def assess_cms_annotation(
             entries.append((name, record, feature, protein))
     if not entries:
         raise _invalid("Annotation contains no non-pseudo CDS proteins")
+    # The agent binding hands paths over as strings; the candidate assessment
+    # takes Path objects.
     params = dict(
-        conserved_proteins_fasta=conserved_proteins_fasta,
-        cms_proteins_fasta=cms_proteins_fasta,
+        conserved_proteins_fasta=Path(conserved_proteins_fasta),
+        cms_proteins_fasta=_optional_path(cms_proteins_fasta),
         min_identity=min_identity,
         min_homolog_coverage=min_homolog_coverage,
         min_alignment_aa=min_alignment_aa,
@@ -294,8 +300,8 @@ def assess_cms_annotation(
         )
         result = assess_cms_candidates(
             query,
-            expression_tsv=expression_tsv,
-            topology_predictions=topology_predictions,
+            expression_tsv=_optional_path(expression_tsv),
+            topology_predictions=_optional_path(topology_predictions),
             **params,
         )
         changed = [

@@ -69,7 +69,9 @@ def test_the_default_source_is_ncbi_and_existing_behavior_is_unchanged(tmp_path:
 def test_an_unknown_source_is_rejected() -> None:
     with pytest.raises(Exception) as raised:  # OrganelleParameterError
         fetch_nuclear_genome(taxon="Malus domestica", dest="unused", source="bogus")  # type: ignore[arg-type]
-    assert getattr(raised.value, "code", None) == "input.unknown_source"
+    assert getattr(raised.value, "code", None) == "parameter.invalid_operation_parameters"
+    rejected = {error["loc"][0] for error in raised.value.details["validation_errors"]}
+    assert rejected == {"source"}
 
 
 def test_a_direct_source_call_annotates_ncbi_only_params_as_not_applying(tmp_path: Path) -> None:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -48,6 +49,10 @@ def _module_installed(name: str):
     return lambda: importlib.util.find_spec(name) is not None
 
 
+def _mafft_cli_installed() -> bool:
+    return shutil.which("mafft") is not None
+
+
 # Marker name -> (check that the precondition holds, reason shown when it does not).
 # A marked test is skipped instead of failing when its host cannot meet the
 # precondition; on a host that can, it runs unchanged.
@@ -62,6 +67,11 @@ _HOST_PRECONDITIONS = {
     ),
     "requires_mappy": (_module_installed("mappy"), "mappy is not installed"),
     "requires_edlib": (_module_installed("edlib"), "edlib is not installed"),
+    "requires_allel": (
+        _module_installed("allel"),
+        "scikit-allel is not installed; the committed fixtures record it as the backend",
+    ),
+    "requires_mafft": (_mafft_cli_installed, "the MAFFT CLI is not installed"),
 }
 
 

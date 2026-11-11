@@ -77,11 +77,12 @@ def test_fetch_specs_are_retryable_on_transient_network_failure(
     assert spec.retry.retryable_error_codes
 
 
-def test_refseq_snapshot_is_deterministic_because_the_release_is_pinned() -> None:
-    assert REFSEQ_SNAPSHOT_SPEC.deterministic is True
-    assert inspect.signature(op_refseq_snapshot).parameters["release"].default is (
-        inspect.Parameter.empty
-    )
+def test_refseq_snapshot_is_not_deterministic_because_the_default_release_is_live() -> None:
+    """Leaving the release out resolves the current RefSeq release, which moves."""
+    assert inspect.signature(op_refseq_snapshot).parameters["release"].default is None
+    assert REFSEQ_SNAPSHOT_SPEC.deterministic is False
+    assert REFSEQ_SNAPSHOT_SPEC.idempotent is False
+    assert "current release" in REFSEQ_SNAPSHOT_SPEC.deterministic_reason
 
 
 def test_entrez_query_is_not_deterministic_because_the_database_is_live() -> None:
@@ -96,9 +97,9 @@ def test_genome_size_candidates_is_not_deterministic_because_assemblies_land() -
 
 
 def test_the_two_channels_are_separate_operations() -> None:
-    """Different determinism => different operation. Merging them forces a lie."""
+    """A release snapshot and a live query stay two operations with two callables."""
     assert REFSEQ_SNAPSHOT_SPEC.operation_id != ENTREZ_QUERY_SPEC.operation_id
-    assert REFSEQ_SNAPSHOT_SPEC.deterministic != ENTREZ_QUERY_SPEC.deterministic
+    assert REFSEQ_SNAPSHOT_SPEC.callable_locator != ENTREZ_QUERY_SPEC.callable_locator
 
 
 # ─────────────────────────────────────────────────────────────

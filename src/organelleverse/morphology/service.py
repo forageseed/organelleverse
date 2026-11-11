@@ -39,8 +39,11 @@ def segment(
     is_3d_stack: bool = False,
     micro_sam_model_type: str = DEFAULT_EM_ORGANELLE_MODEL,
 ) -> OrganelleResult:
-    """Segment microscopy images and measure their masks in a managed run.
+    """Segment microscopy with a pinned offline model or an injected executor;
+    measure calibrated masks. Cellpose/micro-SAM instance IDs have no semantic
+    organelle classes.
 
+    Segmentation and measurement happen in one managed run.
     model_id selects a pinned built-in profile from ``morphology.list_models()``.
     model_dir is an offline weight bundle (or ORGANELLEVERSE_MODEL_DIR). This
     path executes the native model when executor is omitted; it never downloads

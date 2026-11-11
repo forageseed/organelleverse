@@ -80,11 +80,16 @@ def _env_bin_dirs() -> list[Path]:
         if not root:
             continue
         envs = Path(root) / "envs"
-        if envs.is_dir():
+        try:
+            if not envs.is_dir():
+                continue
             preferred = envs / "ov-mrbayes" / "bin"
             if preferred.is_dir():
                 dirs.append(preferred)
             dirs.extend(p / "bin" for p in sorted(envs.iterdir()) if (p / "bin").is_dir())
+        except OSError:
+            # An unreadable root is skipped; the other roots still count.
+            continue
     try:
         from ..assembly.install import _list_conda_envs
 

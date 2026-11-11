@@ -12,7 +12,7 @@ from organelleverse.capabilities.verification import (
     verify_capability,
 )
 from organelleverse.core.artifacts import ArtifactRef
-from organelleverse.core.errors import OrganelleInputError
+from organelleverse.core.errors import OrganelleInputError, OrganelleParameterError
 from organelleverse.core.result import ErrorDetail, OrganelleResult
 from organelleverse.operations.adapters.json import invoke_json
 from organelleverse.operations.registry import OperationRegistry
@@ -91,8 +91,10 @@ def test_interval_and_node_selection_keep_whole_nodes(source):
     assert load_gfa(graph.uri).paths == {}
     with pytest.raises(OrganelleInputError, match="together"):
         extract_subgraph(source, interval_path="a#1#1")
-    with pytest.raises(OrganelleInputError, match="integers"):
+    with pytest.raises(OrganelleParameterError) as not_an_integer:
         extract_subgraph(source, interval_path="a#1#1", interval_start=True, interval_end=2)
+    (error,) = not_an_integer.value.details["validation_errors"]
+    assert error["loc"][0] == "interval_start"
 
 
 def test_failed_unknown_scope_changed_inputs_are_rejected(source):

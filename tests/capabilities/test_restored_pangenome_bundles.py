@@ -207,6 +207,7 @@ def test_build_graph_contract_is_sequence_core_and_declares_real_side_effects(
         "n_haplotypes",
         "segment_length",
         "identity",
+        "sparse_mapping",
         "recommendation",
         "auto_adopt_recommendation",
         "reference_index",

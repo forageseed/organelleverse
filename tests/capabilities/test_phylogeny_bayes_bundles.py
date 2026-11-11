@@ -136,6 +136,7 @@ def test_tool_bundles_plan_without_creating_managed_runs(
     assert not (tmp_path / "cache" / "runs").exists()
 
 
+@pytest.mark.requires_mafft
 def test_supermatrix_bundle_reads_genbank_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

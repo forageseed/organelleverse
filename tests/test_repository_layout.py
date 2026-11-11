@@ -9,6 +9,7 @@ def test_only_repository_wide_tests_live_at_the_test_root() -> None:
     root_tests = {path.name for path in (PROJECT_ROOT / "tests").glob("test_*.py")}
 
     assert root_tests == {
+        "test_bundled_tools.py",
         "test_clean_install.py",
         "test_portability.py",
         "test_repository_layout.py",

@@ -51,10 +51,11 @@ _SIDE_EFFECTS = (SideEffect.NETWORK, SideEffect.WRITE_FILES)
 REFSEQ_SNAPSHOT_SPEC = OperationSpec(
     operation_id="fetch.refseq_snapshot",
     contract_version="1.0",
-    title="Fetch a pinned RefSeq organelle snapshot",
+    title="Fetch a RefSeq organelle release snapshot",
     description=(
-        "Downloads organelle records from a pinned RefSeq release number, "
-        "giving a reproducible accession set for the chosen organelle types."
+        "Downloads organelle records from NCBI's retained current RefSeq release and "
+        "records the resolved release number. A null release selects the current "
+        "release; an explicit release must match it."
     ),
     keywords=("fetch", "ncbi", "refseq"),
     execution_mode=ExecutionMode.DURABLE,
@@ -65,9 +66,13 @@ REFSEQ_SNAPSHOT_SPEC = OperationSpec(
     output_modalities=("organelle_records",),
     callable_locator="organelleverse.fetch._agent_ops:op_refseq_snapshot",
     side_effects=_SIDE_EFFECTS,
-    # Pinning RELEASE_NUMBER makes the accession set reproducible.
-    deterministic=True,
-    idempotent=True,
+    # Kept identical to the fetch-refseq-snapshot capability bundle.
+    deterministic=False,
+    deterministic_reason=(
+        "A null release resolves NCBI's live current release; the resolved release "
+        "number is recorded in the result manifest."
+    ),
+    idempotent=False,
     cacheable=False,
     retry=_RETRY,
     # No benchmark yet: no citation to make. Empty is honest.

@@ -31,6 +31,7 @@ def _parse_cli_json(captured: str) -> dict:
     return json.loads("\n".join(lines[start:]))
 
 
+@pytest.mark.requires_mappy
 def test_verify_all_admits_every_discovered_capability(
     _iso_home: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -66,6 +67,7 @@ def test_verify_all_admits_every_discovered_capability(
     assert len(records) == len(before.entries)
 
 
+@pytest.mark.requires_mappy
 def test_verify_all_grows_the_operation_registry(_iso_home: Path) -> None:
     # The in-process default registry is constructed at import time, before the
     # records exist, so growth is asserted in a fresh session (subprocess) —

@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from organelleverse._bio import read_fasta
 from organelleverse.core.artifacts import ArtifactRef
-from organelleverse.core.errors import OrganelleInputError
+from organelleverse.core.errors import OrganelleInputError, OrganelleParameterError
 from organelleverse.core.genome import OrganelleGenome, OrganelleMetadata
 from organelleverse.core.result import ErrorDetail, OrganelleResult
 from organelleverse.pangenome._contract import make_provenance
@@ -465,12 +465,12 @@ def test_managed_build_graph_rejects_unimplemented_backend_and_invalid_ranges(
     ]
     monkeypatch.setenv("ORGANELLEVERSE_CACHE_ROOT", str(tmp_path / "cache"))
 
-    with pytest.raises(OrganelleInputError) as unsupported:
+    with pytest.raises(OrganelleParameterError) as unsupported:
         service.build_graph(genomes, method="unknown")  # type: ignore[arg-type]
-    assert unsupported.value.code == "pangenome.unsupported_method"
-    # PanTools has been supported since 6fc9087e; the message names every
-    # managed backend instead of the old "path mapping not verified" note.
-    assert all(name in str(unsupported.value) for name in ("minigraph", "pggb", "pantools"))
+    (error,) = unsupported.value.details["validation_errors"]
+    assert error["loc"][0] == "method"
+    # The rejection names every managed backend.
+    assert all(name in error["message"] for name in ("minigraph", "pggb", "pantools"))
 
     invalid_calls = (
         {"threads": 0},

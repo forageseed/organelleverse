@@ -379,7 +379,9 @@ def test_direct_api_rejects_invalid_max_candidates_without_clamping(
             max_candidates=invalid,  # type: ignore[arg-type]
             transport=transport,
         )
-    assert raised.value.code == "parameter.invalid_max_candidates"
+    assert raised.value.code == "parameter.invalid_operation_parameters"
+    rejected = {error["loc"][0] for error in raised.value.details["validation_errors"]}
+    assert rejected == {"max_candidates"}
     assert transport.calls == []
 
 

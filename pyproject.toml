@@ -172,6 +172,8 @@ markers = [
     "requires_symlink: skipped when the account cannot create symbolic links",
     "requires_mappy: skipped when mappy is not installed (no Windows wheel is published)",
     "requires_edlib: skipped when edlib is not installed",
+    "requires_allel: skipped when scikit-allel is not installed (committed fixtures record it as the backend)",
+    "requires_mafft: skipped when the MAFFT CLI is not installed",
     "integration: non-skippable local real-tool integration gates",
     "release_annotation: non-skippable real-tool annotation release gate",
     "release_assembly_oatk: non-skippable real-tool Oatk assembly release gate",

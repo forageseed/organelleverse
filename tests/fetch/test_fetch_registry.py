@@ -88,7 +88,8 @@ def test_the_accession_list_schema_names_its_required_parameters(
     registry: OperationRegistry,
 ) -> None:
     schema = registry.parameter_schema("fetch.accession_list")
-    assert set(schema["required"]) == {"organelle", "dest", "accessions"}
+    assert set(schema["required"]) == {"dest", "accessions"}
+    assert schema["properties"]["organelle"]["default"] == "plastid"
     assert "genbank_metadata" in schema["properties"]  # optional, has a default
 
 

@@ -790,7 +790,12 @@ def test_routing_does_not_probe_software_or_environments_under_release_filtering
     assert "assembly.install" not in source
 
 
-def test_prepare_routing_context_carries_taxon_group_and_evidence(tmp_path: Path) -> None:
+def test_prepare_routing_context_carries_taxon_group_and_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Coverage routing between PMAT and Oatk only applies when ovasm is not the
+    # automatic plant assembler.
+    monkeypatch.setenv(routing_module.AUTO_ASSEMBLER_ENV, "legacy")
     request = _hifi_request(tmp_path, genome_size=1_000)
     context = prepare_routing_context(request)
     assert context.profile == AssemblyProfile.PACBIO_HIFI
@@ -804,8 +809,11 @@ def test_prepare_routing_context_carries_taxon_group_and_evidence(tmp_path: Path
 
 
 def test_prepare_routing_context_default_request_requires_genome_size(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Coverage routing between PMAT and Oatk only applies when ovasm is not the
+    # automatic plant assembler.
+    monkeypatch.setenv(routing_module.AUTO_ASSEMBLER_ENV, "legacy")
     request = _hifi_request(tmp_path, genome_size=None)
     with pytest.raises(OrganelleNeedsInput) as raised:
         prepare_routing_context(request)

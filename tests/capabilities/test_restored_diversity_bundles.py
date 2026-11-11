@@ -113,6 +113,7 @@ def test_the_four_bindable_capabilities_are_discovered_from_the_real_core_channe
         assert excluded_id not in discovered_ids
 
 
+@pytest.mark.requires_allel
 def test_the_generator_produces_exactly_these_ids_and_skips_the_writers(tmp_path: Path) -> None:
     generator = _load_generator()
     isolated_output_root = tmp_path / "capabilities"

@@ -160,8 +160,11 @@ def test_real_fastp_json_and_output(reads, paired):
 
 
 def test_fastp_fractional_threshold_fails_at_boundary(reads):
-    with pytest.raises(OrganelleParameterError, match="integer"):
+    with pytest.raises(OrganelleParameterError) as raised:
         qc.filter_short_reads(reads, min_mean_quality=20.5)
+    (error,) = raised.value.details["validation_errors"]
+    assert error["loc"][0] == "min_mean_quality"
+    assert "integer" in error["message"]
 
 
 def test_missing_fastp_report_fails_clearly(reads, monkeypatch):

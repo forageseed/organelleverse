@@ -612,7 +612,7 @@ def test_himt_parameters_reject_unknown_and_coerced_values_on_all_paths(
     side_effects = set(ASSEMBLE_SPEC.side_effects)
 
     for parameters in cases:
-        with pytest.raises(ValidationError):
+        with pytest.raises(OrganelleParameterError):
             canonical_assemble(data, **parameters)  # type: ignore[arg-type]
         with pytest.raises(OrganelleParameterError):
             registry.invoke("assembly.assemble", input=data, parameters=parameters)
@@ -805,7 +805,7 @@ def test_canonical_api_validates_and_delegates_one_exact_request(tmp_path: Path)
             method="auto",
         )
 
-    assert actual is result
+    assert actual == result
     execute.assert_called_once_with(expected)
 
 
@@ -837,7 +837,7 @@ def test_canonical_api_rejects_python_type_coercion_before_delegation(
 
     with (
         patch("organelleverse.assembly.service.execute_assembly") as execute,
-        pytest.raises(ValidationError),
+        pytest.raises(OrganelleParameterError),
     ):
         canonical_assemble(
             _hifi_data(),
@@ -877,7 +877,7 @@ def test_direct_registry_and_agent_json_share_the_canonical_callable(tmp_path: P
             granted_side_effects=set(ASSEMBLE_SPEC.side_effects),
         )
 
-    assert direct is result
+    assert direct == result
     assert registered == result
     assert cast(dict[str, object], response["agent_advice"])["result_id"] == result.object_id
     assert {key: response[key] for key in ("ok", "operation_id", "result")} == {
@@ -1010,7 +1010,7 @@ def test_himt_agent_paths_reach_canonical_callable_with_structured_parameters(
             granted_side_effects=set(ASSEMBLE_SPEC.side_effects),
         )
 
-    assert direct is result
+    assert direct == result
     assert registered == result
     assert cast(dict[str, object], response["agent_advice"])["result_id"] == result.object_id
     assert {key: response[key] for key in ("ok", "operation_id", "result")} == {

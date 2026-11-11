@@ -723,15 +723,15 @@
     "callable_locator": "organelleverse.fetch._agent_ops:op_refseq_snapshot",
     "contract_version": "1.0",
     "dependencies": [],
-    "description": "Downloads organelle records from a pinned RefSeq release number, giving a reproducible accession set for the chosen organelle types.",
-    "deterministic": true,
-    "deterministic_reason": "",
+    "description": "Downloads organelle records from NCBI's retained current RefSeq release and records the resolved release number. A null release selects the current release; an explicit release must match it.",
+    "deterministic": false,
+    "deterministic_reason": "A null release resolves NCBI's live current release; the resolved release number is recorded in the result manifest.",
     "execution_mode": "durable",
     "fallback": {
       "allowed": false,
       "allowed_backends": []
     },
-    "idempotent": true,
+    "idempotent": false,
     "input_kind": "none",
     "input_modalities": [],
     "input_sequence": false,
@@ -763,7 +763,7 @@
       "write_files"
     ],
     "stage": "read",
-    "title": "Fetch a pinned RefSeq organelle snapshot"
+    "title": "Fetch a RefSeq organelle release snapshot"
   },
   "io.read_fasta_genome": {
     "binding": {
