@@ -50,6 +50,7 @@ from ..core.errors import OrganelleInputError
 
 __all__ = [
     "IMAGE_JOB_RUNNERS",
+    "list_image_models",
     "classical_instances",
     "fusion3_availability",
     "lab_mito_availability",
@@ -58,7 +59,24 @@ __all__ = [
     "run_image_morphology",
 ]
 
-ENGINES = ("classical", "micro_sam", "fusion3", "lab_mito", "sam3_boxes")
+ENGINES = ("classical", "micro_sam", "fusion3", "lab_mito", "ov_model", "sam3_boxes")
+
+
+def list_image_models() -> list[dict[str, Any]]:
+    """List OV image-job models and their constraints; availability is separate.
+
+    Native profiles use morphology.segment; the lab and fusion3 profiles use
+    the existing image-job engines and require their own installed deliveries.
+    """
+    from .models import list_models
+    rows = [{key: row[key] for key in ("id", "backend", "modality", "mask_kind", "runtime_version", "revision")}
+            | {"engine": "ov_model", "calibration_required": False, "organelle_required": False}
+            for row in list_models() if row["execution"] == "native"]
+    rows.extend([
+        {"id": "fusion3-v1", "backend": "fusion3", "engine": "fusion3", "modality": "Plant TEM; chloroplast or mitochondria; validated on OrgSegNet V6 scale only", "mask_kind": "instance", "runtime_version": "delivery", "revision": "v1", "calibration_required": False, "organelle_required": True},
+        {"id": "lab-mito-v1", "backend": "lab_mito", "engine": "lab_mito", "modality": "Lab alfalfa TEM mitochondria; requires calibration; whole-image precision not measured", "mask_kind": "instance", "runtime_version": "delivery", "revision": "lab-finetune-v1-s1234", "calibration_required": True, "organelle_required": False},
+    ])
+    return rows
 FUSION3_ORGANELLES = {"chloroplast": 1, "mitochondria": 2}
 #: Interpreters the delivery needs, relative to its project root.
 _FUSION3_PYTHON_REL = "data/orgsegnet/training-venv/bin/python"
@@ -673,6 +691,34 @@ def run_image_morphology(params: dict[str, Any], *, output_dir: Path, log: Calla
             width_px=tuple(params["width_px"]) if params.get("width_px") else None)
         boxes_detail["box_source"] = str(params.get("box_source") or "unspecified")[:300]
         engine_detail.update(boxes_detail)
+    elif engine == "ov_model":
+        from .service import segment
+        from .models import list_models
+        from ..core.frozen import thaw_json
+        import tifffile
+
+        model_id = str(params.get("model_id") or "")
+        profile = next((row for row in list_models() if row["id"] == model_id and row["execution"] == "native"), None)
+        if profile is None:
+            raise OrganelleInputError(code="image_job.model_unknown", message="Choose a supported native OV model",
+                                      details={"model_id": model_id})
+        log(f"OV model {model_id}")
+        segmented = segment(image_path, model_id=model_id, device=str(params.get("device") or "auto"),
+                            measure_objects=False)
+        if segmented.status != "ok" or not segmented.metrics.get("ran"):
+            raise OrganelleInputError(code="image_job.model_failed", message=segmented.summary_text,
+                                      details={"model_id": model_id, "errors": [e.model_dump(mode="json") for e in segmented.errors]})
+        masks = [a for a in segmented.artifacts if a.kind == "organelle_label_map"]
+        if len(masks) != 1:
+            raise OrganelleInputError(code="image_job.model_output_invalid", message="OV model did not produce one label map",
+                                      details={"model_id": model_id, "count": len(masks)})
+        labels = tifffile.imread(masks[0].uri)
+        if int(labels.max(initial=0)) > 65535:
+            raise OrganelleInputError(code="image_job.too_many_objects", message="The desktop mask format supports at most 65535 label IDs",
+                                      details={"max_label": int(labels.max())})
+        engine_detail.update(method="morphology.segment", model_id=model_id,
+                             model=thaw_json(segmented.metrics.get("model")), modality=profile["modality"],
+                             mask_kind=profile["mask_kind"])
     else:
         model_type = str(params.get("micro_sam_model_type") or "vit_l_lm")
         device = str(params.get("device") or "auto")
@@ -818,9 +864,20 @@ def run_image_engine_probe(params: dict[str, Any], *, output_dir: Path, log: Cal
         f"SAM 3 is not installed at {sam3['root']} (missing: {', '.join(sam3['missing'])})",
         "root": sam3["root"], "engine": "sam3_boxes",
     }
+    from .models import list_models, model_status
+    models = {}
+    for row in list_models():
+        if row["execution"] != "native":
+            continue
+        state = model_status(row["id"])
+        models[row["id"]] = {"available": state["weights_present"] and state["runtime_matches"],
+                             "weights_present": state["weights_present"],
+                             "runtime_matches": state["runtime_matches"],
+                             "runtime_version": state["runtime_version"],
+                             "missing_packages": state["missing_packages"]}
     report = {"schema": "organelleverse.image-engines.v1", "checked_at": datetime.now(UTC).isoformat(),
               "host": _host_facts() | {"packages": _package_versions(_PACKAGES + ("micro_sam", "torch"))},
-              "engines": engines}
+              "engines": engines, "models": models}
     path = output_dir / "engines.json"
     path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     ready = [name for name, info in engines.items() if info["available"]]

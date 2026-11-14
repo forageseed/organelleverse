@@ -12,6 +12,7 @@ from .verify import verify
 from .webapp import build_app, serve
 from .service import segment, train
 from .models import list_models, model_status, download_models, model_guide
+from .image_job import list_image_models
 
 read = make_reader("morphology", "image")
 
@@ -26,6 +27,7 @@ __all__ = [
     "overlay",
     "segment",
     "list_models",
+    "list_image_models",
     "model_status",
     "download_models",
     "model_guide",

@@ -38,6 +38,29 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def test_ov_model_job_uses_public_segmentation_and_measures_its_labels(tmp_path: Path, monkeypatch) -> None:
+    from types import SimpleNamespace
+    from organelleverse.core.frozen import freeze_json
+    from organelleverse.morphology import service
+    source = _write_tiff(tmp_path / "scene.tif", _scene())
+    labels = np.zeros((60, 80), dtype=np.uint16)
+    labels[10:20, 10:20] = 1
+    mask = _write_tiff(tmp_path / "model.tif", labels)
+    calls = []
+    def fake_segment(image, **kwargs):
+        calls.append((image, kwargs))
+        return SimpleNamespace(status="ok", metrics={"ran": True, "model": freeze_json({"id": "cpdino-vitb", "versions": {"runtime": "test"}})},
+                               artifacts=[SimpleNamespace(kind="organelle_label_map", uri=str(mask))], errors=())
+    monkeypatch.setattr(service, "segment", fake_segment)
+    out = tmp_path / "out"
+    run_image_morphology({"image": str(source), "engine": "ov_model", "model_id": "cpdino-vitb",
+                          "min_area": 10, "pixel_size_um": 0.5}, output_dir=out, log=lambda _: None)
+    assert calls == [(source, {"model_id": "cpdino-vitb", "device": "auto", "measure_objects": False})]
+    evidence = json.loads((out / "evidence.json").read_text())
+    assert evidence["engine"]["model_id"] == "cpdino-vitb"
+    assert json.loads((out / "objects.json").read_text())["objects"][0]["area_um2"] == 25.0
+
+
 def test_classical_instances_are_sequential_and_drop_small_objects() -> None:
     labels, threshold = classical_instances(_scene(), min_area=10)
     assert labels.dtype == np.uint16

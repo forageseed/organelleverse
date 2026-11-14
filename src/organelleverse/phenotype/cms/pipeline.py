@@ -7,8 +7,6 @@ This screen does not test chimerism or establish CMS causality.
 
 from __future__ import annotations
 
-from organelleverse._public_validation import validated_public
-
 import hashlib
 import json
 import os
@@ -16,6 +14,8 @@ from collections.abc import Mapping
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
+
+from organelleverse._public_validation import validated_public
 
 from ..._bio import read_fasta
 from ..._sequtil import reverse_complement
