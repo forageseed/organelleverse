@@ -398,27 +398,17 @@ class OvasmAdapter:
             )
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         fasta, graph = root / "molecules.fasta", root / "assembly.gfa"
-        if not summary["molecules"] or not fasta.is_file():
-            # A graph without a representative sequence is a real outcome, but the result
-            # contract needs a primary sequence. The graph, evidence and linearization
-            # report stay in the published run directory, where this message points.
+        if not graph.is_file() or (summary["molecules"] and not fasta.is_file()):
             raise _output_incomplete(
-                "ovasm built a graph but no representative sequence (see linearization.json: "
-                "unbridged anchors, unsolved components); the graph and evidence are kept "
-                "under backend/ovasm in the run directory",
-                k_tried=summary["k_tried"],
-                status=summary.get("status"),
-                reasons=summary.get("reasons"),
-                unitigs=summary["unitigs"],
-                unsolved_components=summary["unsolved_components"],
-                unbridged_anchors=summary["unbridged_anchors"],
+                "ovasm summary and output files disagree", output_root=str(root),
             )
         outputs = [
-            BackendOutput(
-                role="assembly_fasta", path=fasta, format="fasta", media_type="text/x-fasta"
-            ),
             BackendOutput(role="assembly_graph", path=graph, format="gfa", media_type="text/plain"),
         ]
+        if summary["molecules"]:
+            outputs.insert(0, BackendOutput(
+                role="assembly_fasta", path=fasta, format="fasta", media_type="text/x-fasta"
+            ))
         for report_role, (name, file_format, media_type) in _REPORTS.items():
             path = root / name
             if path.is_file():
@@ -431,7 +421,7 @@ class OvasmAdapter:
                 raise _output_incomplete(f"the ovasm pipeline wrote no {name}", missing=name)
         return RawAssemblyOutputs(
             outputs=tuple(outputs),
-            primary_sequence_role="assembly_fasta",
+            primary_sequence_role="assembly_fasta" if summary["molecules"] else None,
             primary_graph_role="assembly_graph",
         )
 
@@ -443,16 +433,14 @@ class OvasmAdapter:
     ) -> NormalizedAssemblyOutputs:
         del context
         output_dir.mkdir(parents=True, exist_ok=True)
-        stats = normalize_fasta(raw.require("assembly_fasta").path, output_dir / "assembly.fasta")
+        stats = (
+            normalize_fasta(raw.require("assembly_fasta").path, output_dir / "assembly.fasta")
+            if raw.primary_sequence_role is not None else None
+        )
         gfa_stats = normalize_gfa(raw.require("assembly_graph").path, output_dir / "assembly.gfa")
-        validate_fasta_against_gfa(stats, gfa_stats)
+        if stats is not None:
+            validate_fasta_against_gfa(stats, gfa_stats)
         outputs = [
-            BackendOutput(
-                role="assembly_fasta",
-                path=output_dir / "assembly.fasta",
-                format="fasta",
-                media_type="text/x-fasta",
-            ),
             BackendOutput(
                 role="assembly_graph",
                 path=output_dir / "assembly.gfa",
@@ -460,6 +448,11 @@ class OvasmAdapter:
                 media_type="text/plain",
             ),
         ]
+        if stats is not None:
+            outputs.insert(0, BackendOutput(
+                role="assembly_fasta", path=output_dir / "assembly.fasta",
+                format="fasta", media_type="text/x-fasta",
+            ))
         for item in raw.outputs:
             if item.role in {"assembly_fasta", "assembly_graph"}:
                 continue
@@ -473,10 +466,10 @@ class OvasmAdapter:
             )
         return NormalizedAssemblyOutputs(
             outputs=tuple(outputs),
-            primary_sequence_role="assembly_fasta",
+            primary_sequence_role=raw.primary_sequence_role,
             primary_graph_role="assembly_graph",
-            record_count=stats.record_count,
-            total_bases=stats.total_bases,
+            record_count=stats.record_count if stats is not None else 0,
+            total_bases=stats.total_bases if stats is not None else 0,
         )
 
 

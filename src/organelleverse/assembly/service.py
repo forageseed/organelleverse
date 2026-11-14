@@ -805,7 +805,7 @@ def _build_success_result(
         [
             *completed_stages,
             "write_run_manifest",
-            "write_primary_genome",
+            *(("write_primary_genome",) if normalized.primary_sequence_role is not None else ()),
             "write_result",
             "publish_output",
         ],
@@ -832,39 +832,42 @@ def _build_success_result(
         destination=destination,
     )
 
-    # Build Genome from the normalized primary sequence role.
-    primary_sequence = normalized.primary_sequence
-    sequence_artifact = _published_artifact(
-        primary_sequence.path,
-        workspace=context.workspace,
-        destination=destination,
-        kind="sequence",
-        format=primary_sequence.format,
-        media_type=primary_sequence.media_type,
-    )
-    genome = OrganelleGenome(
-        organelle=context.request.organelle,
-        sequence=sequence_artifact,
-        lineage=(
-            LineageRecord(
-                parent_object_ids=(context.request.data.object_id,),
-                operation_id=_OPERATION_ID,
-                operation_version=_OPERATION_VERSION,
-                parameters_hash=resolved_request_hash,
+    genome_artifacts: list[ArtifactRef] = []
+    if normalized.primary_sequence_role is not None:
+        # Build Genome from the normalized primary sequence role.
+        primary_sequence = normalized.primary_sequence
+        sequence_artifact = _published_artifact(
+            primary_sequence.path,
+            workspace=context.workspace,
+            destination=destination,
+            kind="sequence",
+            format=primary_sequence.format,
+            media_type=primary_sequence.media_type,
+        )
+        genome = OrganelleGenome(
+            organelle=context.request.organelle,
+            sequence=sequence_artifact,
+            lineage=(
+                LineageRecord(
+                    parent_object_ids=(context.request.data.object_id,),
+                    operation_id=_OPERATION_ID,
+                    operation_version=_OPERATION_VERSION,
+                    parameters_hash=resolved_request_hash,
+                ),
             ),
-        ),
-        source_manifests=(manifest_artifact,),
-    )
-    genome_path = context.workspace / "primary_genome.json"
-    save_contract(genome, genome_path)
-    genome_artifact = _published_artifact(
-        genome_path,
-        workspace=context.workspace,
-        destination=destination,
-        kind="primary_genome_manifest",
-        format="json",
-        media_type="application/json",
-    )
+            source_manifests=(manifest_artifact,),
+        )
+        genome_path = context.workspace / "primary_genome.json"
+        save_contract(genome, genome_path)
+        genome_artifact = _published_artifact(
+            genome_path,
+            workspace=context.workspace,
+            destination=destination,
+            kind="primary_genome_manifest",
+            format="json",
+            media_type="application/json",
+        )
+        genome_artifacts.append(genome_artifact)
 
     provenance = _provenance(
         resolved_request_hash=resolved_request_hash,
@@ -878,7 +881,7 @@ def _build_success_result(
         finished_at=finished_at,
     )
 
-    artifacts: list[ArtifactRef] = [manifest_artifact, record_artifact, genome_artifact]
+    artifacts: list[ArtifactRef] = [manifest_artifact, record_artifact, *genome_artifacts]
     for output in normalized.outputs:
         artifacts.append(
             _published_artifact(
@@ -895,11 +898,13 @@ def _build_success_result(
         operation_id=_OPERATION_ID,
         operation_version=_OPERATION_VERSION,
         scope=context.request.organelle,
-        status="ok",
+        status="ok" if normalized.primary_sequence_role is not None else "warning",
         summary_text=(
             f"Assembled {normalized.record_count} sequences totaling "
             f"{normalized.total_bases} bp with {context.route.selected_backend}. "
             "Topology and assembly quality require separate assessment."
+            if normalized.primary_sequence_role is not None else
+            "Assembly graph retained; representative sequences remain unresolved."
         ),
         metrics=FrozenMap(
             {
@@ -907,9 +912,11 @@ def _build_success_result(
                 "record_count": normalized.record_count,
                 "total_bases": normalized.total_bases,
                 "gene_markers": normalized.gene_markers,
+                "representation": "sequence_and_graph" if normalized.primary_sequence_role is not None else "graph_only",
             }
         ),
-        flags=("assembly_completed",)
+        flags=(("assembly_completed",) if normalized.primary_sequence_role is not None
+               else ("assembly_graph_only", "representative_unresolved"))
         + (("multi_sequence_output",) if normalized.record_count > 1 else ()),
         artifacts=tuple(artifacts),
         provenance=provenance,
@@ -1233,12 +1240,15 @@ def _load_reusable_result(
         genome_path = destination / "primary_genome.json"
         stdout_path = destination / "stdout.log"
         stderr_path = destination / "stderr.log"
+        graph_only = record_path.is_file() and json.loads(
+            record_path.read_text(encoding="utf-8")
+        ).get("primary_sequence_role", "assembly_fasta") is None
         required_paths = (
             result_path,
             manifest_path,
             record_path,
             observations_path,
-            genome_path,
+            *((genome_path,) if not graph_only else ()),
             stdout_path,
             stderr_path,
         )
@@ -1265,7 +1275,10 @@ def _load_reusable_result(
         manifest = AssemblyRunManifest.model_validate_json(record_path.read_bytes())
         if manifest_path.read_bytes() != manifest.canonical_bytes():
             raise ValueError("canonical run manifest bytes do not match the loadable record")
-        if result.status != "ok":
+        if result.status != "ok" and not (
+            result.status == "warning" and manifest.primary_sequence_role is None
+            and "assembly_graph_only" in result.flags
+        ):
             raise ValueError("destination result is not successful")
         if result.provenance is None:
             raise ValueError("missing provenance")
@@ -1299,7 +1312,7 @@ def _load_reusable_result(
         required_result_kinds = (
             "assembly_run_manifest",
             "assembly_run_record",
-            "primary_genome_manifest",
+            *(("primary_genome_manifest",) if manifest.primary_sequence_role is not None else ()),
             "assembly_run_observations",
             "assembly_stdout_log",
             "assembly_stderr_log",
@@ -1329,13 +1342,14 @@ def _load_reusable_result(
             format="json",
             media_type="application/json",
         )
-        _require_exact_artifact(
-            evidence_by_kind["primary_genome_manifest"],
-            genome_path,
-            kind="primary_genome_manifest",
-            format="json",
-            media_type="application/json",
-        )
+        if manifest.primary_sequence_role is not None:
+            _require_exact_artifact(
+                evidence_by_kind["primary_genome_manifest"],
+                genome_path,
+                kind="primary_genome_manifest",
+                format="json",
+                media_type="application/json",
+            )
         _require_exact_artifact(
             evidence_by_kind["assembly_run_observations"],
             observations_path,
@@ -1366,36 +1380,40 @@ def _load_reusable_result(
         for manifest_art in manifest.outputs:
             _verify_single_artifact(destination, manifest_art.artifact)
 
-        # Verify the primary genome can be loaded and its source manifest hash matches.
-        from organelleverse.core.serialization import load_genome
+        if manifest.primary_sequence_role is not None:
+            # Verify the primary genome can be loaded and its source manifest hash matches.
+            from organelleverse.core.serialization import load_genome
 
-        genome = load_genome(genome_path)
-        if genome.sequence is None:
-            raise ValueError("primary genome sequence is missing")
-        _verify_single_artifact(destination, genome.sequence)
-        if len(genome.source_manifests) != 1 or not _artifact_content_and_location_match(
-            genome.source_manifests[0],
-            canonical_artifact,
-        ):
-            raise ValueError("primary genome does not reference the canonical run manifest")
-        expected_lineage = (
-            LineageRecord(
-                parent_object_ids=(request.data.object_id,),
-                operation_id=_OPERATION_ID,
-                operation_version=_OPERATION_VERSION,
-                parameters_hash=resolved_request_hash,
-            ),
-        )
-        if genome.organelle != request.organelle or genome.lineage != expected_lineage:
-            raise ValueError("primary genome lineage does not match the current request")
-        primary_role = manifest.primary_sequence_role
-        if primary_role is None:
-            raise ValueError("released assembly manifest must declare a primary sequence role")
-        if not _artifact_content_and_location_match(
-            genome.sequence,
-            _manifest_output(manifest, primary_role),
-        ):
-            raise ValueError(f"primary genome sequence does not match manifest {primary_role}")
+            genome = load_genome(genome_path)
+            if genome.sequence is None:
+                raise ValueError("primary genome sequence is missing")
+            _verify_single_artifact(destination, genome.sequence)
+            if len(genome.source_manifests) != 1 or not _artifact_content_and_location_match(
+                genome.source_manifests[0],
+                canonical_artifact,
+            ):
+                raise ValueError("primary genome does not reference the canonical run manifest")
+            expected_lineage = (
+                LineageRecord(
+                    parent_object_ids=(request.data.object_id,),
+                    operation_id=_OPERATION_ID,
+                    operation_version=_OPERATION_VERSION,
+                    parameters_hash=resolved_request_hash,
+                ),
+            )
+            if genome.organelle != request.organelle or genome.lineage != expected_lineage:
+                raise ValueError("primary genome lineage does not match the current request")
+            primary_role = manifest.primary_sequence_role
+            if primary_role is None:
+                raise ValueError("released assembly manifest must declare a primary sequence role")
+            if not _artifact_content_and_location_match(
+                genome.sequence,
+                _manifest_output(manifest, primary_role),
+            ):
+                raise ValueError(f"primary genome sequence does not match manifest {primary_role}")
+
+        elif genome_path.exists() or any(a.kind == "primary_genome_manifest" for a in result.artifacts):
+            raise ValueError("graph-only result must not declare a primary genome")
 
         result_outputs = tuple(
             artifact for artifact in result.artifacts if artifact.kind == "assembly_output"

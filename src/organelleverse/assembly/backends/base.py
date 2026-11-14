@@ -86,7 +86,7 @@ class RawAssemblyOutputs(StrictSpecModel):
     """Raw backend output files mapped to declared roles."""
 
     outputs: tuple[BackendOutput, ...]
-    primary_sequence_role: str
+    primary_sequence_role: str | None
     primary_graph_role: str | None = None
 
     @model_validator(mode="after")
@@ -94,7 +94,9 @@ class RawAssemblyOutputs(StrictSpecModel):
         roles = tuple(item.role for item in self.outputs)
         if len(set(roles)) != len(roles):
             raise ValueError("raw assembly outputs contain duplicate roles")
-        if self.primary_sequence_role not in roles:
+        if self.primary_sequence_role is None and self.primary_graph_role is None:
+            raise ValueError("assembly outputs require a primary sequence or graph")
+        if self.primary_sequence_role is not None and self.primary_sequence_role not in roles:
             raise ValueError(
                 f"primary_sequence_role {self.primary_sequence_role!r} is not present in outputs"
             )
@@ -119,12 +121,17 @@ class NormalizedAssemblyOutputs(RawAssemblyOutputs):
     """Backend-independent normalized output files and metrics."""
 
     alternate_sequence_roles: tuple[str, ...] = ()
-    record_count: int = Field(gt=0)
-    total_bases: int = Field(gt=0)
+    record_count: int = Field(ge=0)
+    total_bases: int = Field(ge=0)
     gene_markers: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def validate_alternate_roles(self) -> NormalizedAssemblyOutputs:
+        if self.primary_sequence_role is None:
+            if self.record_count or self.total_bases or self.alternate_sequence_roles:
+                raise ValueError("graph-only outputs cannot claim representative sequences")
+        elif not self.record_count or not self.total_bases:
+            raise ValueError("sequence outputs require positive sequence counts and bases")
         roles = {item.role for item in self.outputs}
         for role in self.alternate_sequence_roles:
             if role not in roles:
@@ -133,6 +140,8 @@ class NormalizedAssemblyOutputs(RawAssemblyOutputs):
 
     @property
     def primary_sequence(self) -> BackendOutput:
+        if self.primary_sequence_role is None:
+            raise OrganelleExecutionError(code="assembly.sequence_unresolved", message="only a graph was resolved")
         return self.require(self.primary_sequence_role)
 
     @property

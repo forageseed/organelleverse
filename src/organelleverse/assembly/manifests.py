@@ -291,8 +291,10 @@ class AssemblyRunManifest(StrictSpecModel):
 
     @model_validator(mode="after")
     def validate_semantic_links(self) -> AssemblyRunManifest:
-        if self.primary_sequence_role is None:
-            raise ValueError("primary_sequence_role must identify the primary genome sequence")
+        if self.primary_sequence_role is None and not any(
+            item.role == "assembly_graph" for item in self.outputs
+        ):
+            raise ValueError("graph-only manifest requires an assembly_graph output")
         if self.requested_method != "auto" and self.selected_backend != self.requested_method:
             raise ValueError("explicit assembly method forbids backend fallback")
         if (

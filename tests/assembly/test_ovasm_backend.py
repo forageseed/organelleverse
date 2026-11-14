@@ -578,17 +578,47 @@ def test_read_origin_outputs_preserve_unassigned_sequence_and_require_complete_p
         (root / name).write_text(content)
 
 
-def test_a_graph_without_a_representative_sequence_fails_and_says_where_the_graph_is(
+def test_a_graph_without_a_representative_sequence_is_typed_partial_output(
     tmp_path: Path,
 ) -> None:
     context = _context(tmp_path, _long(tmp_path))
     _pipeline_outputs(context.workspace / "backend" / "ovasm", molecules=0)
-    with pytest.raises(OrganelleExecutionError) as raised:
-        OvasmAdapter().collect_outputs(context)
-    assert raised.value.code == "assembly.output_incomplete"
-    assert "backend/ovasm in the run directory" in raised.value.message
-    assert list(raised.value.details["unbridged_anchors"]) == ["u0"]
-    assert [dict(t) for t in raised.value.details["k_tried"]] == [{"k": 1001, "molecules": 0}]
+    adapter = OvasmAdapter()
+    raw = adapter.collect_outputs(context)
+    normalized = adapter.normalize(context, raw, context.workspace / "normalized")
+    assert normalized.primary_sequence_role is None
+    assert normalized.primary_graph is not None
+    assert normalized.record_count == normalized.total_bases == 0
+    assert not (context.workspace / "normalized/assembly.fasta").exists()
+    with pytest.raises(OrganelleExecutionError, match="only a graph"):
+        _ = normalized.primary_sequence
+
+
+@pytest.mark.skipif(_ovasm.resolve_ovasm() is None, reason="ovasm binary not built")
+def test_graph_only_result_is_published_and_reused_without_a_fake_genome(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    from organelleverse.assembly.execution import CommandOutcome
+    from organelleverse.assembly.service import execute_assembly
+    monkeypatch.setenv("ORGANELLEVERSE_CACHE_ROOT", str(tmp_path / "cache"))
+    calls = []
+    class Runner:
+        def run(self, argv, *, stage, cwd, stdout_path, stderr_path, **kwargs):
+            calls.append(argv)
+            _pipeline_outputs(Path(argv[argv.index("--out") + 1]), molecules=0)
+            stdout_path.write_text("graph only")
+            stderr_path.write_text("")
+            now = datetime.now(timezone.utc)
+            return CommandOutcome(stage=stage, argv=argv, cwd=str(cwd), started=True,
+                started_at=now, finished_at=now, duration_seconds=0, returncode=0,
+                termination="exit", stdout_path=str(stdout_path), stderr_path=str(stderr_path))
+    request = AssemblyRequest(data=_long(tmp_path), method="ovasm", organelle="mitochondrion", threads=1)
+    first = execute_assembly(request, runner=Runner())
+    assert first.status == "warning"
+    assert "assembly_graph_only" in first.flags
+    assert not any(a.kind == "primary_genome_manifest" for a in first.artifacts)
+    second = execute_assembly(request, runner=Runner())
+    assert first.object_id == second.object_id
+    assert len(calls) == 1
 
 
 def test_backend_command_calls_the_desktop_pipeline_function(tmp_path, monkeypatch, capsys) -> None:
