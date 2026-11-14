@@ -5,6 +5,8 @@ from __future__ import annotations
 from ..inputs import make_reader
 
 from .analysis_service import analyze_graph
+from .assembly_cohort import AssemblyCohort, AssemblySample, from_assemblies
+from .exact_pan import build_exact_pan
 from .graph_formats import convert_graph
 from .graph_operations import convert_graph_result, extract_subgraph
 from .install import PAN_BACKEND_INFO, check_all_backends, check_backend, install_hint
@@ -24,6 +26,10 @@ managed_build_graph = build_graph
 read = make_reader("pangenome", "gfa", genome=True)
 
 __all__ = [
+    "AssemblyCohort",
+    "AssemblySample",
+    "from_assemblies",
+    "build_exact_pan",
     "read",
     "PAN_BACKEND_INFO",
     "PangenomeProject",

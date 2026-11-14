@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import json
 from pathlib import Path
 
 import pytest
@@ -47,9 +48,22 @@ def test_export_rejects_duplicate_samples_and_graphs_without_a_path(tmp_path: Pa
     with pytest.raises(OrganelleInputError) as dup:
         export_representatives([a, b], tmp_path / "pan")
     assert dup.value.code == "assembly.duplicate_sample"
+    assert not (tmp_path / "pan").exists()
     bare = _write_ov(tmp_path / "c.gfa", "s3", with_path=False)
     with pytest.raises(ValueError, match="no paths"):
         export_representatives([bare], tmp_path / "pan2")
+
+
+def test_export_preserves_all_molecules_and_maps_paths(tmp_path):
+    graph = _write_ov(tmp_path / "a.gfa", "s1")
+    with graph.open("a") as handle:
+        handle.write("P\ts1#1#second\ts1.B-\t*\nP\ts1#2#alternative\ts1.A+\t*\n")
+    files = export_representatives([graph], tmp_path / "pan")
+    assert files[0].read_text() == ">s1#1#mt\nACGTGGCC\n>s1#1#second\nGGCC\n"
+    records = json.loads((tmp_path / "pan/representatives.json").read_text())["records"]
+    assert [r["source_path"] for r in records] == ["s1#1#mt", "s1#1#second"]
+    with pytest.raises(FileExistsError):
+        export_representatives([graph], tmp_path / "pan")
 
 
 @needs_ovasm

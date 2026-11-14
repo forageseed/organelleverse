@@ -40,6 +40,7 @@ __all__ = [
     "run_identify",
     "run_linearize",
     "run_panel",
+    "run_pan",
     "run_pipeline",
     "run_primary",
     "run_recruit",
@@ -48,6 +49,19 @@ __all__ = [
 ]
 
 OvasmPreset = Literal["hifi", "ont", "sr"]
+
+
+def run_pan(graphs: Sequence[Path], *, out_gfa: Path, out_json: Path, k: int = 63) -> dict[str, Any]:
+    """Losslessly union OV-GFA bases using exact k-mers; not a homology inference."""
+    if not graphs or not 15 <= k <= 63 or k % 2 == 0:
+        raise ValueError("pan requires graphs and an odd k between 15 and 63")
+    # A list file avoids command-line length limits for large cohorts.
+    listing = out_json.with_suffix(".inputs.txt")
+    listing.write_text("".join(str(p.resolve()) + "\n" for p in graphs), encoding="utf-8")
+    run_external([_require(), "pan", "merge", "--gfa-list", str(listing), "--k", str(k),
+                  "--out", str(out_gfa), "--out-json", str(out_json)],
+                 tool="ovasm pan merge", code="pangenome.exact_pan_failed")
+    return json.loads(out_json.read_text(encoding="utf-8"))
 
 
 def run_reconstruction(

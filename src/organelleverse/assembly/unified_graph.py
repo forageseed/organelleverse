@@ -29,6 +29,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+import json
+import re
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
@@ -101,27 +105,39 @@ def unify_assembly_graph(
 
 
 def export_representatives(graphs: Sequence[Path], out_dir: Path) -> list[Path]:
-    """Write haplotype 1 of every OV-GFA as ``<sample>.fa``, for pangenome construction.
+    """Write every configuration-1 molecule as ``<sample>.fa``.
 
     Every graph must carry a representative path (``<sample>#1#<molecule>``) and samples must
-    be distinct; the returned files form the ``dataset_path`` directory of the workflow.
+    be distinct; configuration numbers are not evidence of biological haplotypes.
+    ``representatives.json`` preserves the original path and molecule identities.
+    All inputs are checked before publishing a new output directory.
     """
     from ..pangenome.graph import path_sequences
 
     out_dir = out_dir.resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
+    if out_dir.exists():
+        raise FileExistsError(f"representative destination already exists: {out_dir}")
+    prepared: list[tuple[str, list[tuple[str, str]]]] = []
+    records: list[dict[str, object]] = []
     seen: dict[str, Path] = {}
     for gfa in graphs:
         sequences = path_sequences(gfa)
         firsts = [name for name in sequences if name.split("#")[1:2] == ["1"]]
-        if len(firsts) != 1:
+        if not firsts:
             raise OrganelleInputError(
                 code="assembly.representative_missing",
-                message="an OV-GFA must carry exactly one haplotype-1 path to export",
+                message="an OV-GFA must carry configuration-1 paths to export",
                 details={"graph": str(gfa), "paths": sorted(sequences)},
             )
         sample = firsts[0].split("#")[0]
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", sample) or any(
+            name.split("#")[0] != sample for name in sequences
+        ):
+            raise OrganelleInputError(
+                code="assembly.invalid_sample",
+                message="each graph must have one filename-safe sample identity",
+                details={"graph": str(gfa)},
+            )
         if sample in seen:
             raise OrganelleInputError(
                 code="assembly.duplicate_sample",
@@ -129,9 +145,29 @@ def export_representatives(graphs: Sequence[Path], out_dir: Path) -> list[Path]:
                 details={"sample": sample, "graphs": [str(seen[sample]), str(gfa)]},
             )
         seen[sample] = gfa
-        target = out_dir / f"{sample}.fa"
-        sequence = sequences[firsts[0]]
-        lines = [sequence[i : i + 80] for i in range(0, len(sequence), 80)]
-        target.write_text(f">{sample}\n" + "\n".join(lines) + "\n", encoding="ascii")
-        written.append(target)
-    return written
+        molecules = []
+        for name in firsts:
+            record_id = sample if len(firsts) == 1 else name
+            molecules.append((record_id, sequences[name]))
+            records.append({"sample": sample, "fasta": f"{sample}.fa",
+                            "record_id": record_id, "source_graph": str(gfa.resolve()),
+                            "source_path": name, "configuration": 1,
+                            "molecule": name.split("#", 2)[2], "length": len(sequences[name])})
+        prepared.append((sample, molecules))
+    out_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{out_dir.name}-", dir=out_dir.parent))
+    try:
+        for sample, molecules in prepared:
+            with (staging / f"{sample}.fa").open("w", encoding="ascii") as handle:
+                for record_id, sequence in molecules:
+                    handle.write(f">{record_id}\n")
+                    handle.writelines(sequence[i:i + 80] + "\n" for i in range(0, len(sequence), 80))
+        (staging / "representatives.json").write_text(
+            json.dumps({"schema_version": "organelleverse.representatives.v1", "records": records}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        staging.rename(out_dir)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    return [out_dir / f"{sample}.fa" for sample, _ in prepared]
