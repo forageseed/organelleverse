@@ -17,6 +17,7 @@ from ..inputs import make_reader
 
 from .gbdraw import plot_collinearity, plot_gbdraw, plot_gene_structure
 from .gfa_graph import plot_gfa_graph, read_gfa_graph
+from .methylation_plots import methylation_profile, plot_methylation_profile
 from .ogdraw import (
     GENE_COLORS,
     classify_gene,
@@ -110,6 +111,7 @@ __all__ = [
     "ir_boundaries",
     "localization_bars",
     "matrix_heatmap",
+    "methylation_profile",
     "network",
     "nuclear_transfer_ideogram",
     "nucleotide_diversity",
@@ -137,6 +139,7 @@ __all__ = [
     "plot_ir_boundaries",
     "plot_localization_bars",
     "plot_matrix_heatmap",
+    "plot_methylation_profile",
     "plot_network",
     "plot_nuclear_transfer_ideogram",
     "plot_nucleotide_diversity",
